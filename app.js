@@ -329,6 +329,17 @@ function fmtNum(n) { return Number(n || 0).toLocaleString('th-TH'); }
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
+/** Sanitize a date string — only allow exact YYYY-MM-DD format */
+function sanitizeDate(str) {
+  const s = String(str || '');
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+}
+/** Sanitize a year-month string — only allow exact YYYY-MM format */
+function sanitizeYearMonth(str) {
+  const s = String(str || '');
+  return /^\d{4}-\d{2}$/.test(s) ? s : '';
+}
+}
 
 // ============ CALCULATIONS ============
 function calcVis() {
@@ -698,7 +709,7 @@ function renderHistory(filterMonth) {
       const walkin = calcWalkinFromData(r);
       const group = calcGroupFromData(r);
       const edu = calcEduFromData(r);
-      const safeDate = (r.date || '').replace(/[^0-9-]/g, '').substring(0, 10);
+      const safeDate = sanitizeDate(r.date);
       return `<tr>
         <td style="white-space:nowrap;">${escHtml(r.date || '-')}</td>
         <td>${escHtml(r.modMorning || '-')}</td>
@@ -726,7 +737,7 @@ function renderPagination(totalPages, records, filterMonth) {
   if (!pg) return;
   if (totalPages <= 1) { pg.innerHTML = ''; return; }
   // Sanitize filterMonth — must be YYYY-MM format only
-  const safeFilter = (filterMonth || '').replace(/[^0-9-]/g, '').substring(0, 7);
+  const safeFilter = sanitizeYearMonth(filterMonth);
   let html = '';
   html += `<button class="page-btn" onclick="setHistoryPage(${historyPage-1},'${safeFilter}')" ${historyPage===1?'disabled':''}>‹</button>`;
   for (let p = 1; p <= totalPages; p++) {
@@ -786,7 +797,7 @@ function viewRecord(date) {
       </div>
       ${r.notes ? `<div class="info-box"><strong>หมายเหตุ:</strong> ${escHtml(r.notes)}</div>` : ''}
       <div style="margin-top:12px;text-align:right;">
-        <button class="btn btn-primary btn-sm" onclick="editRecord('${(date||'').replace(/[^0-9-]/g,'').substring(0,10)}');closeModal('view-modal')">✏️ แก้ไขข้อมูล</button>
+        <button class="btn btn-primary btn-sm" onclick="editRecord('${sanitizeDate(date)}');closeModal('view-modal')">✏️ แก้ไขข้อมูล</button>
       </div>
     `;
   }
