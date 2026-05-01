@@ -325,7 +325,10 @@ function isChecked(id) {
   const el = document.getElementById(id);
   return el ? el.checked : false;
 }
-function fmtNum(n) { return Number(n || 0).toLocaleString('th-TH'); }
+function fmtNum(n) {
+  const num = parseFloat(n);
+  return (isNaN(num) ? 0 : num).toLocaleString('th-TH');
+}
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
@@ -1000,7 +1003,7 @@ function exportPDF(startDate, endDate) {
     showToast(`Export PDF สำเร็จ: ${records.length} รายการ`, 'success');
   } catch(e) {
     console.error('PDF export error:', e);
-    showToast('เกิดข้อผิดพลาดในการสร้าง PDF: ' + escHtml(e.message), 'error');
+    showToast('เกิดข้อผิดพลาดในการสร้าง PDF: ' + (e.message || 'unknown error'), 'error');
   }
 }
 
