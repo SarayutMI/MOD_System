@@ -15,6 +15,11 @@ const MONTH_NAMES = ['มกราคม','กุมภาพันธ์','ม�
   'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ============ SETTINGS ============
+async function sha256hex(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
 function getSettings() {
   try { return JSON.parse(localStorage.getItem('nsm_settings') || '{}'); } catch(e) { return {}; }
 }
@@ -23,14 +28,21 @@ function saveSettings(s) {
 }
 
 // ============ AUTH ============
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
   const username = document.getElementById('login-user').value.trim();
   const password = document.getElementById('login-pass').value;
   const settings = getSettings();
   const validUser = settings.username || 'admin';
-  const validPass = settings.password || 'admin';
-  if (username === validUser && password === validPass) {
+  let valid = false;
+  if (settings.passwordHash) {
+    const enteredHash = await sha256hex(password);
+    valid = username === validUser && enteredHash === settings.passwordHash;
+  } else {
+    // Default credentials (no hash stored yet)
+    valid = username === validUser && password === 'admin';
+  }
+  if (valid) {
     const rememberMe = document.getElementById('remember-me').checked;
     sessionStorage.setItem('nsm_logged_in', '1');
     sessionStorage.setItem('nsm_user', username);
@@ -712,16 +724,18 @@ function renderPagination(totalPages, records, filterMonth) {
   const pg = document.getElementById('history-pagination');
   if (!pg) return;
   if (totalPages <= 1) { pg.innerHTML = ''; return; }
+  // Sanitize filterMonth — must be YYYY-MM format only
+  const safeFilter = (filterMonth || '').replace(/[^0-9-]/g, '').substring(0, 7);
   let html = '';
-  html += `<button class="page-btn" onclick="setHistoryPage(${historyPage-1},'${filterMonth||''}')" ${historyPage===1?'disabled':''}>‹</button>`;
+  html += `<button class="page-btn" onclick="setHistoryPage(${historyPage-1},'${safeFilter}')" ${historyPage===1?'disabled':''}>‹</button>`;
   for (let p = 1; p <= totalPages; p++) {
     if (p === 1 || p === totalPages || Math.abs(p - historyPage) <= 1) {
-      html += `<button class="page-btn ${p===historyPage?'active':''}" onclick="setHistoryPage(${p},'${filterMonth||''}')">${p}</button>`;
+      html += `<button class="page-btn ${p===historyPage?'active':''}" onclick="setHistoryPage(${p},'${safeFilter}')">${p}</button>`;
     } else if (Math.abs(p - historyPage) === 2) {
       html += '<span style="color:var(--text-muted);padding:0 4px;">…</span>';
     }
   }
-  html += `<button class="page-btn" onclick="setHistoryPage(${historyPage+1},'${filterMonth||''}')" ${historyPage===totalPages?'disabled':''}>›</button>`;
+  html += `<button class="page-btn" onclick="setHistoryPage(${historyPage+1},'${safeFilter}')" ${historyPage===totalPages?'disabled':''}>›</button>`;
   pg.innerHTML = html;
 }
 
@@ -1146,17 +1160,19 @@ function loadSettings() {
   setInputVal('set-sheets-url', s.sheetsURL || '');
   setInputVal('set-sheet-name', s.sheetName || 'Sheet1');
   setInputVal('set-username', s.username || 'admin');
-  setInputVal('set-password', s.password || '');
+  setInputVal('set-password', ''); // Never pre-fill password field
 }
 
-function saveSettingsModal() {
+async function saveSettingsModal() {
   const rawPass = getInputVal('set-password');
+  const existing = getSettings();
+  // Hash the new password if provided, otherwise keep existing hash
+  const passwordHash = rawPass ? await sha256hex(rawPass) : existing.passwordHash;
   const s = {
     sheetsURL: getInputVal('set-sheets-url'),
     sheetName: getInputVal('set-sheet-name') || 'Sheet1',
     username: getInputVal('set-username') || 'admin',
-    // Stored locally for single-user offline app; not transmitted to any server
-    password: rawPass || 'admin'
+    passwordHash: passwordHash || null
   };
   saveSettings(s);
   closeModal('settings-modal');
