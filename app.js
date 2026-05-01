@@ -314,6 +314,9 @@ function isChecked(id) {
   return el ? el.checked : false;
 }
 function fmtNum(n) { return Number(n || 0).toLocaleString('th-TH'); }
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
 
 // ============ CALCULATIONS ============
 function calcVis() {
@@ -460,7 +463,7 @@ function getFormData() {
     // Visitors D
     visDIns: { tc: getVal('vis-d-ins-tc'), ta: getVal('vis-d-ins-ta'), fc: getVal('vis-d-ins-fc'), fa: getVal('vis-d-ins-fa') },
     visDInv: { tc: getVal('vis-d-inv-tc'), ta: getVal('vis-d-inv-ta'), fc: getVal('vis-d-inv-fc'), fa: getVal('vis-d-inv-fa') },
-    visD_wr: { tc: getVal('vis-d-wr-tc'), ta: getVal('vis-d-wr-ta'), fc: getVal('vis-d-wr-fc'), fa: getVal('vis-d-wr-fa') },
+    visDWr: { tc: getVal('vis-d-wr-tc'), ta: getVal('vis-d-wr-ta'), fc: getVal('vis-d-wr-fc'), fa: getVal('vis-d-wr-fa') },
     visDMm: { child: getVal('vis-d-mm-child') },
     visDSp: { tc: getVal('vis-d-sp-tc'), ta: getVal('vis-d-sp-ta'), fc: getVal('vis-d-sp-fc'), fa: getVal('vis-d-sp-fa') },
     visDOth: { name: getInputVal('vis-d-oth-name'), count: getVal('vis-d-oth-count') },
@@ -523,7 +526,7 @@ function setFormData(data) {
   // Visitors D
   const vdi = data.visDIns || {}; setInputVal('vis-d-ins-tc', vdi.tc||0); setInputVal('vis-d-ins-ta', vdi.ta||0); setInputVal('vis-d-ins-fc', vdi.fc||0); setInputVal('vis-d-ins-fa', vdi.fa||0);
   const vdn = data.visDInv || {}; setInputVal('vis-d-inv-tc', vdn.tc||0); setInputVal('vis-d-inv-ta', vdn.ta||0); setInputVal('vis-d-inv-fc', vdn.fc||0); setInputVal('vis-d-inv-fa', vdn.fa||0);
-  const vdw = data.visD_wr || {}; setInputVal('vis-d-wr-tc', vdw.tc||0); setInputVal('vis-d-wr-ta', vdw.ta||0); setInputVal('vis-d-wr-fc', vdw.fc||0); setInputVal('vis-d-wr-fa', vdw.fa||0);
+  const vdw = data.visDWr || {}; setInputVal('vis-d-wr-tc', vdw.tc||0); setInputVal('vis-d-wr-ta', vdw.ta||0); setInputVal('vis-d-wr-fc', vdw.fc||0); setInputVal('vis-d-wr-fa', vdw.fa||0);
   const vdm = data.visDMm || {}; setInputVal('vis-d-mm-child', vdm.child||0);
   const vds = data.visDSp || {}; setInputVal('vis-d-sp-tc', vds.tc||0); setInputVal('vis-d-sp-ta', vds.ta||0); setInputVal('vis-d-sp-fc', vds.fc||0); setInputVal('vis-d-sp-fa', vds.fa||0);
   const vdo = data.visDOth || {}; setInputVal('vis-d-oth-name', vdo.name||''); setInputVal('vis-d-oth-count', vdo.count||0);
@@ -736,7 +739,7 @@ function calcGroupFromData(r) {
   return (vb.child||0)+(vb.adult||0)+(vbf.child||0)+(vbf.adult||0)+(vbm.ic||0)+(vbm.ia||0);
 }
 function calcEduFromData(r) {
-  const di = r.visDIns||{}, dn = r.visDInv||{}, dw = r.visD_wr||{}, dm = r.visDMm||{}, ds = r.visDSp||{}, doth = r.visDOth||{};
+  const di = r.visDIns||{}, dn = r.visDInv||{}, dw = r.visDWr||{}, dm = r.visDMm||{}, ds = r.visDSp||{}, doth = r.visDOth||{};
   return (di.tc||0)+(di.ta||0)+(di.fc||0)+(di.fa||0)+(dn.tc||0)+(dn.ta||0)+(dn.fc||0)+(dn.fa||0)+(dw.tc||0)+(dw.ta||0)+(dw.fc||0)+(dw.fa||0)+(dm.child||0)+(ds.tc||0)+(ds.ta||0)+(ds.fc||0)+(ds.fa||0)+(doth.count||0);
 }
 
@@ -752,11 +755,11 @@ function viewRecord(date) {
     content.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
         <div class="preview-box">
-          <div class="preview-row"><span class="preview-label">วันที่</span><span class="preview-value">${r.date||'-'}</span></div>
-          <div class="preview-row"><span class="preview-label">MOD</span><span class="preview-value">${r.modMorning||'-'}</span></div>
-          <div class="preview-row"><span class="preview-label">M-Exhibition</span><span class="preview-value">${r.mExhibition||'-'}</span></div>
-          <div class="preview-row"><span class="preview-label">M-Education</span><span class="preview-value">${r.mEducation||'-'}</span></div>
-          <div class="preview-row"><span class="preview-label">M-Visitor Service</span><span class="preview-value">${r.mVisitor||'-'}</span></div>
+          <div class="preview-row"><span class="preview-label">วันที่</span><span class="preview-value">${escHtml(r.date||'-')}</span></div>
+          <div class="preview-row"><span class="preview-label">MOD</span><span class="preview-value">${escHtml(r.modMorning||'-')}</span></div>
+          <div class="preview-row"><span class="preview-label">M-Exhibition</span><span class="preview-value">${escHtml(r.mExhibition||'-')}</span></div>
+          <div class="preview-row"><span class="preview-label">M-Education</span><span class="preview-value">${escHtml(r.mEducation||'-')}</span></div>
+          <div class="preview-row"><span class="preview-label">M-Visitor Service</span><span class="preview-value">${escHtml(r.mVisitor||'-')}</span></div>
         </div>
         <div class="preview-box">
           <div class="preview-row"><span class="preview-label">Walk-in</span><span class="preview-value">${fmtNum(walkin)}</span></div>
@@ -766,9 +769,9 @@ function viewRecord(date) {
           <div class="preview-row"><span class="preview-label">รายได้รวม</span><span class="preview-value" style="color:var(--warning);">${fmtNum(r.totalRevenue||0)} บาท</span></div>
         </div>
       </div>
-      ${r.notes ? `<div class="info-box"><strong>หมายเหตุ:</strong> ${r.notes}</div>` : ''}
+      ${r.notes ? `<div class="info-box"><strong>หมายเหตุ:</strong> ${escHtml(r.notes)}</div>` : ''}
       <div style="margin-top:12px;text-align:right;">
-        <button class="btn btn-primary btn-sm" onclick="editRecord('${date}');closeModal('view-modal')">✏️ แก้ไขข้อมูล</button>
+        <button class="btn btn-primary btn-sm" onclick="editRecord('${escHtml(date)}');closeModal('view-modal')">✏️ แก้ไขข้อมูล</button>
       </div>
     `;
   }
@@ -904,7 +907,7 @@ function exportCSV(startDate, endDate) {
   const rows = records.map(r => {
     const va=r.visAThai||{}, vaf=r.visAFor||{}, vam=r.visAMem||{};
     const vb=r.visBThai||{}, vbf=r.visBFor||{}, vbm=r.visBMem||{};
-    const di=r.visDIns||{}, dn=r.visDInv||{}, dw=r.visD_wr||{}, dm=r.visDMm||{}, ds=r.visDSp||{}, doth=r.visDOth||{};
+    const di=r.visDIns||{}, dn=r.visDInv||{}, dw=r.visDWr||{}, dm=r.visDMm||{}, ds=r.visDSp||{}, doth=r.visDOth||{};
     const rev=r.rev||{}, onl=r.online||{};
     const dIns=(di.tc||0)+(di.ta||0)+(di.fc||0)+(di.fa||0);
     const dInv=(dn.tc||0)+(dn.ta||0)+(dn.fc||0)+(dn.fa||0);
@@ -972,7 +975,7 @@ function exportPDF(startDate, endDate) {
     showToast(`Export PDF สำเร็จ: ${records.length} รายการ`, 'success');
   } catch(e) {
     console.error('PDF export error:', e);
-    showToast('เกิดข้อผิดพลาดในการสร้าง PDF: ' + e.message, 'error');
+    showToast('เกิดข้อผิดพลาดในการสร้าง PDF: ' + escHtml(e.message), 'error');
   }
 }
 
@@ -1147,11 +1150,13 @@ function loadSettings() {
 }
 
 function saveSettingsModal() {
+  const rawPass = getInputVal('set-password');
   const s = {
     sheetsURL: getInputVal('set-sheets-url'),
     sheetName: getInputVal('set-sheet-name') || 'Sheet1',
     username: getInputVal('set-username') || 'admin',
-    password: getInputVal('set-password') || 'admin'
+    // Stored locally for single-user offline app; not transmitted to any server
+    password: rawPass || 'admin'
   };
   saveSettings(s);
   closeModal('settings-modal');
