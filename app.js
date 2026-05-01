@@ -698,18 +698,19 @@ function renderHistory(filterMonth) {
       const walkin = calcWalkinFromData(r);
       const group = calcGroupFromData(r);
       const edu = calcEduFromData(r);
+      const safeDate = (r.date || '').replace(/[^0-9-]/g, '').substring(0, 10);
       return `<tr>
-        <td style="white-space:nowrap;">${r.date || '-'}</td>
-        <td>${r.modMorning || '-'}</td>
+        <td style="white-space:nowrap;">${escHtml(r.date || '-')}</td>
+        <td>${escHtml(r.modMorning || '-')}</td>
         <td>${fmtNum(walkin)}</td>
         <td>${fmtNum(group)}</td>
         <td>${fmtNum(edu)}</td>
         <td style="font-weight:600;color:var(--accent);">${fmtNum(r.totalVisitors || 0)}</td>
         <td style="color:var(--warning);">${fmtNum(r.totalRevenue || 0)}</td>
         <td style="white-space:nowrap;">
-          <button class="btn btn-ghost btn-sm" onclick="viewRecord('${r.date}')" title="ดูรายละเอียด">👁</button>
-          <button class="btn btn-ghost btn-sm" onclick="editRecord('${r.date}')" title="แก้ไข" style="color:var(--info);">✏️</button>
-          <button class="btn btn-ghost btn-sm" onclick="confirmDelete('${r.date}')" title="ลบ" style="color:var(--danger);">🗑</button>
+          <button class="btn btn-ghost btn-sm" onclick="viewRecord('${safeDate}')" title="ดูรายละเอียด">👁</button>
+          <button class="btn btn-ghost btn-sm" onclick="editRecord('${safeDate}')" title="แก้ไข" style="color:var(--info);">✏️</button>
+          <button class="btn btn-ghost btn-sm" onclick="confirmDelete('${safeDate}')" title="ลบ" style="color:var(--danger);">🗑</button>
         </td>
       </tr>`;
     }).join('');
@@ -785,7 +786,7 @@ function viewRecord(date) {
       </div>
       ${r.notes ? `<div class="info-box"><strong>หมายเหตุ:</strong> ${escHtml(r.notes)}</div>` : ''}
       <div style="margin-top:12px;text-align:right;">
-        <button class="btn btn-primary btn-sm" onclick="editRecord('${escHtml(date)}');closeModal('view-modal')">✏️ แก้ไขข้อมูล</button>
+        <button class="btn btn-primary btn-sm" onclick="editRecord('${(date||'').replace(/[^0-9-]/g,'').substring(0,10)}');closeModal('view-modal')">✏️ แก้ไขข้อมูล</button>
       </div>
     `;
   }
@@ -857,7 +858,7 @@ function renderSummary() {
       modTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>';
     } else {
       modTbody.innerHTML = modList.map(([name, d], i) =>
-        `<tr><td style="color:var(--text-muted);">${i+1}</td><td>${name}</td><td>${d.days}</td><td style="color:var(--success);">${fmtNum(d.visitors)}</td></tr>`
+        `<tr><td style="color:var(--text-muted);">${i+1}</td><td>${escHtml(name)}</td><td>${d.days}</td><td style="color:var(--success);">${fmtNum(d.visitors)}</td></tr>`
       ).join('');
     }
   }
@@ -905,7 +906,7 @@ function renderExportPreview() {
     return;
   }
   tbody.innerHTML = records.slice(0, 10).map(r =>
-    `<tr><td>${r.date||'-'}</td><td>${r.modMorning||'-'}</td><td style="color:var(--success);">${fmtNum(r.totalVisitors||0)}</td><td style="color:var(--warning);">${fmtNum(r.totalRevenue||0)}</td></tr>`
+    `<tr><td>${escHtml(r.date||'-')}</td><td>${escHtml(r.modMorning||'-')}</td><td style="color:var(--success);">${fmtNum(r.totalVisitors||0)}</td><td style="color:var(--warning);">${fmtNum(r.totalRevenue||0)}</td></tr>`
   ).join('');
   if (records.length > 10) {
     tbody.innerHTML += `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);font-size:12px;">... และอีก ${records.length-10} รายการ</td></tr>`;
@@ -1023,8 +1024,8 @@ function updateDashboard() {
     } else {
       tbody.innerHTML = recent.map(r => `
         <tr>
-          <td style="white-space:nowrap;font-size:13px;">${r.date||'-'}</td>
-          <td style="font-size:13px;">${r.modMorning||'-'}</td>
+          <td style="white-space:nowrap;font-size:13px;">${escHtml(r.date||'-')}</td>
+          <td style="font-size:13px;">${escHtml(r.modMorning||'-')}</td>
           <td style="color:var(--success);font-size:13px;">${fmtNum(r.totalVisitors||0)}</td>
           <td style="color:var(--warning);font-size:13px;">${fmtNum(r.totalRevenue||0)}</td>
         </tr>`).join('');
@@ -1146,7 +1147,13 @@ function showToast(message, type = 'info') {
   const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span style="flex:1">${message}</span>`;
+  const iconSpan = document.createElement('span');
+  iconSpan.textContent = icons[type] || 'ℹ️';
+  const msgSpan = document.createElement('span');
+  msgSpan.style.flex = '1';
+  msgSpan.textContent = message;
+  toast.appendChild(iconSpan);
+  toast.appendChild(msgSpan);
   container.appendChild(toast);
   setTimeout(() => {
     toast.classList.add('removing');
