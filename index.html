@@ -423,6 +423,24 @@
         </div>
 
         <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">⏰ เวลาเปิดทำการประจำวัน</div>
+          <div style="display:grid;gap:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">1. อังคาร-ศุกร์</label>
+              <input id="hours-tue-fri" type="text" class="form-input" placeholder="เวลา 9.00 - 16.00 น." value="เวลา 9.00 - 16.00 น.">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">2. เสาร์-อาทิตย์ และหยุดนักขัตฤกษ์</label>
+              <input id="hours-sat-sun" type="text" class="form-input" placeholder="เวลา 10.00 - 17.00 น." value="เวลา 10.00 - 17.00 น.">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">3. หยุดทุกวันจันทร์</label>
+              <input id="hours-closed" type="text" class="form-input" placeholder="หยุดทุกวันจันทร์" value="หยุดทุกวันจันทร์">
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
             <div class="section-title" style="margin:0;">📋 ตารางจองกลุ่ม</div>
             <button class="btn btn-primary btn-sm" onclick="addBookingRow()">+ เพิ่มแถว</button>
@@ -445,11 +463,18 @@
         </div>
 
         <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">🎓 กิจกรรมการศึกษา (Educational Activities)</div>
-          <div style="display:flex;gap:20px;flex-wrap:wrap;">
-            <label class="check-label"><input type="checkbox" id="cb-inspire-lab"> Inspire Lab</label>
-            <label class="check-label"><input type="checkbox" id="cb-innovation-space"> Innovation Space</label>
-            <label class="check-label"><input type="checkbox" id="cb-walk-rally"> Walk Rally</label>
+          <div class="section-title">🎓 กิจกรรมส่งเสริมการเรียนรู้</div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">เช็ค M-Education (ใช้พื้นที่กิจกรรมส่งเสริมการเรียนรู้) เป็นผู้ชี้แจงเกี่ยวกับ Inspire Lab, Innovation Space, Walk Rally ซึ่งจะระบุรายละเอียดกิจกรรม และรอบเวลา</label>
+            <textarea id="m-education-activities" class="form-input" rows="2" placeholder="รายละเอียดกิจกรรม..."></textarea>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">ℹ️ บริการผู้เข้าชม</div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">เช็ค M-Visitor Service ซึ่งขอของจองผู้เข้าชมประจำวัน และของ Sticker และรายคำเข้าชม/กิจกรรม</label>
+            <textarea id="visitor-service-info" class="form-input" rows="2" placeholder="รายละเอียดบริการ..."></textarea>
           </div>
         </div>
 
@@ -468,7 +493,7 @@
         </div>
 
         <!-- Collapsible info -->
-        <div class="card">
+        <div class="card" style="margin-bottom:16px;">
           <div class="section-header" onclick="toggleSec(this)">
             <div style="font-size:14px;font-weight:600;">ℹ️ ข้อมูล / ข้อปฏิบัติ</div>
             <span class="chevron">▼</span>
@@ -482,6 +507,20 @@
                 <li>กรณีเกิดเหตุฉุกเฉิน ติดต่อหัวหน้าทันที</li>
                 <li>ตรวจสอบอุปกรณ์ประจำโซนก่อนเปิดให้บริการ</li>
               </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">📋 ระเบียบข้อควรปฏิบัติ</div>
+          <div style="display:grid;gap:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">1. ดูแลเรื่องการแต่งกายให้เรียบร้อยเหมาะสม และกิริยามารยาท</label>
+              <input id="regulation-1" type="text" class="form-input" placeholder="รายละเอียด...">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">2. เน้นหมายของการบริการ คือ ความปลอดภัยของผู้เข้าชม ความปลอดภัยของทั่นงาน และความพึงพอใจของผู้เข้าชม</label>
+              <textarea id="regulation-2" class="form-input" rows="2" placeholder="รายละเอียด..."></textarea>
             </div>
           </div>
         </div>
