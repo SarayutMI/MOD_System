@@ -33,6 +33,8 @@
     #main-content { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
     #topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
     .page-content { padding: 24px; }
+    /* Table */
+    
     /* Cards */
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
     .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; }
@@ -68,6 +70,8 @@
     .data-table .total-row td { background: var(--surface2); font-weight: 600; color: var(--accent); }
     .num-input { width: 80px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 5px 8px; border-radius: 6px; font-family: inherit; font-size: 13px; text-align: center; }
     .num-input:focus { outline: none; border-color: var(--accent); }
+    
+    
     /* Sidebar nav */
     .sidebar-logo { padding: 20px; border-bottom: 1px solid var(--border); }
     .sidebar-logo-title { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
@@ -364,6 +368,7 @@
     </div><!-- /page-dashboard -->
 
     <!-- ===== DAILY LOG PAGE ===== -->
+
     <div id="page-daily-log" class="page-content" style="display:none">
       <!-- Date Selector -->
       <div class="card" style="margin-bottom:20px;">
@@ -380,8 +385,6 @@
       <div class="tab-bar" style="margin-bottom:20px;">
         <button class="tab-btn active" id="tab-btn-0" onclick="switchDayTab(0,this)">🌅 ช่วงเช้า</button>
         <button class="tab-btn" id="tab-btn-1" onclick="switchDayTab(1,this)">🌆 ช่วงเย็น</button>
-        <button class="tab-btn" id="tab-btn-2" onclick="switchDayTab(2,this)">👥 ผู้เข้าชม</button>
-        <button class="tab-btn" id="tab-btn-3" onclick="switchDayTab(3,this)">💰 รายได้ & สรุป</button>
       </div>
 
       <!-- TAB 1: MORNING -->
@@ -472,19 +475,15 @@
           </div>
         </div>
       </div><!-- /tab morning -->
+    
+      <div class="card" style="margin-bottom:20px;">
+      <button class="btn btn-success" onclick="submitAll()">💾 บันทึก</button>
+    </div>
 
       <!-- TAB 2: EVENING -->
       <div id="day-tab-1" class="tab-content">
         <div class="card" style="margin-bottom:16px;">
           <div class="section-title"><span class="section-badge">VS</span> Visitor Service</div>
-          <div style="margin-bottom:16px;">
-            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 2</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter2-name" type="text" class="form-input"></div>
-              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="vs-counter2-issue" type="text" class="form-input"></div>
-              <div><label class="form-label">หมายเหตุ</label><input id="vs-counter2-note" type="text" class="form-input"></div>
-            </div>
-          </div>
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
@@ -501,10 +500,10 @@
             <table class="data-table">
               <thead><tr><th>โซน</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
               <tbody>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1</td><td><input id="ex-z1-name" type="text" class="form-input"></td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2</td><td><input id="ex-z2-name" type="text" class="form-input"></td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3</td><td><input id="ex-z3-name" type="text" class="form-input"></td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4</td><td><input id="ex-z4-name" type="text" class="form-input"></td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-name" type="text" class="form-input"></td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-name" type="text" class="form-input"></td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-name" type="text" class="form-input"></td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-name" type="text" class="form-input"></td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
                 <tr><td style="color:var(--text-muted);white-space:nowrap;">นิทรรศการชั่วคราว</td><td><input id="ex-temp-name" type="text" class="form-input"></td><td><input id="ex-temp-issue" type="text" class="form-input"></td><td><input id="ex-temp-note" type="text" class="form-input"></td></tr>
               </tbody>
             </table>
@@ -512,14 +511,51 @@
         </div>
 
         <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">ED</span> Education Programs</div>
+          <div class="section-title"><span class="section-badge">OP</span> ผู้ดำเนินกิจกรรม</div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>โปรแกรม</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+              <thead>
+          <tr>
+            <th>กิจกรรม</th>
+            <th>ชื่อกิจกรรม</th>
+            <th>ผู้ดำเนินการ</th>
+            <th colspan="2" style="text-align:center;">ชาวไทย</th>
+            <th colspan="2" style="text-align:center;">ชาวต่างชาติ</th>
+          </tr>
+          <tr>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th style="font-size:12px;text-align:center;">เด็ก</th>
+            <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
+            <th style="font-size:12px;text-align:center;">เด็ก</th>
+            <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
+          </tr>
+              </thead>
               <tbody>
-                <tr><td style="color:var(--text-muted);">Inspire Lab</td><td><input id="ed-inspire-name" type="text" class="form-input"></td><td><input id="ed-inspire-issue" type="text" class="form-input"></td><td><input id="ed-inspire-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);">Innovation Space</td><td><input id="ed-innovation-name" type="text" class="form-input"></td><td><input id="ed-innovation-issue" type="text" class="form-input"></td><td><input id="ed-innovation-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);">Mini Make &amp; Play</td><td><input id="ed-mini-name" type="text" class="form-input"></td><td><input id="ed-mini-issue" type="text" class="form-input"></td><td><input id="ed-mini-note" type="text" class="form-input"></td></tr>
+          <tr>
+            <td>
+              <select class="form-input" style="width:180px;" onchange="handleActivitySelect(this)">
+                <option value="">เลือกกิจกรรม...</option>
+                <option value="inspire">Inspire Lab</option>
+                <option value="innovation">Innovation Space</option>
+                <option value="walk">Walk Rally</option>
+                <option value="mini">Mini Make and Play</option>
+                <option value="other">อื่นๆ</option>
+              </select>
+            </td>
+            <td><input type="text" class="form-input" placeholder="ชื่อกิจกรรม"></td>
+            <td><input type="text" class="form-input" placeholder="ชื่อผู้ดำเนินการ"></td>
+            <td><input type="number" class="num-input" min="0" value="0"></td>
+            <td><input type="number" class="num-input" min="0" value="0"></td>
+            <td><input type="number" class="num-input" min="0" value="0"></td>
+            <td><input type="number" class="num-input" min="0" value="0"></td>
+              </tr>
+                </tbody>
+              </table>
+              <button class="btn btn-primary btn-sm" onclick="addActivityRow()" style="margin-top:12px;">+ เพิ่มแถว</button>
+              </div>
+          </tr>
               </tbody>
             </table>
           </div>
@@ -540,7 +576,7 @@
       </div><!-- /tab evening -->
 
       <!-- TAB 3: VISITORS -->
-      <div id="day-tab-2" class="tab-content">
+      <div id="day-tab-1" class="tab-content">
         <!-- Section A Walk-in -->
         <div class="card" style="margin-bottom:16px;">
           <div class="section-title"><span class="section-badge">A</span> ผู้เข้าชมทั่วไป (Walk-in)</div>
@@ -623,77 +659,104 @@
           </div>
         </div>
 
-        <!-- Section D Education -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">D</span> กิจกรรมการศึกษา</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>กิจกรรม</th>
-                  <th colspan="2">ไทย</th>
-                  <th colspan="2">ต่างชาติ</th>
-                  <th>รวม</th>
-                </tr>
-                <tr>
-                  <th></th>
-                  <th>เด็ก</th><th>ผู้ใหญ่</th>
-                  <th>เด็ก</th><th>ผู้ใหญ่</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Inspire Lab</td>
-                  <td><input type="number" id="vis-d-ins-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-ins-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-ins-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-ins-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-d-ins-total">0</td>
-                </tr>
-                <tr>
-                  <td>Innovation Space</td>
-                  <td><input type="number" id="vis-d-inv-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-inv-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-inv-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-inv-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-d-inv-total">0</td>
-                </tr>
-                <tr>
-                  <td>Walk Rallies</td>
-                  <td><input type="number" id="vis-d-wr-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-wr-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-wr-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-wr-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-d-wr-total">0</td>
-                </tr>
-                <tr>
-                  <td>Mini Make &amp; Play</td>
-                  <td><input type="number" id="vis-d-mm-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td colspan="3" style="color:var(--text-muted);font-size:12px;">เฉพาะเด็ก</td>
-                  <td class="computed" id="vis-d-mm-total">0</td>
-                </tr>
-                <tr>
-                  <td>Special Event</td>
-                  <td><input type="number" id="vis-d-sp-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-sp-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-sp-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-sp-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-d-sp-total">0</td>
-                </tr>
-                <tr>
-                  <td>กิจกรรมอื่น</td>
-                  <td colspan="4"><input type="text" id="vis-d-oth-name" class="form-input" placeholder="ชื่อกิจกรรม" style="margin-bottom:4px;"><input type="number" id="vis-d-oth-count" class="num-input" min="0" value="0" oninput="calcVis()" placeholder="จำนวน" style="width:100%;"></td>
-                  <td class="computed" id="vis-d-oth-total">0</td>
-                </tr>
-                <tr class="total-row">
-                  <td colspan="5"><strong>รวมกิจกรรมการศึกษา</strong></td>
-                  <td class="computed" id="vis-d-total">0</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+       <div class="card" style="margin-bottom:16px;">
+  <div class="section-title">
+    <span class="section-badge">D</span> กิจกรรมการศึกษา
+  </div>
+
+  <div class="grid-table">
+
+    <!-- HEADER -->
+    <div class="g-row g-head-1">
+      <div class="cell">กิจกรรม</div>
+      <div class="cell" style="grid-column: span 2;">ไทย</div>
+      <div class="cell" style="grid-column: span 2;">ต่างชาติ</div>
+      <div class="cell">รวม</div>
+    </div>
+
+    <div class="g-row g-head-2">
+      <div class="cell"></div>
+      <div class="cell">เด็ก</div>
+      <div class="cell">ผู้ใหญ่</div>
+      <div class="cell">เด็ก</div>
+      <div class="cell">ผู้ใหญ่</div>
+      <div class="cell"></div>
+    </div>
+
+    <!-- Inspire -->
+    <div class="g-row">
+      <div class="cell label">Inspire Lab</div>
+      <div class="cell"><input type="number" id="vis-d-ins-tc" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-ins-ta" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-ins-fc" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-ins-fa" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell computed" id="vis-d-ins-total">0</div>
+    </div>
+
+    <!-- Innovation -->
+    <div class="g-row">
+      <div class="cell label">Innovation Space</div>
+      <div class="cell"><input type="number" id="vis-d-inv-tc" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-inv-ta" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-inv-fc" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-inv-fa" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell computed" id="vis-d-inv-total">0</div>
+    </div>
+
+    <!-- Walk -->
+    <div class="g-row">
+      <div class="cell label">Walk Rallies</div>
+      <div class="cell"><input type="number" id="vis-d-wr-tc" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-wr-ta" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-wr-fc" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-wr-fa" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell computed" id="vis-d-wr-total">0</div>
+    </div>
+
+    <!-- Mini Make -->
+    <div class="g-row">
+      <div class="cell label">Mini Make & Play</div>
+      <div class="cell">
+        <input type="number" id="vis-d-mm-child" class="num-input" value="0" oninput="calcVis()">
+      </div>
+      <div class="cell muted">-</div>
+      <div class="cell muted">-</div>
+      <div class="cell muted">-</div>
+      <div class="cell computed" id="vis-d-mm-total">0</div>
+    </div>
+
+    <!-- Special -->
+    <div class="g-row">
+      <div class="cell label">Special Event</div>
+      <div class="cell"><input type="number" id="vis-d-sp-tc" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-sp-ta" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-sp-fc" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell"><input type="number" id="vis-d-sp-fa" class="num-input" value="0" oninput="calcVis()"></div>
+      <div class="cell computed" id="vis-d-sp-total">0</div>
+    </div>
+
+    <!-- Other -->
+    <div class="g-row">
+      <div class="cell label">กิจกรรมอื่น</div>
+      <div class="cell">
+        <input type="text" id="vis-d-oth-name" class="form-input" placeholder="ชื่อกิจกรรม">
+      </div>
+      <div class="cell">
+        <input type="number" id="vis-d-oth-count" class="num-input" value="0" oninput="calcVis()">
+      </div>
+      <div class="cell muted">-</div>
+      <div class="cell muted">-</div>
+      <div class="cell computed" id="vis-d-oth-total">0</div>
+    </div>
+
+    <!-- TOTAL -->
+    <div class="g-row total">
+      <div class="cell" style="grid-column: span 5;"><strong>รวมกิจกรรมการศึกษา</strong></div>
+      <div class="cell computed" id="vis-d-total">0</div>
+    </div>
+
+  </div>
+</div>
 
         <!-- Grand Total -->
         <div class="card">
@@ -721,7 +784,7 @@
       </div><!-- /tab visitors -->
 
       <!-- TAB 4: REVENUE & SUMMARY -->
-      <div id="day-tab-3" class="tab-content">
+      <div id="day-tab-1" class="tab-content">
         <div class="card" style="margin-bottom:16px;">
           <div class="section-title">💰 รายได้</div>
           <div class="table-wrap">
@@ -798,8 +861,7 @@
         </div>
 
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="saveToLocal(true)">💾 บันทึกลงเครื่อง</button>
-          <button class="btn btn-success" onclick="submitAll()">📤 ส่งข้อมูล Google Sheets</button>
+          <button class="btn btn-primary" onclick="submitAll()">💾 บันทึก</button>
           <button class="btn btn-danger" onclick="clearAllFields()">🗑 ล้างข้อมูล</button>
         </div>
       </div><!-- /tab revenue -->
@@ -976,7 +1038,7 @@
     <div class="modal-title">⚙️ ตั้งค่าระบบ</div>
     <div class="form-group">
       <label class="form-label">Google Apps Script URL</label>
-      <input id="set-sheets-url" type="url" class="form-input" placeholder="https://script.google.com/macros/s/...">
+      <input id="set-sheets-url" type="url" class="form-input" placeholder="https://script.google.com/macros/s/AKfycbx5zoxbI52HqXcc2M0UwzDlIfAp3wsMe8QNLhaddScZfGVzBVSG0IyY-xfDWK5JlI7kkQ/exec">
     </div>
     <div class="form-group">
       <label class="form-label">Sheet Name</label>
@@ -1080,6 +1142,82 @@
     </div>
   </div>
 </div>
+
+
+<!-- Activity Row Template (will be added dynamically) -->
+<script>
+function addActivityRow() {
+  const tbody = document.querySelector('#day-tab-1 .data-table tbody');
+  const newRow = document.createElement('tr');
+  newRow.innerHTML = `
+    <td>
+      <select class="form-input" style="width:180px;" onchange="handleActivitySelect(this)">
+        <option value="">เลือกกิจกรรม...</option>
+        <option value="inspire">Inspire Lab</option>
+        <option value="innovation">Innovation Space</option>
+        <option value="walk">Walk Rally</option>
+        <option value="mini">Mini Make and Play</option>
+        <option value="other">อื่นๆ</option>
+      </select>
+    </td>
+    <td><input type="text" class="form-input" placeholder="ชื่อกิจกรรม"></td>
+    <td><input type="text" class="form-input" placeholder="ชื่อผู้ดำเนินการ"></td>
+    <td><input type="number" class="num-input" min="0" value="0"></td>
+    <td><input type="number" class="num-input" min="0" value="0"></td>
+    <td><input type="number" class="num-input" min="0" value="0"></td>
+    <td><input type="number" class="num-input" min="0" value="0"></td>
+    <td>
+      <button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()" title="ลบแถว">
+        ✕
+      </button>
+    </td>
+  `;
+  tbody.appendChild(newRow);
+}
+
+function handleActivitySelect(selectEl) {
+  const row = selectEl.closest('tr');
+  const nameInput = row.querySelector('input[type="text"]');
+  const value = selectEl.value;
+  
+  const activityNames = {
+    'inspire': 'Inspire Lab',
+    'innovation': 'Innovation Space',
+    'walk': 'Walk Rally',
+    'mini': 'Mini Make and Play',
+    'other': ''
+  };
+  
+  if (activityNames[value] !== undefined) {
+    nameInput.value = activityNames[value];
+    if (value === 'other') {
+      nameInput.focus();
+    }
+  }
+}
+</script>
+
+function handleActivitySelect(selectEl) {
+  const row = selectEl.closest('tr');
+  const nameInput = row.querySelector('input[type="text"]');
+  const value = selectEl.value;
+  
+  const activityNames = {
+    'inspire': 'Inspire Lab',
+    'innovation': 'Innovation Space',
+    'walk': 'Walk Rally',
+    'mini': 'Mini Make and Play',
+    'other': ''
+  };
+  
+  if (activityNames[value] !== undefined) {
+    nameInput.value = activityNames[value];
+    if (value === 'other') {
+      nameInput.focus();
+    }
+  }
+}
+</script>
 
 <!-- ============================================================ TOAST ============================================================ -->
 <div id="toast-container"></div>
