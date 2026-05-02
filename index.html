@@ -396,8 +396,6 @@
       <div class="tab-bar" style="margin-bottom:20px;">
         <button class="tab-btn active" id="tab-btn-0" onclick="switchDayTab(0,this)">🌅 ช่วงเช้า</button>
         <button class="tab-btn" id="tab-btn-1" onclick="switchDayTab(1,this)">🌆 ช่วงเย็น</button>
-        <button class="tab-btn" id="tab-btn-2" onclick="switchDayTab(2,this)">👥 ผู้เข้าชม</button>
-        <button class="tab-btn" id="tab-btn-3" onclick="switchDayTab(3,this)">💰 รายได้ & สรุป</button>
       </div>
 
       <!-- TAB 1: MORNING -->
@@ -566,22 +564,6 @@
               </div>
         </div>
 
-        <div class="card">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
-            <div>
-              <label class="form-label">ลายเซ็น MOD</label>
-              <input id="mod-sign" type="text" class="form-input" placeholder="ชื่อ - นามสกุล">
-            </div>
-            <div>
-              <label class="form-label">วันที่</label>
-              <input id="sign-date" type="date" class="form-input">
-            </div>
-          </div>
-        </div>
-      </div><!-- /tab evening -->
-
-      <!-- TAB 3: VISITORS -->
-      <div id="day-tab-2" class="tab-content">
         <!-- Section A Walk-in -->
         <div class="card" style="margin-bottom:16px;">
           <div class="section-title"><span class="section-badge">A</span> ผู้เข้าชมทั่วไป (Walk-in)</div>
@@ -664,107 +646,91 @@
           </div>
         </div>
 
-       <div class="card" style="margin-bottom:16px;">
-  <div class="section-title">
-    <span class="section-badge">D</span> กิจกรรมการศึกษา
-  </div>
-
-  <div class="grid-table">
-
-    <!-- HEADER -->
-    <div class="g-row g-head-1">
-      <div class="cell">กิจกรรม</div>
-      <div class="cell" style="grid-column: span 2;">ไทย</div>
-      <div class="cell" style="grid-column: span 2;">ต่างชาติ</div>
-      <div class="cell">รวม</div>
-    </div>
-
-    <div class="g-row g-head-2">
-      <div class="cell"></div>
-      <div class="cell">เด็ก</div>
-      <div class="cell">ผู้ใหญ่</div>
-      <div class="cell">เด็ก</div>
-      <div class="cell">ผู้ใหญ่</div>
-      <div class="cell"></div>
-    </div>
-
-    <!-- Inspire -->
-    <div class="g-row">
-      <div class="cell label">Inspire Lab</div>
-      <div class="cell"><input type="number" id="vis-d-ins-tc" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-ins-ta" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-ins-fc" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-ins-fa" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell computed" id="vis-d-ins-total">0</div>
-    </div>
-
-    <!-- Innovation -->
-    <div class="g-row">
-      <div class="cell label">Innovation Space</div>
-      <div class="cell"><input type="number" id="vis-d-inv-tc" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-inv-ta" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-inv-fc" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-inv-fa" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell computed" id="vis-d-inv-total">0</div>
-    </div>
-
-    <!-- Walk -->
-    <div class="g-row">
-      <div class="cell label">Walk Rallies</div>
-      <div class="cell"><input type="number" id="vis-d-wr-tc" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-wr-ta" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-wr-fc" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-wr-fa" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell computed" id="vis-d-wr-total">0</div>
-    </div>
-
-    <!-- Mini Make -->
-    <div class="g-row">
-      <div class="cell label">Mini Make & Play</div>
-      <div class="cell">
-        <input type="number" id="vis-d-mm-child" class="num-input" value="0" oninput="calcVis()">
-      </div>
-      <div class="cell muted">-</div>
-      <div class="cell muted">-</div>
-      <div class="cell muted">-</div>
-      <div class="cell computed" id="vis-d-mm-total">0</div>
-    </div>
-
-    <!-- Special -->
-    <div class="g-row">
-      <div class="cell label">Special Event</div>
-      <div class="cell"><input type="number" id="vis-d-sp-tc" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-sp-ta" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-sp-fc" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell"><input type="number" id="vis-d-sp-fa" class="num-input" value="0" oninput="calcVis()"></div>
-      <div class="cell computed" id="vis-d-sp-total">0</div>
-    </div>
-
-    <!-- Other -->
-    <div class="g-row">
-      <div class="cell label">กิจกรรมอื่น</div>
-      <div class="cell">
-        <input type="text" id="vis-d-oth-name" class="form-input" placeholder="ชื่อกิจกรรม">
-      </div>
-      <div class="cell">
-        <input type="number" id="vis-d-oth-count" class="num-input" value="0" oninput="calcVis()">
-      </div>
-      <div class="cell muted">-</div>
-      <div class="cell muted">-</div>
-      <div class="cell computed" id="vis-d-oth-total">0</div>
-    </div>
-
-    <!-- TOTAL -->
-    <div class="g-row total">
-      <div class="cell" style="grid-column: span 5;"><strong>รวมกิจกรรมการศึกษา</strong></div>
-      <div class="cell computed" id="vis-d-total">0</div>
-    </div>
-
-  </div>
-</div>
+        <!-- Section D Educational Activities -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">
+            <span class="section-badge">D</span> กิจกรรมการศึกษา
+          </div>
+          <div class="grid-table">
+            <!-- HEADER -->
+            <div class="g-row g-head-1">
+              <div class="cell">กิจกรรม</div>
+              <div class="cell" style="grid-column: span 2;">ไทย</div>
+              <div class="cell" style="grid-column: span 2;">ต่างชาติ</div>
+              <div class="cell">รวม</div>
+            </div>
+            <div class="g-row g-head-2">
+              <div class="cell"></div>
+              <div class="cell">เด็ก</div>
+              <div class="cell">ผู้ใหญ่</div>
+              <div class="cell">เด็ก</div>
+              <div class="cell">ผู้ใหญ่</div>
+              <div class="cell"></div>
+            </div>
+            <!-- Inspire -->
+            <div class="g-row">
+              <div class="cell label">Inspire Lab</div>
+              <div class="cell"><input type="number" id="vis-d-ins-tc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-ins-ta" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-ins-fc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-ins-fa" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell computed" id="vis-d-ins-total">0</div>
+            </div>
+            <!-- Innovation -->
+            <div class="g-row">
+              <div class="cell label">Innovation Space</div>
+              <div class="cell"><input type="number" id="vis-d-inv-tc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-inv-ta" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-inv-fc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-inv-fa" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell computed" id="vis-d-inv-total">0</div>
+            </div>
+            <!-- Walk -->
+            <div class="g-row">
+              <div class="cell label">Walk Rallies</div>
+              <div class="cell"><input type="number" id="vis-d-wr-tc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-wr-ta" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-wr-fc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-wr-fa" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell computed" id="vis-d-wr-total">0</div>
+            </div>
+            <!-- Mini Make -->
+            <div class="g-row">
+              <div class="cell label">Mini Make &amp; Play</div>
+              <div class="cell"><input type="number" id="vis-d-mm-child" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell muted">-</div>
+              <div class="cell muted">-</div>
+              <div class="cell muted">-</div>
+              <div class="cell computed" id="vis-d-mm-total">0</div>
+            </div>
+            <!-- Special -->
+            <div class="g-row">
+              <div class="cell label">Special Event</div>
+              <div class="cell"><input type="number" id="vis-d-sp-tc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-sp-ta" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-sp-fc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-sp-fa" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell computed" id="vis-d-sp-total">0</div>
+            </div>
+            <!-- Other -->
+            <div class="g-row">
+              <div class="cell label">กิจกรรมอื่น</div>
+              <div class="cell"><input type="text" id="vis-d-oth-name" class="form-input" placeholder="ชื่อกิจกรรม"></div>
+              <div class="cell"><input type="number" id="vis-d-oth-count" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell muted">-</div>
+              <div class="cell muted">-</div>
+              <div class="cell computed" id="vis-d-oth-total">0</div>
+            </div>
+            <!-- TOTAL -->
+            <div class="g-row total">
+              <div class="cell" style="grid-column: span 5;"><strong>รวมกิจกรรมการศึกษา</strong></div>
+              <div class="cell computed" id="vis-d-total">0</div>
+            </div>
+          </div>
+        </div>
 
         <!-- Grand Total -->
-        <div class="card">
+        <div class="card" style="margin-bottom:16px;">
           <div class="section-title">🏆 ยอดรวมทั้งหมด</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
             <div class="card" style="background:var(--surface2);text-align:center;">
@@ -786,10 +752,8 @@
             <div class="grand-total-label">คน</div>
           </div>
         </div>
-      </div><!-- /tab visitors -->
 
-      <!-- TAB 4: REVENUE & SUMMARY -->
-      <div id="day-tab-3" class="tab-content" style="display:none">
+        <!-- Revenue -->
         <div class="card" style="margin-bottom:16px;">
           <div class="section-title">💰 รายได้</div>
           <div class="table-wrap">
@@ -850,12 +814,14 @@
           </div>
         </div>
 
+        <!-- Notes -->
         <div class="card" style="margin-bottom:16px;">
           <label class="form-label">📌 หมายเหตุประจำวัน</label>
           <textarea id="daily-notes" class="form-input" rows="3" placeholder="บันทึกเหตุการณ์พิเศษ ปัญหา หรือข้อมูลเพิ่มเติม..."></textarea>
         </div>
 
-        <div class="card" style="margin-bottom:20px;">
+        <!-- Summary Preview -->
+        <div class="card" style="margin-bottom:16px;">
           <div class="section-title">📋 สรุปข้อมูลวันนี้</div>
           <div class="preview-box">
             <div class="preview-row"><span class="preview-label">วันที่</span><span class="preview-value" id="prev-date">-</span></div>
@@ -865,11 +831,26 @@
           </div>
         </div>
 
+        <!-- MOD Signature -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
+            <div>
+              <label class="form-label">ลายเซ็น MOD</label>
+              <input id="mod-sign" type="text" class="form-input" placeholder="ชื่อ - นามสกุล">
+            </div>
+            <div>
+              <label class="form-label">วันที่</label>
+              <input id="sign-date" type="date" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <!-- Save / Clear buttons -->
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
           <button class="btn btn-primary" onclick="submitAll()">💾 บันทึก</button>
           <button class="btn btn-danger" onclick="clearAllFields()">🗑 ล้างข้อมูล</button>
         </div>
-      </div><!-- /tab revenue -->
+      </div><!-- /tab evening -->
 
     </div><!-- /page-daily-log -->
 
