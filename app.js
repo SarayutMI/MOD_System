@@ -512,9 +512,13 @@ function getFormData() {
     mEducation: getInputVal('m-education'),
     mVisitor: getInputVal('m-visitor'),
     bookings,
-    cbInspireLab: isChecked('cb-inspire-lab'),
-    cbInnovationSpace: isChecked('cb-innovation-space'),
-    cbWalkRally: isChecked('cb-walk-rally'),
+    hoursTueFri: getInputVal('hours-tue-fri'),
+    hoursSatSun: getInputVal('hours-sat-sun'),
+    hoursClosed: getInputVal('hours-closed'),
+    mEducationActivities: getInputVal('m-education-activities'),
+    visitorServiceInfo: getInputVal('visitor-service-info'),
+    regulation1: getInputVal('regulation-1'),
+    regulation2: getInputVal('regulation-2'),
     special1: getInputVal('special1'),
     special2: getInputVal('special2'),
     // Evening - VS
@@ -574,6 +578,13 @@ function setFormData(data) {
   setChecked('cb-inspire-lab', data.cbInspireLab);
   setChecked('cb-innovation-space', data.cbInnovationSpace);
   setChecked('cb-walk-rally', data.cbWalkRally);
+  setInputVal('hours-tue-fri', data.hoursTueFri);
+  setInputVal('hours-sat-sun', data.hoursSatSun);
+  setInputVal('hours-closed', data.hoursClosed);
+  setInputVal('m-education-activities', data.mEducationActivities);
+  setInputVal('visitor-service-info', data.visitorServiceInfo);
+  setInputVal('regulation-1', data.regulation1);
+  setInputVal('regulation-2', data.regulation2);
   setInputVal('special1', data.special1);
   setInputVal('special2', data.special2);
   // Booking rows
