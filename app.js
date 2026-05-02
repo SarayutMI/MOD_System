@@ -268,6 +268,7 @@ function removeBookingRow(btn) {
 
 // ============ ACTIVITY ROWS ============
 let activityRowCount = 0;
+
 function addActivityRow(data) {
   activityRowCount++;
   const tbody = document.getElementById('activity-tbody');
@@ -277,21 +278,21 @@ function addActivityRow(data) {
   tr.dataset.id = activityRowCount;
   tr.innerHTML = `
     <td>
-      <select class="form-input" style="width:180px;" onchange="handleActivitySelect(this)">
+      <select class="form-input" style="width:100%;" onchange="handleActivitySelect(this)">
         <option value="">เลือกกิจกรรม...</option>
-        <option value="inspire">Inspire Lab</option>
-        <option value="innovation">Innovation Space</option>
-        <option value="walk">Walk Rally</option>
-        <option value="mini">Mini Make and Play</option>
-        <option value="other">อื่นๆ</option>
+        <option value="inspire" ${data?.type==='inspire'?'selected':''}>Inspire Lab</option>
+        <option value="innovation" ${data?.type==='innovation'?'selected':''}>Innovation Space</option>
+        <option value="walk" ${data?.type==='walk'?'selected':''}>Walk Rallies</option>
+        <option value="mini" ${data?.type==='mini'?'selected':''}>Mini Make & Play</option>
+        <option value="other" ${data?.type==='other'?'selected':''}>กิจกรรมอื่น</option>
       </select>
     </td>
     <td><input type="text" class="form-input" placeholder="ชื่อกิจกรรม" value="${data?.name||''}"></td>
-    <td><input type="text" class="form-input" placeholder="ชื่อผู้ดำเนินการ" value="${data?.operator||''}"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}"></td>
+    <td><input type="text" class="form-input" placeholder="ชื่อผู้ดำเนินกิจกรรม" value="${data?.operator||''}"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:80px;"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:80px;"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:80px;"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}" style="width:80px;"></td>
     <td><button type="button" class="btn btn-ghost btn-sm" onclick="removeActivityRow(this)" style="padding:4px 8px;color:var(--danger);">✕</button></td>
   `;
   tbody.appendChild(tr);
@@ -304,13 +305,13 @@ function removeActivityRow(btn) {
 function handleActivitySelect(selectEl) {
   const value = selectEl.value;
   const row = selectEl.closest('tr');
-  const nameInput = row.querySelector('input[type="text"]');
+  const nameInput = row.querySelectorAll('input[type="text"]')[0];
 
   const activityNames = {
     'inspire': 'Inspire Lab',
     'innovation': 'Innovation Space',
-    'walk': 'Walk Rally',
-    'mini': 'Mini Make and Play',
+    'walk': 'Walk Rallies',
+    'mini': 'Mini Make & Play',
     'other': ''
   };
 
@@ -496,6 +497,23 @@ function getFormData() {
       });
     }
   });
+  // รวบรวมข้อมูล activity rows
+  const activities = [];
+  document.querySelectorAll('#activity-tbody tr').forEach(tr => {
+    const selects = tr.querySelectorAll('select');
+    const inputs = tr.querySelectorAll('input');
+    if (selects.length > 0 && inputs.length >= 6) {
+      activities.push({
+        type: selects[0].value || '',
+        name: inputs[0].value || '',
+        operator: inputs[1].value || '',
+        thaiChild: parseInt(inputs[2].value) || 0,
+        thaiAdult: parseInt(inputs[3].value) || 0,
+        foreignChild: parseInt(inputs[4].value) || 0,
+        foreignAdult: parseInt(inputs[5].value) || 0
+      });
+    }
+  });
   // Grand total
   const gt = document.getElementById('grand-total');
   const totalVisitors = gt ? parseInt(gt.textContent) || 0 : 0;
@@ -512,6 +530,7 @@ function getFormData() {
     mEducation: getInputVal('m-education'),
     mVisitor: getInputVal('m-visitor'),
     bookings,
+    activities,
     hoursTueFri: getInputVal('hours-tue-fri'),
     hoursSatSun: getInputVal('hours-sat-sun'),
     hoursClosed: getInputVal('hours-closed'),
@@ -593,6 +612,14 @@ function setFormData(data) {
   if (data.bookings && data.bookings.length) {
     data.bookings.forEach(b => addBookingRow(b));
   }
+  // Activity rows
+  const activityTbody = document.getElementById('activity-tbody');
+  if (activityTbody) { activityTbody.innerHTML = ''; activityRowCount = 0; }
+  if (data.activities && data.activities.length) {
+    data.activities.forEach(a => addActivityRow(a));
+  } else {
+    addActivityRow(); // เพิ่มแถวเริ่มต้น
+  }
   // Evening
   setInputVal('vs-counter2-name', data.vsCounter2Name); setInputVal('vs-counter2-issue', data.vsCounter2Issue); setInputVal('vs-counter2-note', data.vsCounter2Note);
   setInputVal('vs-counter1-name', data.vsCounter1Name); setInputVal('vs-counter1-issue', data.vsCounter1Issue); setInputVal('vs-counter1-note', data.vsCounter1Note);
@@ -642,6 +669,9 @@ function clearFormFields() {
   document.querySelectorAll('#page-daily-log input[type=checkbox]').forEach(el => el.checked = false);
   const tbody = document.getElementById('booking-tbody');
   if (tbody) { tbody.innerHTML = ''; bookingRowCount = 0; }
+  // เคลียร์ activity rows
+  const activityTbody = document.getElementById('activity-tbody');
+  if (activityTbody) { activityTbody.innerHTML = ''; activityRowCount = 0; addActivityRow(); }
   calcVis();
   calcRev();
 }
@@ -1283,5 +1313,9 @@ document.addEventListener('DOMContentLoaded', function() {
   if (document.getElementById('booking-tbody')) {
     addBookingRow();
     addBookingRow();
+  }
+  // Add default activity row
+  if (document.getElementById('activity-tbody')) {
+    addActivityRow();
   }
 });
