@@ -266,6 +266,62 @@ function removeBookingRow(btn) {
   });
 }
 
+// ============ ACTIVITY ROWS ============
+let activityRowCount = 0;
+function addActivityRow(data) {
+  activityRowCount++;
+  const tbody = document.getElementById('activity-tbody');
+  if (!tbody) return;
+
+  const tr = document.createElement('tr');
+  tr.dataset.id = activityRowCount;
+  tr.innerHTML = `
+    <td>
+      <select class="form-input" style="width:180px;" onchange="handleActivitySelect(this)">
+        <option value="">เลือกกิจกรรม...</option>
+        <option value="inspire">Inspire Lab</option>
+        <option value="innovation">Innovation Space</option>
+        <option value="walk">Walk Rally</option>
+        <option value="mini">Mini Make and Play</option>
+        <option value="other">อื่นๆ</option>
+      </select>
+    </td>
+    <td><input type="text" class="form-input" placeholder="ชื่อกิจกรรม" value="${data?.name||''}"></td>
+    <td><input type="text" class="form-input" placeholder="ชื่อผู้ดำเนินการ" value="${data?.operator||''}"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}"></td>
+    <td><button type="button" class="btn btn-ghost btn-sm" onclick="removeActivityRow(this)" style="padding:4px 8px;color:var(--danger);">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function removeActivityRow(btn) {
+  btn.closest('tr').remove();
+}
+
+function handleActivitySelect(selectEl) {
+  const value = selectEl.value;
+  const row = selectEl.closest('tr');
+  const nameInput = row.querySelector('input[type="text"]');
+
+  const activityNames = {
+    'inspire': 'Inspire Lab',
+    'innovation': 'Innovation Space',
+    'walk': 'Walk Rally',
+    'mini': 'Mini Make and Play',
+    'other': ''
+  };
+
+  if (nameInput && activityNames[value] !== undefined) {
+    nameInput.value = activityNames[value];
+    if (value === 'other') {
+      nameInput.focus();
+    }
+  }
+}
+
 // ============ TABS ============
 function switchDayTab(idx, btn) {
   for (let i = 0; i < 4; i++) {
