@@ -324,13 +324,13 @@ function handleActivitySelect(selectEl) {
 
 // ============ TABS ============
 function switchDayTab(idx, btn) {
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 2; i++) {
     const tab = document.getElementById('day-tab-' + i);
     const tabBtn = document.getElementById('tab-btn-' + i);
     if (tab) tab.classList.toggle('active', i === idx);
     if (tabBtn) tabBtn.classList.toggle('active', i === idx);
   }
-  if (idx === 3) { calcVis(); calcRev(); updateSummaryPreview(); }
+  if (idx === 1) { calcVis(); calcRev(); updateSummaryPreview(); }
 }
 
 // ============ COLLAPSIBLE ============
