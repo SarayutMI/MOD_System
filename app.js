@@ -257,6 +257,69 @@ function addBookingRow(data) {
   `;
   tbody.appendChild(tr);
 }
+
+
+let groupRowCount = 0;
+
+function addGroupRow(data) {
+  groupRowCount++;
+  const tbody = document.getElementById('group-tbody');
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  tr.dataset.id = groupRowCount;
+  tr.innerHTML = `
+    <td style="color:var(--text-muted);font-size:12px;">${groupRowCount}</td>
+    <td><input type="text" class="form-input" style="min-width:140px;" placeholder="ชื่อกลุ่ม" value="${data?.group||''}"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:70px;" oninput="calcGroupRows()"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:70px;" oninput="calcGroupRows()"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:70px;" oninput="calcGroupRows()"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}" style="width:70px;" oninput="calcGroupRows()"></td>
+    <td class="computed" style="font-weight:600;">
+      ${(parseInt(data?.thaiChild||0)+parseInt(data?.thaiAdult||0)+parseInt(data?.foreignChild||0)+parseInt(data?.foreignAdult||0))}
+    </td>
+    <td><button type="button" class="btn btn-ghost btn-sm" onclick="removeGroupRow(this)" style="padding:4px 8px;color:var(--danger);">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  calcGroupRows();
+}
+
+function removeGroupRow(btn) {
+  btn.closest('tr').remove();
+  document.querySelectorAll('#group-tbody tr').forEach((tr, i) => {
+    const first = tr.querySelector('td');
+    if (first) first.textContent = i + 1;
+  });
+  calcGroupRows();
+}
+
+function calcGroupRows() {
+  let thaiChild = 0, thaiAdult = 0, forChild = 0, forAdult = 0;
+  document.querySelectorAll('#group-tbody tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input[type="number"]');
+    if (inputs.length >= 4) {
+      const tc = parseInt(inputs[0].value)||0;
+      const ta = parseInt(inputs[1].value)||0;
+      const fc = parseInt(inputs[2].value)||0;
+      const fa = parseInt(inputs[3].value)||0;
+      thaiChild += tc; thaiAdult += ta; forChild += fc; forAdult += fa;
+      const rowTotal = tr.querySelector('td.computed');
+      if (rowTotal) rowTotal.textContent = tc + ta + fc + fa;
+    }
+  });
+  const total = thaiChild + thaiAdult + forChild + forAdult;
+  setTxt('vis-b-thai-child-total', thaiChild);
+  setTxt('vis-b-thai-adult-total', thaiAdult);
+  setTxt('vis-b-for-child-total', forChild);
+  setTxt('vis-b-for-adult-total', forAdult);
+  setTxt('vis-b-total', total);
+  // Sync with existing vis-b inputs if present
+  setInputVal('vis-b-thai-child', thaiChild);
+  setInputVal('vis-b-thai-adult', thaiAdult);
+  setInputVal('vis-b-for-child', forChild);
+  setInputVal('vis-b-for-adult', forAdult);
+  calcVis();
+}
+  
 function removeBookingRow(btn) {
   btn.closest('tr').remove();
   // Re-number
@@ -688,6 +751,99 @@ function setFormData(data) {
   calcVis();
   calcRev();
 }
+
+
+let bookingIndex = 0;
+
+// helper: สร้าง input
+function createInput(type, name, placeholder = "") {
+  const input = document.createElement("input");
+  input.type = type;
+  input.name = name;
+  input.placeholder = placeholder;
+  input.style = "width:100%;padding:6px;border-radius:6px;";
+  return input;
+}
+
+// helper: สร้าง time picker
+function createTimeInput() {
+  const input = document.createElement("input");
+  input.type = "time";
+  input.name = "time[]";
+  input.min = "09:00";
+  input.max = "18:00";
+  input.step = "900"; // 15 นาที
+  input.required = true;
+  input.style = "width:100%;padding:6px;border-radius:6px;";
+  return input;
+}
+
+// helper: สร้าง td
+function createCell(content) {
+  const td = document.createElement("td");
+  td.style = "padding:8px;border:1px solid #1A1A1F";
+  if (content instanceof HTMLElement) {
+    td.appendChild(content);
+  } else {
+    td.innerText = content;
+  }
+  return td;
+}
+
+// เพิ่มแถว
+function addBookingRow() {
+  bookingIndex++;
+
+  const tbody = document.getElementById("booking-tbody");
+  const tr = document.createElement("tr");
+
+  // #
+  tr.appendChild(createCell(bookingIndex));
+
+  // กลุ่ม
+  tr.appendChild(createCell(createInput("text", "group[]", "ชื่อกลุ่ม")));
+
+  // จำนวน
+  const peopleInput = createInput("number", "people[]", "จำนวน");
+  peopleInput.min = 1;
+  tr.appendChild(createCell(peopleInput));
+
+  // เวลา (time picker)
+  tr.appendChild(createCell(createTimeInput()));
+
+  // ผู้รับผิดชอบ
+  tr.appendChild(createCell(createInput("text", "owner[]", "ผู้รับผิดชอบ")));
+
+  // ปุ่มลบ
+  const btn = document.createElement("button");
+  btn.innerText = "ลบ";
+  btn.style = "padding:5px 10px;border:none;border-radius:6px;background:#dc3545;color:#fff;cursor:pointer;";
+  btn.onclick = function () {
+    tr.remove();
+    reIndex();
+  };
+
+  const actionTd = createCell("");
+  actionTd.style.textAlign = "center";
+  actionTd.appendChild(btn);
+  tr.appendChild(actionTd);
+
+  tbody.appendChild(tr);
+}
+
+// re-index
+function reIndex() {
+  const rows = document.querySelectorAll("#booking-tbody tr");
+  bookingIndex = 0;
+
+  rows.forEach((row, i) => {
+    bookingIndex = i + 1;
+    row.children[0].innerText = bookingIndex;
+  });
+}
+
+// default
+addBookingRow();
 
 function clearFormFields() {
   // Reset all inputs in daily log
@@ -1330,12 +1486,8 @@ function exportDailyBriefingPDF(date) {
   </table>` : ''}
 
   ${r.mEducationActivities ? `
-  <div class="sub-header">🎓 กิจกรรมส่งเสริมการเรียนรู้</div>
+  <div class="sub-header">🎓 กิจกรรมพิเศษอื่นๆ</div>
   <div class="notes-box">${e(r.mEducationActivities)}</div>` : ''}
-
-  ${r.visitorServiceInfo ? `
-  <div class="sub-header">ℹ️ บริการผู้เข้าชม</div>
-  <div class="notes-box">${e(r.visitorServiceInfo)}</div>` : ''}
 
   ${(r.special1||r.special2) ? `
   <div class="sub-header">⭐ กิจกรรมพิเศษ</div>
