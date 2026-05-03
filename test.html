@@ -1,5 +1,1206 @@
-<div style="display:flex;gap:12px;flex-wrap:wrap;">
-  <button class="btn btn-primary" onclick="saveToLocal(true)">💾 บันทึกลงเครื่อง</button>
-  <button class="btn btn-success" onclick="submitAll()">📤 ส่งข้อมูล Google Sheets</button>
-  <button class="btn btn-danger" onclick="clearAllFields()">🗑 ล้างข้อมูล</button>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NSM MOD System</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #111113;
+      --surface: #1a1a1f;
+      --surface2: #222228;
+      --border: #2a2a35;
+      --accent: #0055FF;
+      --accent-hover: #0044cc;
+      --accent-dim: rgba(0,85,255,0.15);
+      --text: #e8e8f0;
+      --text-muted: #888899;
+      --success: #00b894;
+      --warning: #fdcb6e;
+      --danger: #e17055;
+      --info: #74b9ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    /* Layout */
+    #app { display: flex; min-height: 100vh; }
+    #sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; transition: transform 0.3s; overflow-y: auto; }
+    #main-content { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+    #topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+    .page-content { padding: 24px; }
+    /* Table */
+    
+    /* Cards */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; }
+    .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    /* Buttons */
+    .btn { padding: 8px 20px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-sm { padding: 5px 12px; font-size: 13px; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover { background: #00a381; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #c0604a; }
+    .btn-warning { background: var(--warning); color: #1a1a1f; }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+    /* Forms */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+    .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 14px; transition: border-color 0.2s; }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .form-input[type=number] { appearance: textfield; -moz-appearance: textfield; }
+    .form-input[type=number]::-webkit-outer-spin-button,
+    .form-input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    select.form-input { cursor: pointer; }
+    textarea.form-input { resize: vertical; min-height: 80px; }
+    /* Tables */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { background: var(--surface2); color: var(--text-muted); font-weight: 500; text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; white-space: nowrap; }
+    .data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--surface2); }
+    .data-table .total-row td { background: var(--surface2); font-weight: 600; color: var(--accent); }
+    .num-input { width: 80px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 5px 8px; border-radius: 6px; font-family: inherit; font-size: 13px; text-align: center; }
+    .num-input:focus { outline: none; border-color: var(--accent); }
+    
+    
+    /* Sidebar nav */
+    .sidebar-logo { padding: 20px; border-bottom: 1px solid var(--border); }
+    .sidebar-logo-title { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+    .sidebar-logo-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .nav-link { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: var(--text-muted); text-decoration: none; cursor: pointer; border-radius: 8px; margin: 2px 8px; transition: all 0.2s; font-size: 14px; user-select: none; }
+    .nav-link:hover { background: var(--surface2); color: var(--text); }
+    .nav-link.active { background: var(--accent-dim); color: var(--accent); }
+    .nav-icon { width: 18px; text-align: center; }
+    .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid var(--border); }
+    /* Tabs */
+    .tab-bar { display: flex; gap: 4px; background: var(--surface2); padding: 4px; border-radius: 10px; }
+    .tab-btn { flex: 1; padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-size: 13px; background: transparent; color: var(--text-muted); transition: all 0.2s; white-space: nowrap; }
+    .tab-btn.active { background: var(--accent); color: white; font-weight: 500; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    /* Toast */
+    #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9000; display: flex; flex-direction: column-reverse; gap: 8px; pointer-events: none; }
+    .toast { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 16px; border-radius: 10px; animation: slideIn 0.3s ease; display: flex; align-items: center; gap: 10px; min-width: 260px; max-width: 360px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); pointer-events: all; font-size: 14px; }
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error { border-left: 3px solid var(--danger); }
+    .toast.warning { border-left: 3px solid var(--warning); }
+    .toast.info { border-left: 3px solid var(--info); }
+    @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(110%); opacity: 0; } }
+    .toast.removing { animation: slideOut 0.3s ease forwards; }
+    /* Modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; }
+    .modal-sm { max-width: 400px; }
+    .modal-md { max-width: 520px; }
+    .modal-lg { max-width: 800px; }
+    .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--text); }
+    .modal-close { position: absolute; top: 16px; right: 16px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+    .modal-close:hover { color: var(--text); background: var(--border); }
+    /* Login */
+    #page-login { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); background-image: radial-gradient(ellipse at 50% 0%, rgba(0,85,255,0.08) 0%, transparent 70%); }
+    .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 40px 36px; width: 380px; }
+    .login-logo { width: 56px; height: 56px; background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 24px; }
+    .login-title { text-align: center; font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .login-sub { text-align: center; font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
+    .pass-wrap { position: relative; }
+    .pass-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; }
+    /* Grand total */
+    .grand-total-box { background: linear-gradient(135deg, rgba(0,85,255,0.18), rgba(0,85,255,0.05)); border: 2px solid var(--accent); border-radius: 14px; padding: 28px; text-align: center; }
+    .grand-total-number { font-size: 52px; font-weight: 700; color: var(--accent); line-height: 1; }
+    .grand-total-label { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
+    /* Collapsible */
+    .section-header { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
+    .section-body { overflow: hidden; transition: max-height 0.35s ease; }
+    .section-body.collapsed { max-height: 0 !important; }
+    .chevron { transition: transform 0.3s; }
+    .collapsed-parent .chevron { transform: rotate(-90deg); }
+    /* Progress overlay */
+    #progress-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(4px); }
+    .progress-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px 40px; text-align: center; }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Month grid */
+    .month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .month-cell { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+    .month-cell:hover { border-color: var(--accent); }
+    .month-cell.has-data { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+    .month-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin: 4px auto 0; }
+    /* Quick actions */
+    .quick-action { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .quick-action:hover { border-color: var(--accent); background: var(--accent-dim); }
+    .quick-action-icon { font-size: 24px; margin-bottom: 8px; }
+    .quick-action-label { font-size: 13px; color: var(--text-muted); }
+    /* Summary preview */
+    .preview-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .preview-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .preview-row:last-child { border-bottom: none; }
+    .preview-label { color: var(--text-muted); }
+    .preview-value { font-weight: 600; }
+    /* Badge */
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .badge-success { background: rgba(0,184,148,0.15); color: var(--success); }
+    .badge-warning { background: rgba(253,203,110,0.15); color: var(--warning); }
+    .badge-danger { background: rgba(225,112,85,0.15); color: var(--danger); }
+    .badge-info { background: rgba(116,185,255,0.15); color: var(--info); }
+    /* Divider */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    /* Section headings */
+    .section-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .section-badge { background: var(--accent); color: white; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
+    /* Pagination */
+    .pagination { display: flex; gap: 4px; align-items: center; }
+    .page-btn { min-width: 32px; height: 32px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+    /* Booking table row */
+    .booking-row td { padding: 6px 8px; }
+    /* Info box */
+    .info-box { background: rgba(116,185,255,0.08); border: 1px solid rgba(116,185,255,0.2); border-radius: 10px; padding: 14px; font-size: 13px; color: var(--text-muted); }
+    .info-box ul { padding-left: 16px; }
+    .info-box li { margin-bottom: 4px; }
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    /* Mobile */
+    @media (max-width: 768px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
+      #main-content { margin-left: 0; }
+      .page-content { padding: 16px; }
+      .login-card { width: 95vw; padding: 28px 20px; }
+      .grand-total-number { font-size: 36px; }
+      .tab-btn { font-size: 12px; padding: 7px 8px; }
+    }
+    /* Overlay for mobile sidebar */
+    #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+    #sidebar-overlay.visible { display: block; }
+    /* Highlight computed fields */
+    .computed { color: var(--accent); font-weight: 600; }
+    /* Export card */
+    .export-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+    .export-card-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .export-card-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+    /* Topbar breadcrumb */
+    .breadcrumb { font-size: 13px; color: var(--text-muted); }
+    .breadcrumb span { color: var(--text); font-weight: 500; }
+    /* Input group */
+    .input-group { display: flex; align-items: center; gap: 8px; }
+    .input-label { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+    /* Toggle */
+    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 22px; cursor: pointer; transition: 0.2s; }
+    .toggle-slider:before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: var(--text-muted); border-radius: 50%; transition: 0.2s; }
+    .toggle input:checked + .toggle-slider { background: var(--accent); }
+    .toggle input:checked + .toggle-slider:before { transform: translateX(18px); background: white; }
+    /* Checkbox */
+    .check-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+    .check-label input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    /* Table container scrollable */
+    .table-wrap { overflow-x: auto; }
+    /* Grid table for educational activities */
+    .grid-table { display: grid; grid-template-columns: 140px repeat(4, 1fr) 100px; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .g-row { display: contents; }
+    .g-row .cell { background: var(--surface); padding: 10px 12px; font-size: 13px; display: flex; align-items: center; }
+    .g-head-1 .cell, .g-head-2 .cell { background: var(--surface2); color: var(--text-muted); font-weight: 600; justify-content: center; }
+    .g-row:not(.g-head-1):not(.g-head-2):not(.total):hover .cell { background: var(--surface2); }
+    .g-row .cell.label { color: var(--text); font-weight: 500; }
+    .g-row .cell.computed { color: var(--accent); font-weight: 600; justify-content: center; }
+    .g-row .cell.muted { color: var(--text-muted); justify-content: center; }
+    .g-row.total .cell { background: var(--surface2); font-weight: 600; }
+    .g-row .cell input { width: 100%; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================ LOGIN PAGE ============================================================ -->
+<div id="page-login">
+  <div class="login-card">
+    <div class="login-logo">🔬</div>
+    <div class="login-title">NSM MOD System</div>
+    <div class="login-sub">ระบบบริหารจัดการ MOD</div>
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label class="form-label">ชื่อผู้ใช้</label>
+        <input id="login-user" type="text" class="form-input" placeholder="Username" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">รหัสผ่าน</label>
+        <div class="pass-wrap">
+          <input id="login-pass" type="password" class="form-input" placeholder="Password" autocomplete="current-password" required>
+          <button type="button" class="pass-toggle" onclick="toggleLoginPass()" id="pass-toggle-btn">👁</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <label class="check-label" style="font-size:13px;color:var(--text-muted);">
+          <input type="checkbox" id="remember-me"> จดจำฉัน
+        </label>
+        <a href="#" onclick="openModal('forgot-modal');return false;" style="font-size:13px;color:var(--accent);text-decoration:none;">ลืมรหัสผ่าน?</a>
+      </div>
+      <div id="login-error" style="display:none;background:rgba(225,112,85,0.1);border:1px solid rgba(225,112,85,0.3);color:var(--danger);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;">เข้าสู่ระบบ</button>
+    </form>
+    <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-muted);">
+      ไม่มีบัญชี? <a href="#" onclick="openModal('request-modal');return false;" style="color:var(--accent);text-decoration:none;">ขอสิทธิ์เข้าใช้งาน</a>
+    </div>
+  </div>
 </div>
+
+<!-- ============================================================ MAIN APP ============================================================ -->
+<div id="app" style="display:none">
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:36px;height:36px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🔬</div>
+        <div>
+          <div class="sidebar-logo-title">NSM MOD</div>
+          <div class="sidebar-logo-sub">Management System</div>
+        </div>
+      </div>
+    </div>
+    <nav style="padding:12px 0;flex:1;">
+      <div class="nav-link active" id="nav-dashboard" onclick="gotoPage('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </div>
+      <div class="nav-link" id="nav-daily-log" onclick="gotoPage('daily-log')">
+        <span class="nav-icon">📝</span> บันทึกประจำวัน
+      </div>
+      <div class="nav-link" id="nav-history" onclick="gotoPage('history')">
+        <span class="nav-icon">📋</span> ประวัติ
+      </div>
+      <div class="nav-link" id="nav-summary" onclick="gotoPage('summary')">
+        <span class="nav-icon">📈</span> สรุป
+      </div>
+      <div class="nav-link" id="nav-export" onclick="gotoPage('export')">
+        <span class="nav-icon">📤</span> ส่งออก
+      </div>
+      <div class="nav-link" id="nav-settings" onclick="openModal('settings-modal')">
+        <span class="nav-icon">⚙️</span> ตั้งค่า
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">เข้าสู่ระบบในฐานะ</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:14px;font-weight:500;" id="sidebar-username">admin</div>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()">ออก</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div id="main-content">
+    <!-- TOPBAR -->
+    <header id="topbar">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <button id="menu-toggle" class="btn btn-ghost btn-sm" onclick="toggleSidebar()" style="display:none;padding:6px 10px;">☰</button>
+        <div class="breadcrumb">NSM MOD System &rsaquo; <span id="breadcrumb-page">Dashboard</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="font-size:13px;color:var(--text-muted);">👤 <span id="topbar-username">admin</span></div>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()">ออกจากระบบ</button>
+      </div>
+    </header>
+
+    <!-- ===== DASHBOARD PAGE ===== -->
+    <div id="page-dashboard" class="page-content">
+      <div style="margin-bottom:24px;">
+        <div style="font-size:22px;font-weight:700;" id="dash-greeting">สวัสดี!</div>
+        <div style="font-size:14px;color:var(--text-muted);margin-top:4px;" id="dash-date"></div>
+      </div>
+      <!-- Stat Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(0,85,255,0.15);">📁</div>
+          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">บันทึกทั้งหมด</div><div style="font-size:24px;font-weight:700;" id="stat-total-records">0</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(0,184,148,0.15);">👥</div>
+          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">ผู้เข้าชมทั้งหมด</div><div style="font-size:24px;font-weight:700;" id="stat-total-visitors">0</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(253,203,110,0.15);">💰</div>
+          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รายได้รวม (บาท)</div><div style="font-size:24px;font-weight:700;" id="stat-total-revenue">0</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(225,112,85,0.15);">📅</div>
+          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">วันที่มีข้อมูล</div><div style="font-size:24px;font-weight:700;" id="stat-active-days">0</div></div>
+        </div>
+      </div>
+      <!-- Chart + Recent Activity -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div style="font-size:15px;font-weight:600;">แนวโน้มผู้เข้าชม (7 วัน)</div>
+          </div>
+          <canvas id="activity-chart" height="180"></canvas>
+        </div>
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">กิจกรรมล่าสุด</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>วันที่</th><th>MOD</th><th>ผู้เข้าชม</th><th>รายได้</th></tr></thead>
+              <tbody id="recent-activity-tbody">
+                <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- Month Grid + Quick Actions -->
+      <div style="display:grid;grid-template-columns:1fr auto;gap:16px;">
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">ภาพรวมรายเดือน <span id="dash-year-label" style="font-size:13px;color:var(--text-muted);"></span></div>
+          <div class="month-grid" id="month-grid"></div>
+        </div>
+        <div class="card" style="min-width:200px;">
+          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">Quick Actions</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="quick-action" onclick="gotoPage('daily-log')"><div class="quick-action-icon">📝</div><div class="quick-action-label">บันทึกใหม่</div></div>
+            <div class="quick-action" onclick="gotoPage('history')"><div class="quick-action-icon">📋</div><div class="quick-action-label">ประวัติ</div></div>
+            <div class="quick-action" onclick="gotoPage('export')"><div class="quick-action-icon">📤</div><div class="quick-action-label">ส่งออก</div></div>
+            <div class="quick-action" onclick="openModal('settings-modal')"><div class="quick-action-icon">⚙️</div><div class="quick-action-label">ตั้งค่า</div></div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /page-dashboard -->
+
+    <!-- ===== DAILY LOG PAGE ===== -->
+
+    <div id="page-daily-log" class="page-content" style="display:none">
+      <!-- Date Selector -->
+      <div class="card" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div style="font-size:15px;font-weight:600;margin-right:8px;">📅 วันที่บันทึก:</div>
+          <select id="date-year" class="form-input" style="width:110px;" onchange="onYearMonthChange()"></select>
+          <select id="date-month" class="form-input" style="width:130px;" onchange="onYearMonthChange()"></select>
+          <select id="date-day" class="form-input" style="width:90px;" onchange="onDateChange()"></select>
+          <span style="color:var(--text-muted);font-size:13px;" id="date-display"></span>
+          <button class="btn btn-ghost btn-sm" onclick="loadToday()">วันนี้</button>
+        </div>
+      </div>
+      <!-- Tab Bar -->
+      <div class="tab-bar" style="margin-bottom:20px;">
+        <button class="tab-btn active" id="tab-btn-0" onclick="switchDayTab(0,this)">🌅 ช่วงเช้า</button>
+        <button class="tab-btn" id="tab-btn-1" onclick="switchDayTab(1,this)">🌆 ช่วงเย็น</button>
+      </div>
+
+      <!-- TAB 1: MORNING -->
+      <div id="day-tab-0" class="tab-content active">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">👤 เจ้าหน้าที่ประจำวัน</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">MOD ประจำวัน</label>
+              <input id="mod-morning" type="text" class="form-input" placeholder="ชื่อ MOD">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">M-Exhibition</label>
+              <input id="m-exhibition" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">M-Education</label>
+              <input id="m-education" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">M-Visitor Service</label>
+              <input id="m-visitor" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่">
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">⏰ เวลาเปิดทำการประจำวัน</div>
+          <div style="display:grid;gap:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">1. อังคาร-ศุกร์ เวลา 8.30 - 16.30 น.</label>
+              <label class="form-label">2. เสาร์-อาทิตย์ และหยุดนักขัตฤกษ์ เวลา 9.30 - 16.30 น.</label>
+              <label class="form-label">3. หยุดทุกวันจันทร์</label>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div class="section-title" style="margin:0;">📋 ตารางจองกลุ่ม</div>
+            <button class="btn btn-primary btn-sm" onclick="addBookingRow()">+ เพิ่มแถว</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>กลุ่ม / ชื่อ</th>
+                  <th>จำนวน (คน)</th>
+                  <th>เวลา</th>
+                  <th>ผู้รับผิดชอบ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="booking-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">🎓 กิจกรรมส่งเสริมการเรียนรู้</div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">เช็ค M-Education (ใช้พื้นที่กิจกรรมส่งเสริมการเรียนรู้) เป็นผู้ชี้แจงเกี่ยวกับ Inspire Lab, Innovation Space, Walk Rally ซึ่งจะระบุรายละเอียดกิจกรรม และรอบเวลา</label>
+            <textarea id="m-education-activities" class="form-input" rows="2" placeholder="รายละเอียดกิจกรรม..."></textarea>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">ℹ️ บริการผู้เข้าชม</div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">เช็ค M-Visitor Service ซึ่งขอของจองผู้เข้าชมประจำวัน และของ Sticker และรายการเข้าชม/กิจกรรม</label>
+            <textarea id="visitor-service-info" class="form-input" rows="2" placeholder="รายละเอียดบริการ..."></textarea>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">⭐ กิจกรรมพิเศษ</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">กิจกรรมพิเศษ 1</label>
+              <input id="special1" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">กิจกรรมพิเศษ 2</label>
+              <input id="special2" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">กิจกรรมพิเศษ 3</label>
+              <input id="special3" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">กิจกรรมพิเศษ 4</label>
+              <input id="special4" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
+            </div>
+          </div>
+        </div>
+
+        <!-- Collapsible info -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-header" onclick="toggleSec(this)">
+            <div style="font-size:14px;font-weight:600;">ℹ️ ข้อมูล / ข้อปฏิบัติ</div>
+            <span class="chevron">▼</span>
+          </div>
+          <div class="section-body" style="max-height:300px;margin-top:12px;">
+            <div class="info-box">
+              <ul>
+                <li>เวลาทำการ: 08:30 - 16:30 น. (วันอังคาร - ศุกร์)</li>
+                <li>เวลาทำการ: 09:30 - 17:30 น. (วันเสาร์ - วันอาทิตย์และวันหยุดนักขัตฤกษ์)</li>
+                <li>MOD ต้องรายงาน Briefing เช้าทุกวัน</li>
+                <li>บันทึกข้อมูลผู้เข้าชมให้ครบถ้วนในแต่ละวัน</li>
+                <li>กรณีเกิดเหตุฉุกเฉิน ติดต่อหัวหน้าทันที</li>
+                <li>ตรวจสอบอุปกรณ์ประจำโซนก่อนเปิดให้บริการ</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">📋 ระเบียบข้อควรปฏิบัติ</div>
+          <div style="display:grid;gap:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">1. ดูแลเรื่องการแต่งกายให้เรียบร้อยเหมาะสม และกิริยามารยาท</label>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">2. เน้นหมายของการบริการ คือ ความปลอดภัยของผู้เข้าชม ความปลอดภัยของทีมงาน และความพึงพอใจของผู้เข้าชม</label>
+            </div>
+          </div>
+        </div>
+        <div class="section-title"><span class="section-badge">VS</span> Visitor Service</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter1-name" type="text" class="form-input"></div>
+              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="vs-counter1-issue" type="text" class="form-input"></div>
+              <div><label class="form-label">หมายเหตุ</label><input id="vs-counter1-note" type="text" class="form-input"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exhibition Zones - Staff Assignment -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">EX</span> Exhibition Zones - เจ้าหน้าที่ประจำโซน</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>โซน</th><th>ชื่อเจ้าหน้าที่</th></tr></thead>
+              <tbody>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">นิทรรศการชั่วคราว</td><td><input id="ex-temp-name" type="text" class="form-input"></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- TAB 2: EVENING -->
+      <div id="day-tab-1" class="tab-content">
+        <div class="card" style="margin-bottom:16px;">
+
+<!-- Exhibition Zones - Issues Found -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">⚠️</span> ปัญหา / ข้อเสนอประจำโซน</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>โซน</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+              <tbody>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1</td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2</td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3</td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4</td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">นิทรรศการชั่วคราว</td><td><input id="ex-temp-issue" type="text" class="form-input"></td><td><input id="ex-temp-note" type="text" class="form-input"></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">OP</span> ผู้ดำเนินกิจกรรม</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+          <tr>
+            <th>กิจกรรม</th>
+            <th>ชื่อกิจกรรม</th>
+            <th>ผู้ดำเนินการ</th>
+            <th colspan="2" style="text-align:center;">ชาวไทย</th>
+            <th colspan="2" style="text-align:center;">ชาวต่างชาติ</th>
+          </tr>
+          <tr>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th style="font-size:12px;text-align:center;">เด็ก</th>
+            <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
+            <th style="font-size:12px;text-align:center;">เด็ก</th>
+            <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
+          </tr>
+              </thead>
+              <tbody id="activity-tbody">
+          <tr>
+            <td>
+              <select class="form-input" style="width:180px;" onchange="handleActivitySelect(this)">
+                <option value="">เลือกกิจกรรม...</option>
+                <option value="inspire">Inspire Lab</option>
+                <option value="innovation">Innovation Space</option>
+                <option value="walk">Walk Rally</option>
+                <option value="mini">Mini Make and Play</option>
+                <option value="other">อื่นๆ</option>
+              </select>
+            </td>
+            <td><input type="text" class="form-input" placeholder="ชื่อกิจกรรม"></td>
+            <td><input type="text" class="form-input" placeholder="ชื่อผู้ดำเนินการ"></td>
+            <td><input type="number" class="num-input" min="0" value="0"></td>
+            <td><input type="number" class="num-input" min="0" value="0"></td>
+            <td><input type="number" class="num-input" min="0" value="0"></td>
+            <td><input type="number" class="num-input" min="0" value="0"></td>
+              </tr>
+                </tbody>
+              </table>
+              <button class="btn btn-primary btn-sm" onclick="addActivityRow()" style="margin-top:12px;">+ เพิ่มแถว</button>
+              </div>
+        </div>
+
+        <!-- Section A Walk-in -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">A</span> ผู้เข้าชมทั่วไป (Walk-in)</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>ประเภท</th><th>เด็ก</th><th>ผู้ใหญ่</th><th>รวม</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>ผู้เข้าชมไทย</td>
+                  <td><input type="number" id="vis-a-thai-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-a-thai-adult" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td class="computed" id="vis-a-thai-total">0</td>
+                </tr>
+                <tr>
+                  <td>ผู้เข้าชมต่างชาติ</td>
+                  <td><input type="number" id="vis-a-for-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-a-for-adult" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td class="computed" id="vis-a-for-total">0</td>
+                </tr>
+                <tr>
+                  <td>สมาชิก</td>
+                  <td><input type="number" id="vis-a-mem-child" class="num-input" min="0" value="0" oninput="calcVis()" title="เด็ก"><br><small style="color:var(--text-muted);font-size:11px;">เด็ก</small></td>
+                  <td>
+                    <input type="number" id="vis-a-mem-adult" class="num-input" min="0" value="0" oninput="calcVis()" title="ผู้ใหญ่"><br><small style="color:var(--text-muted);font-size:11px;">ผู้ใหญ่</small>
+                    <input type="number" id="vis-a-mem-fc" class="num-input" min="0" value="0" oninput="calcVis()" title="FC" style="margin-top:4px;"><br><small style="color:var(--text-muted);font-size:11px;">FC</small>
+                    <input type="number" id="vis-a-mem-fa" class="num-input" min="0" value="0" oninput="calcVis()" title="FA" style="margin-top:4px;"><br><small style="color:var(--text-muted);font-size:11px;">FA</small>
+                  </td>
+                  <td class="computed" id="vis-a-mem-total">0</td>
+                </tr>
+                <tr class="total-row">
+                  <td colspan="3"><strong>รวม Walk-in</strong></td>
+                  <td class="computed" id="vis-a-total">0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section B Group -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">B</span> ผู้เข้าชมกลุ่ม (Group)</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>ประเภท</th><th>เด็ก</th><th>ผู้ใหญ่</th><th>รวม</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>ผู้เข้าชมไทย</td>
+                  <td><input type="number" id="vis-b-thai-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-b-thai-adult" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td class="computed" id="vis-b-thai-total">0</td>
+                </tr>
+                <tr>
+                  <td>ผู้เข้าชมต่างชาติ</td>
+                  <td><input type="number" id="vis-b-for-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-b-for-adult" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td class="computed" id="vis-b-for-total">0</td>
+                </tr>
+                <tr>
+                  <td>สมาชิก (IC/IA)</td>
+                  <td><input type="number" id="vis-b-ic" class="num-input" min="0" value="0" oninput="calcVis()" title="IC"><br><small style="color:var(--text-muted);font-size:11px;">IC</small></td>
+                  <td><input type="number" id="vis-b-ia" class="num-input" min="0" value="0" oninput="calcVis()" title="IA"><br><small style="color:var(--text-muted);font-size:11px;">IA</small></td>
+                  <td class="computed" id="vis-b-mem-total">0</td>
+                </tr>
+                <tr class="total-row">
+                  <td colspan="3"><strong>รวม Group</strong></td>
+                  <td class="computed" id="vis-b-total">0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section C Senior -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">C</span> ผู้สูงอายุ</div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <label class="form-label" style="margin:0;white-space:nowrap;">ผู้สูงอายุ จำนวน:</label>
+            <input type="number" id="vis-c-senior" class="num-input" min="0" value="0" oninput="calcVis()" style="width:100px;">
+            <span style="font-size:13px;color:var(--text-muted);">คน</span>
+          </div>
+        </div>
+
+        <!-- Section D Educational Activities -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">
+            <span class="section-badge">D</span> กิจกรรมการศึกษา
+          </div>
+          <div class="grid-table">
+            <!-- HEADER -->
+            <div class="g-row g-head-1">
+              <div class="cell">กิจกรรม</div>
+              <div class="cell" style="grid-column: span 2;">ไทย</div>
+              <div class="cell" style="grid-column: span 2;">ต่างชาติ</div>
+              <div class="cell">รวม</div>
+            </div>
+            <div class="g-row g-head-2">
+              <div class="cell"></div>
+              <div class="cell">เด็ก</div>
+              <div class="cell">ผู้ใหญ่</div>
+              <div class="cell">เด็ก</div>
+              <div class="cell">ผู้ใหญ่</div>
+              <div class="cell"></div>
+            </div>
+            <!-- Inspire -->
+            <div class="g-row">
+              <div class="cell label">Inspire Lab</div>
+              <div class="cell"><input type="number" id="vis-d-ins-tc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-ins-ta" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-ins-fc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-ins-fa" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell computed" id="vis-d-ins-total">0</div>
+            </div>
+            <!-- Innovation -->
+            <div class="g-row">
+              <div class="cell label">Innovation Space</div>
+              <div class="cell"><input type="number" id="vis-d-inv-tc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-inv-ta" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-inv-fc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-inv-fa" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell computed" id="vis-d-inv-total">0</div>
+            </div>
+            <!-- Walk -->
+            <div class="g-row">
+              <div class="cell label">Walk Rallies</div>
+              <div class="cell"><input type="number" id="vis-d-wr-tc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-wr-ta" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-wr-fc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-wr-fa" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell computed" id="vis-d-wr-total">0</div>
+            </div>
+            <!-- Mini Make -->
+            <div class="g-row">
+              <div class="cell label">Mini Make &amp; Play</div>
+              <div class="cell"><input type="number" id="vis-d-mm-child" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell muted">-</div>
+              <div class="cell muted">-</div>
+              <div class="cell muted">-</div>
+              <div class="cell computed" id="vis-d-mm-total">0</div>
+            </div>
+            <!-- Special -->
+            <div class="g-row">
+              <div class="cell label">Special Event</div>
+              <div class="cell"><input type="number" id="vis-d-sp-tc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-sp-ta" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-sp-fc" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell"><input type="number" id="vis-d-sp-fa" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell computed" id="vis-d-sp-total">0</div>
+            </div>
+            <!-- Other -->
+            <div class="g-row">
+              <div class="cell label">กิจกรรมอื่น</div>
+              <div class="cell"><input type="text" id="vis-d-oth-name" class="form-input" placeholder="ชื่อกิจกรรม"></div>
+              <div class="cell"><input type="number" id="vis-d-oth-count" class="num-input" value="0" oninput="calcVis()"></div>
+              <div class="cell muted">-</div>
+              <div class="cell muted">-</div>
+              <div class="cell computed" id="vis-d-oth-total">0</div>
+            </div>
+            <!-- TOTAL -->
+            <div class="g-row total">
+              <div class="cell" style="grid-column: span 5;"><strong>รวมกิจกรรมการศึกษา</strong></div>
+              <div class="cell computed" id="vis-d-total">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grand Total -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">🏆 ยอดรวมทั้งหมด</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
+            <div class="card" style="background:var(--surface2);text-align:center;">
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รวมนิทรรศการ (Walk-in)</div>
+              <div style="font-size:24px;font-weight:700;color:var(--success);" id="grand-walkin">0</div>
+            </div>
+            <div class="card" style="background:var(--surface2);text-align:center;">
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รวมกลุ่ม (Group)</div>
+              <div style="font-size:24px;font-weight:700;color:var(--info);" id="grand-group">0</div>
+            </div>
+            <div class="card" style="background:var(--surface2);text-align:center;">
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รวมกิจกรรมการศึกษา</div>
+              <div style="font-size:24px;font-weight:700;color:var(--warning);" id="grand-education">0</div>
+            </div>
+          </div>
+          <div class="grand-total-box">
+            <div class="grand-total-label">รวมผู้เข้าชมทั้งหมด</div>
+            <div class="grand-total-number" id="grand-total">0</div>
+            <div class="grand-total-label">คน</div>
+          </div>
+        </div>
+
+        <!-- Revenue -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">💰 รายได้</div>
+          <div class="table-wrap">
+            <table class="data-table" id="rev-table">
+              <thead>
+                <tr>
+                  <th>ประเภท</th>
+                  <th>Exhibition</th>
+                  <th>Inspire Lab</th>
+                  <th>Innovation Space</th>
+                  <th>Walk Rallies</th>
+                  <th>Mini Make &amp; Play</th>
+                  <th>Special Event</th>
+                  <th>สมาชิก / วารสาร</th>
+                  <th>อื่น ๆ</th>
+                  <th>รวมทั้งหมด</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="color:var(--text-muted);white-space:nowrap;">รายได้ (บาท)</td>
+                  <td><input type="number" id="rev-ex" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="rev-ins" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="rev-inv" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="rev-wr" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="rev-mm" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="rev-sp" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="rev-mem" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="rev-oth" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td class="computed" id="rev-row-total">0</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--text-muted);white-space:nowrap;">ออนไลน์ (บาท)</td>
+                  <td><input type="number" id="online-ex" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="online-ins" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="online-inv" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="online-wr" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="online-mm" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="online-sp" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="online-mem" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td><input type="number" id="online-oth" class="num-input" min="0" value="0" oninput="calcRev()"></td>
+                  <td class="computed" id="online-row-total">0</td>
+                </tr>
+                <tr class="total-row">
+                  <td><strong>รวม</strong></td>
+                  <td class="computed" id="col-ex-total">0</td>
+                  <td class="computed" id="col-ins-total">0</td>
+                  <td class="computed" id="col-inv-total">0</td>
+                  <td class="computed" id="col-wr-total">0</td>
+                  <td class="computed" id="col-mm-total">0</td>
+                  <td class="computed" id="col-sp-total">0</td>
+                  <td class="computed" id="col-mem-total">0</td>
+                  <td class="computed" id="col-oth-total">0</td>
+                  <td class="computed" id="rev-grand-total" style="font-size:16px;">0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="card" style="margin-bottom:16px;">
+          <label class="form-label">📌 หมายเหตุประจำวัน</label>
+          <textarea id="daily-notes" class="form-input" rows="3" placeholder="บันทึกเหตุการณ์พิเศษ ปัญหา หรือข้อมูลเพิ่มเติม..."></textarea>
+        </div>
+
+        <!-- Summary Preview -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">📋 สรุปข้อมูลวันนี้</div>
+          <div class="preview-box">
+            <div class="preview-row"><span class="preview-label">วันที่</span><span class="preview-value" id="prev-date">-</span></div>
+            <div class="preview-row"><span class="preview-label">MOD</span><span class="preview-value" id="prev-mod">-</span></div>
+            <div class="preview-row"><span class="preview-label">ผู้เข้าชมทั้งหมด</span><span class="preview-value" id="prev-visitors">0 คน</span></div>
+            <div class="preview-row"><span class="preview-label">รายได้รวม</span><span class="preview-value" id="prev-revenue">0 บาท</span></div>
+          </div>
+        </div>
+
+        <!-- MOD Signature -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
+            <div>
+              <label class="form-label">ลายเซ็น MOD</label>
+              <input id="mod-sign" type="text" class="form-input" placeholder="ชื่อ - นามสกุล">
+            </div>
+            <div>
+              <label class="form-label">วันที่</label>
+              <input id="sign-date" type="date" class="form-input">
+            </div>
+          </div>
+        </div>
+ 
+        
+        </div>
+      </div>
+    
+         
+        <!-- Save / Clear buttons -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="submitAll()">💾 บันทึก</button>
+          <button class="btn btn-danger" onclick="clearAllFields()">🗑 ล้างข้อมูล</button>
+        </div>
+      </div><!-- /tab evening -->
+
+    </div><!-- /page-daily-log -->
+
+    <!-- ===== HISTORY PAGE ===== -->
+    <div id="page-history" class="page-content" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <div style="font-size:20px;font-weight:700;">📋 ประวัติการบันทึก</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <label class="form-label" style="margin:0;">กรองเดือน:</label>
+          <select id="history-filter-month" class="form-input" style="width:180px;" onchange="renderHistory(this.value)">
+            <option value="">ทั้งหมด</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📥 Export CSV</button>
+        </div>
+      </div>
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+        <div class="card" style="text-align:center;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">ทั้งหมด</div>
+          <div style="font-size:22px;font-weight:700;" id="history-stat-total">0</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">ผู้เข้าชม</div>
+          <div style="font-size:22px;font-weight:700;color:var(--success);" id="history-stat-visitors">0</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">รายได้ (บาท)</div>
+          <div style="font-size:22px;font-weight:700;color:var(--warning);" id="history-stat-revenue">0</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">เดือน</div>
+          <div style="font-size:22px;font-weight:700;color:var(--info);" id="history-stat-months">0</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>วันที่</th>
+                <th>MOD</th>
+                <th>Walk-in</th>
+                <th>กลุ่ม</th>
+                <th>การศึกษา</th>
+                <th>รวม</th>
+                <th>รายได้ (บาท)</th>
+                <th>การดำเนินการ</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px;">ยังไม่มีข้อมูล</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:10px;">
+          <div style="font-size:13px;color:var(--text-muted);" id="history-info">แสดง 0 รายการ</div>
+          <div class="pagination" id="history-pagination"></div>
+        </div>
+      </div>
+    </div><!-- /page-history -->
+
+    <!-- ===== SUMMARY PAGE ===== -->
+    <div id="page-summary" class="page-content" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <div style="font-size:20px;font-weight:700;">📈 สรุปภาพรวม</div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost btn-sm" onclick="renderSummary()">🔄 รีเฟรช</button>
+          <button class="btn btn-primary btn-sm" onclick="exportPDF()">📄 Export PDF</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(0,85,255,0.15);">📁</div>
+          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">บันทึกทั้งหมด</div><div style="font-size:24px;font-weight:700;" id="sum-stat-records">0</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(0,184,148,0.15);">👥</div>
+          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">ผู้เข้าชมทั้งหมด</div><div style="font-size:24px;font-weight:700;" id="sum-stat-visitors">0</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(253,203,110,0.15);">💰</div>
+          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รายได้รวม (บาท)</div><div style="font-size:24px;font-weight:700;" id="sum-stat-revenue">0</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(116,185,255,0.15);">📊</div>
+          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">เฉลี่ย/วัน</div><div style="font-size:24px;font-weight:700;" id="sum-stat-avg">0</div></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">แนวโน้มผู้เข้าชมรายเดือน</div>
+          <canvas id="summary-chart" height="220"></canvas>
+        </div>
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">Top MOD Performance</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>#</th><th>MOD</th><th>วัน</th><th>ผู้เข้าชม</th></tr></thead>
+              <tbody id="sum-mod-tbody">
+                <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:15px;font-weight:600;margin-bottom:16px;">สรุปรายเดือน</div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>เดือน</th><th>วันที่มีข้อมูล</th><th>ผู้เข้าชม</th><th>รายได้ (บาท)</th><th>เฉลี่ย/วัน</th></tr></thead>
+            <tbody id="sum-month-tbody">
+              <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /page-summary -->
+
+    <!-- ===== EXPORT PAGE ===== -->
+    <div id="page-export" class="page-content" style="display:none">
+      <div style="font-size:20px;font-weight:700;margin-bottom:20px;">📤 ส่งออกข้อมูล</div>
+      <div class="export-card">
+        <div class="export-card-title">📥 Export CSV</div>
+        <div class="export-card-desc">ส่งออกข้อมูลในรูปแบบ CSV สำหรับ Excel หรือ Google Sheets</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="input-group"><span class="input-label">จาก:</span><input type="date" id="csv-start" class="form-input" style="width:160px;"></div>
+          <div class="input-group"><span class="input-label">ถึง:</span><input type="date" id="csv-end" class="form-input" style="width:160px;"></div>
+          <button class="btn btn-primary" onclick="exportCSV(document.getElementById('csv-start').value, document.getElementById('csv-end').value)">📥 ดาวน์โหลด CSV</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-title">📄 Export PDF</div>
+        <div class="export-card-desc">สร้างรายงาน PDF สำหรับพิมพ์หรือแชร์</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="input-group"><span class="input-label">จาก:</span><input type="date" id="pdf-start" class="form-input" style="width:160px;"></div>
+          <div class="input-group"><span class="input-label">ถึง:</span><input type="date" id="pdf-end" class="form-input" style="width:160px;"></div>
+          <button class="btn btn-danger" onclick="exportPDF(document.getElementById('pdf-start').value, document.getElementById('pdf-end').value)">📄 ดาวน์โหลด PDF</button>
+        </div>
+      </div>
+      <div class="export-card">
+        <div class="export-card-title">📊 ส่งไป Google Sheets</div>
+        <div class="export-card-desc">ส่งข้อมูลทั้งหมดไปยัง Google Sheets ผ่าน Apps Script URL</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-success" onclick="submitAll()">📊 ส่งข้อมูลทั้งหมด</button>
+          <button class="btn btn-ghost" onclick="openModal('settings-modal')">⚙️ ตั้งค่า URL</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px;">Preview ข้อมูล</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;" id="export-preview-info">พบข้อมูลทั้งหมด <strong id="export-count" style="color:var(--text);">0</strong> รายการ</div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>วันที่</th><th>MOD</th><th>ผู้เข้าชม</th><th>รายได้ (บาท)</th></tr></thead>
+            <tbody id="export-preview-tbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /page-export -->
+
+  </div><!-- /main-content -->
+</div><!-- /app -->
+
+<!-- ============================================================ MODALS ============================================================ -->
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal-overlay" onclick="closeBD(event,'settings-modal')">
+  <div class="modal modal-md">
+    <button class="modal-close" onclick="closeModal('settings-modal')">✕</button>
+    <div class="modal-title">⚙️ ตั้งค่าระบบ</div>
+    <div class="form-group">
+      <label class="form-label">Google Apps Script URL</label>
+      <input id="set-sheets-url" type="url" class="form-input" placeholder="https://script.google.com/macros/s/AKfycbx5zoxbI52HqXcc2M0UwzDlIfAp3wsMe8QNLhaddScZfGVzBVSG0IyY-xfDWK5JlI7kkQ/exec">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Sheet Name</label>
+      <input id="set-sheet-name" type="text" class="form-input" placeholder="Sheet1" value="Sheet1">
+    </div>
+    <hr class="divider">
+    <div class="form-group">
+      <label class="form-label">ชื่อผู้ใช้ Login</label>
+      <input id="set-username" type="text" class="form-input" placeholder="admin">
+    </div>
+    <div class="form-group">
+      <label class="form-label">รหัสผ่าน Login</label>
+      <input id="set-password" type="password" class="form-input" placeholder="••••••">
+    </div>
+    <div style="margin-bottom:16px;">
+      <!-- Collapsible instructions -->
+      <div class="section-header" onclick="toggleSec(this)" style="padding:10px;background:var(--surface2);border-radius:8px;">
+        <span style="font-size:13px;color:var(--text-muted);">📌 วิธีตั้งค่า Google Sheets</span>
+        <span class="chevron" style="font-size:12px;">▼</span>
+      </div>
+      <div class="section-body" style="max-height:300px;">
+        <div class="info-box" style="margin-top:8px;">
+          <ul>
+            <li>เปิด Google Sheets แล้วไปที่ Extensions → Apps Script</li>
+            <li>วางโค้ด Apps Script ที่รับ POST request</li>
+            <li>Deploy เป็น Web App (Anyone can access)</li>
+            <li>คัดลอก URL ที่ได้มาใส่ในช่องด้านบน</li>
+            <li>ข้อมูลจะถูกส่งเป็น JSON array</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal('settings-modal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveSettingsModal()">💾 บันทึกการตั้งค่า</button>
+    </div>
+  </div>
+</div>
+
+<!-- Forgot Password Modal -->
+<div id="forgot-modal" class="modal-overlay" onclick="closeBD(event,'forgot-modal')">
+  <div class="modal modal-sm">
+    <button class="modal-close" onclick="closeModal('forgot-modal')">✕</button>
+    <div class="modal-title">🔑 ลืมรหัสผ่าน</div>
+    <div style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">รหัสผ่านเริ่มต้นคือ <strong style="color:var(--text);">admin</strong> สามารถเปลี่ยนได้ในเมนูตั้งค่า</div>
+    <div class="info-box">
+      <p>หากลืมรหัสผ่านที่กำหนดเอง ให้ติดต่อผู้ดูแลระบบ หรือล้าง localStorage ของเบราว์เซอร์เพื่อรีเซ็ต</p>
+    </div>
+    <div style="margin-top:16px;text-align:right;">
+      <button class="btn btn-primary" onclick="closeModal('forgot-modal')">เข้าใจแล้ว</button>
+    </div>
+  </div>
+</div>
+
+<!-- Request Access Modal -->
+<div id="request-modal" class="modal-overlay" onclick="closeBD(event,'request-modal')">
+  <div class="modal modal-sm">
+    <button class="modal-close" onclick="closeModal('request-modal')">✕</button>
+    <div class="modal-title">📩 ขอสิทธิ์เข้าใช้งาน</div>
+    <div style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">กรุณาติดต่อผู้ดูแลระบบเพื่อขอบัญชีผู้ใช้</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อ - นามสกุล</label>
+      <input type="text" class="form-input" placeholder="ชื่อของคุณ">
+    </div>
+    <div class="form-group">
+      <label class="form-label">อีเมล</label>
+      <input type="email" class="form-input" placeholder="email@nsm.or.th">
+    </div>
+    <div class="form-group">
+      <label class="form-label">ตำแหน่ง / หน่วยงาน</label>
+      <input type="text" class="form-input" placeholder="เช่น MOD, Education">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal('request-modal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="showToast('ส่งคำขอเรียบร้อยแล้ว','success');closeModal('request-modal')">📩 ส่งคำขอ</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Record Modal -->
+<div id="view-modal" class="modal-overlay" onclick="closeBD(event,'view-modal')">
+  <div class="modal modal-lg">
+    <button class="modal-close" onclick="closeModal('view-modal')">✕</button>
+    <div class="modal-title">📋 รายละเอียดบันทึก</div>
+    <div id="view-modal-content" style="font-size:14px;"></div>
+    <div style="margin-top:20px;text-align:right;">
+      <button class="btn btn-ghost" onclick="closeModal('view-modal')">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div id="delete-modal" class="modal-overlay" onclick="closeBD(event,'delete-modal')">
+  <div class="modal modal-sm">
+    <button class="modal-close" onclick="closeModal('delete-modal')">✕</button>
+    <div class="modal-title">🗑 ยืนยันการลบ</div>
+    <div style="font-size:14px;color:var(--text-muted);margin-bottom:20px;">คุณต้องการลบบันทึกวันที่ <strong id="delete-date-label" style="color:var(--danger);">-</strong> ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal('delete-modal')">ยกเลิก</button>
+      <button class="btn btn-danger" onclick="doDelete()">🗑 ลบ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ TOAST ============================================================ -->
+<div id="toast-container"></div>
+
+<!-- ============================================================ PROGRESS ============================================================ -->
+<div id="progress-overlay">
+  <div class="progress-box">
+    <div class="spinner"></div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px;" id="progress-title">กำลังส่งข้อมูล...</div>
+    <div style="font-size:13px;color:var(--text-muted);" id="progress-sub">กรุณารอสักครู่</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

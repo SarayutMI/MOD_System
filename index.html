@@ -573,50 +573,37 @@
         </div>
 
         <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">OP</span> ผู้ดำเนินกิจกรรม</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div class="section-title" style="margin:0;"><span class="section-badge">OP</span> ผู้ดำเนินกิจกรรม</div>
+            <button class="btn btn-primary btn-sm" onclick="addActivityRow()">+ เพิ่มแถว</button>
+          </div>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
-          <tr>
-            <th>กิจกรรม</th>
-            <th>ชื่อกิจกรรม</th>
-            <th>ผู้ดำเนินการ</th>
-            <th colspan="2" style="text-align:center;">ชาวไทย</th>
-            <th colspan="2" style="text-align:center;">ชาวต่างชาติ</th>
-          </tr>
-          <tr>
-            <th></th>
-            <th></th>
-            <th></th>
-            <th style="font-size:12px;text-align:center;">เด็ก</th>
-            <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
-            <th style="font-size:12px;text-align:center;">เด็ก</th>
-            <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
-          </tr>
+                <tr>
+                  <th style="width:180px;">กิจกรรม</th>
+                  <th>ชื่อกิจกรรม</th>
+                  <th>ผู้ดำเนินกิจกรรม</th>
+                  <th colspan="2" style="text-align:center;">ชาวไทย</th>
+                  <th colspan="2" style="text-align:center;">ชาวต่างชาติ</th>
+                  <th style="width:50px;"></th>
+                </tr>
+                <tr>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                  <th style="font-size:12px;text-align:center;width:80px;">เด็ก</th>
+                  <th style="font-size:12px;text-align:center;width:80px;">ผู้ใหญ่</th>
+                  <th style="font-size:12px;text-align:center;width:80px;">เด็ก</th>
+                  <th style="font-size:12px;text-align:center;width:80px;">ผู้ใหญ่</th>
+                  <th></th>
+                </tr>
               </thead>
               <tbody id="activity-tbody">
-          <tr>
-            <td>
-              <select class="form-input" style="width:180px;" onchange="handleActivitySelect(this)">
-                <option value="">เลือกกิจกรรม...</option>
-                <option value="inspire">Inspire Lab</option>
-                <option value="innovation">Innovation Space</option>
-                <option value="walk">Walk Rally</option>
-                <option value="mini">Mini Make and Play</option>
-                <option value="other">อื่นๆ</option>
-              </select>
-            </td>
-            <td><input type="text" class="form-input" placeholder="ชื่อกิจกรรม"></td>
-            <td><input type="text" class="form-input" placeholder="ชื่อผู้ดำเนินการ"></td>
-            <td><input type="number" class="num-input" min="0" value="0"></td>
-            <td><input type="number" class="num-input" min="0" value="0"></td>
-            <td><input type="number" class="num-input" min="0" value="0"></td>
-            <td><input type="number" class="num-input" min="0" value="0"></td>
-              </tr>
-                </tbody>
-              </table>
-              <button class="btn btn-primary btn-sm" onclick="addActivityRow()" style="margin-top:12px;">+ เพิ่มแถว</button>
-              </div>
+                <!-- Dynamic rows will be added here -->
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Section A Walk-in -->
