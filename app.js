@@ -306,12 +306,13 @@ function calcGroupRows() {
       if (rowTotal) rowTotal.textContent = tc + ta + fc + fa;
     }
   });
-  const total = thaiChild + thaiAdult + forChild + forAdult;
+  const subTotal = thaiChild + thaiAdult + forChild + forAdult;
   setTxt('vis-b-thai-child-total', thaiChild);
   setTxt('vis-b-thai-adult-total', thaiAdult);
   setTxt('vis-b-for-child-total', forChild);
   setTxt('vis-b-for-adult-total', forAdult);
-  setTxt('vis-b-total', total);
+  // vis-b-total will be updated by calcVis() to include IC/IA; set subtotal here as interim
+  setTxt('vis-b-total', subTotal);
   // Sync with existing vis-b inputs if present
   setInputVal('vis-b-thai-child', thaiChild);
   setInputVal('vis-b-thai-adult', thaiAdult);
@@ -498,7 +499,9 @@ function calcVis() {
   setTxt('vis-a-thai-total', aThai);
   const aFor = getVal('vis-a-for-child') + getVal('vis-a-for-adult');
   setTxt('vis-a-for-total', aFor);
-  const aMem = getVal('vis-a-mem-child') + getVal('vis-a-mem-adult') + getVal('vis-a-mem-fc') + getVal('vis-a-mem-fa');
+  const aMemC = getVal('vis-a-mem-child'), aMemFC = getVal('vis-a-mem-fc');
+  const aMemA = getVal('vis-a-mem-adult'), aMemFA = getVal('vis-a-mem-fa');
+  const aMem = aMemC + aMemA + aMemFC + aMemFA;
   setTxt('vis-a-mem-total', aMem);
   const aTotal = aThai + aFor + aMem;
   setTxt('vis-a-total', aTotal);
@@ -512,7 +515,8 @@ function calcVis() {
   setTxt('vis-b-thai-total', bThai);
   const bFor = bForChild + bForAdult;
   setTxt('vis-b-for-total', bFor);
-  const bMem = getVal('vis-b-ic') + getVal('vis-b-ia');
+  const bIC = getVal('vis-b-ic'), bIA = getVal('vis-b-ia');
+  const bMem = bIC + bIA;
   setTxt('vis-b-mem-total', bMem);
   const bTotal = bThai + bFor + bMem;
   setTxt('vis-b-total', bTotal);
@@ -521,27 +525,82 @@ function calcVis() {
   const cSenior = getVal('vis-c-senior');
 
   // Section D - Education
-  const dIns = getVal('vis-d-ins-tc') + getVal('vis-d-ins-ta') + getVal('vis-d-ins-fc') + getVal('vis-d-ins-fa');
+  const dInsTC = getVal('vis-d-ins-tc'), dInsTA = getVal('vis-d-ins-ta');
+  const dInsFC = getVal('vis-d-ins-fc'), dInsFA = getVal('vis-d-ins-fa');
+  const dIns = dInsTC + dInsTA + dInsFC + dInsFA;
   setTxt('vis-d-ins-total', dIns);
-  const dInv = getVal('vis-d-inv-tc') + getVal('vis-d-inv-ta') + getVal('vis-d-inv-fc') + getVal('vis-d-inv-fa');
+
+  const dInvTC = getVal('vis-d-inv-tc'), dInvTA = getVal('vis-d-inv-ta');
+  const dInvFC = getVal('vis-d-inv-fc'), dInvFA = getVal('vis-d-inv-fa');
+  const dInv = dInvTC + dInvTA + dInvFC + dInvFA;
   setTxt('vis-d-inv-total', dInv);
-  const dWr = getVal('vis-d-wr-tc') + getVal('vis-d-wr-ta') + getVal('vis-d-wr-fc') + getVal('vis-d-wr-fa');
+
+  const dWrTC = getVal('vis-d-wr-tc'), dWrTA = getVal('vis-d-wr-ta');
+  const dWrFC = getVal('vis-d-wr-fc'), dWrFA = getVal('vis-d-wr-fa');
+  const dWr = dWrTC + dWrTA + dWrFC + dWrFA;
   setTxt('vis-d-wr-total', dWr);
-  const dMm = getVal('vis-d-mm-child');
-  setTxt('vis-d-mm-total', dMm);
-  const dSp = getVal('vis-d-sp-tc') + getVal('vis-d-sp-ta') + getVal('vis-d-sp-fc') + getVal('vis-d-sp-fa');
+
+  const dMmChild = getVal('vis-d-mm-child');
+  setTxt('vis-d-mm-total', dMmChild);
+
+  const dSpTC = getVal('vis-d-sp-tc'), dSpTA = getVal('vis-d-sp-ta');
+  const dSpFC = getVal('vis-d-sp-fc'), dSpFA = getVal('vis-d-sp-fa');
+  const dSp = dSpTC + dSpTA + dSpFC + dSpFA;
   setTxt('vis-d-sp-total', dSp);
+
   const dOth = getVal('vis-d-oth-count');
   setTxt('vis-d-oth-total', dOth);
-  const dTotal = dIns + dInv + dWr + dMm + dSp + dOth;
+
+  const dTotal = dIns + dInv + dWr + dMmChild + dSp + dOth;
   setTxt('vis-d-total', dTotal);
 
-  // Grand
+  // Grand totals by category
   setTxt('grand-walkin', aTotal);
   setTxt('grand-group', bTotal);
   setTxt('grand-education', dTotal);
   const grandTotal = aTotal + bTotal + cSenior + dTotal;
   setTxt('grand-total', grandTotal);
+
+  // Grand total nationality splits
+  const walkInThai = aThai;
+  const walkInForeign = aFor;
+  setTxt('grand-walkin-thai', walkInThai);
+  setTxt('grand-walkin-foreign', walkInForeign);
+
+  const groupThai = bThai;
+  const groupForeign = bFor;
+  setTxt('grand-group-thai', groupThai);
+  setTxt('grand-group-foreign', groupForeign);
+
+  const eduThai = (dInsTC + dInsTA) + (dInvTC + dInvTA) + (dWrTC + dWrTA) + dMmChild + (dSpTC + dSpTA);
+  const eduForeign = (dInsFC + dInsFA) + (dInvFC + dInvFA) + (dWrFC + dWrFA) + (dSpFC + dSpFA);
+  setTxt('grand-edu-thai', eduThai);
+  setTxt('grand-edu-foreign', eduForeign);
+
+  // Summary by nationality and age
+  // Thai children: Walk-in Thai child + Group Thai child + Mem child + IC + Education Thai child
+  const sumThaiChild = getVal('vis-a-thai-child') + bThaiChild + aMemC + bIC
+    + dInsTC + dInvTC + dWrTC + dMmChild + dSpTC;
+  // Thai adults: Walk-in Thai adult + Group Thai adult + Mem adult + IA + Education Thai adult
+  const sumThaiAdult = getVal('vis-a-thai-adult') + bThaiAdult + aMemA + bIA
+    + dInsTA + dInvTA + dWrTA + dSpTA;
+  // Foreign children: Walk-in For child + Group For child + Mem FC + Education For child
+  const sumForChild = getVal('vis-a-for-child') + bForChild + aMemFC
+    + dInsFC + dInvFC + dWrFC + dSpFC;
+  // Foreign adults: Walk-in For adult + Group For adult + Mem FA + Education For adult
+  const sumForAdult = getVal('vis-a-for-adult') + bForAdult + aMemFA
+    + dInsFA + dInvFA + dWrFA + dSpFA;
+  // All children and adults
+  const sumAllChild = sumThaiChild + sumForChild;
+  const sumAllAdult = sumThaiAdult + sumForAdult + cSenior + dOth;
+
+  setTxt('sum-thai-child', sumThaiChild);
+  setTxt('sum-thai-adult', sumThaiAdult);
+  setTxt('sum-for-child', sumForChild);
+  setTxt('sum-for-adult', sumForAdult);
+  setTxt('sum-all-child', sumAllChild);
+  setTxt('sum-all-adult', sumAllAdult);
+
   updateSummaryPreview();
 }
 
@@ -575,7 +634,6 @@ function updateSummaryPreview() {
   const revText = revEl ? revEl.textContent.replace(/,/g,'') : '0';
   setTxt('prev-revenue', fmtNum(parseFloat(revText) || 0) + ' บาท');
 }
-
 // ============ DATA STORAGE ============
 function getFormData() {
   const date = getCurrentDate();
@@ -1332,6 +1390,22 @@ async function exportDailyBriefingPDF(date) {
   const grandTotal = r.totalVisitors || (aTotal+bTotal+cSenior+dTotal);
   const totalRevenue = r.totalRevenue || 0;
 
+  // ---- Nationality splits ----
+  const walkInThai = aThaiC + aThaiA;
+  const walkInForeign = aForC + aForA;
+  const groupThai = bThaiC + bThaiA;
+  const groupForeign = bForC + bForA;
+  const eduThai = (vdi.tc||0)+(vdi.ta||0) + (vdn.tc||0)+(vdn.ta||0) + (vdw.tc||0)+(vdw.ta||0) + dMmTotal + (vds.tc||0)+(vds.ta||0);
+  const eduForeign = (vdi.fc||0)+(vdi.fa||0) + (vdn.fc||0)+(vdn.fa||0) + (vdw.fc||0)+(vdw.fa||0) + (vds.fc||0)+(vds.fa||0);
+
+  // ---- Summary by nationality and age ----
+  const sumThaiChild = aThaiC + bThaiC + aMemC + bIC + (vdi.tc||0) + (vdn.tc||0) + (vdw.tc||0) + dMmTotal + (vds.tc||0);
+  const sumThaiAdult = aThaiA + bThaiA + aMemA + bIA + (vdi.ta||0) + (vdn.ta||0) + (vdw.ta||0) + (vds.ta||0);
+  const sumForChild  = aForC + bForC + aMemFC + (vdi.fc||0) + (vdn.fc||0) + (vdw.fc||0) + (vds.fc||0);
+  const sumForAdult  = aForA + bForA + aMemFA + (vdi.fa||0) + (vdn.fa||0) + (vdw.fa||0) + (vds.fa||0);
+  const sumAllChild  = sumThaiChild + sumForChild;
+  const sumAllAdult  = sumThaiAdult + sumForAdult + cSenior + dOthTotal;
+
   // ---- HTML-escape shorthand (all user data must be escaped before inserting into HTML) ----
   const e = s => escHtml(String(s || ''));
 
@@ -1381,7 +1455,7 @@ async function exportDailyBriefingPDF(date) {
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'TH Sarabun New', 'Sarabun', 'TH Sarabun PSK', sans-serif; font-size: 12pt; color: #1a1a1a; background: white; }
+  body { font-family: 'TH Sarabun PSK', 'TH Sarabun New', 'Sarabun', sans-serif; font-size: 12pt; color: #1a1a1a; background: white; }
   .page { width: 210mm; min-height: 297mm; padding: 12mm 14mm; page-break-after: always; position: relative; }
   .page:last-child { page-break-after: avoid; }
   /* Header */
@@ -1543,7 +1617,12 @@ async function exportDailyBriefingPDF(date) {
     <tbody>
       <tr><td>ผู้เข้าชมไทย</td><td class="num">${aThaiC}</td><td class="num">${aThaiA}</td><td class="num">${aThaiC+aThaiA}</td></tr>
       <tr><td>ผู้เข้าชมต่างชาติ</td><td class="num">${aForC}</td><td class="num">${aForA}</td><td class="num">${aForC+aForA}</td></tr>
-      <tr><td>สมาชิก (เด็ก/ผู้ใหญ่/FC/FA)</td><td class="num">${aMemC}</td><td class="num">${aMemA+aMemFC+aMemFA}</td><td class="num">${aMemC+aMemA+aMemFC+aMemFA}</td></tr>
+      <tr>
+        <td>สมาชิก (เด็ก/FC)<br><span style="font-size:9pt;color:#555;">ผู้ใหญ่/FA</span></td>
+        <td class="num">${aMemC}${aMemFC > 0 ? ` / FC:${aMemFC}` : ''}</td>
+        <td class="num">${aMemA}${aMemFA > 0 ? ` / FA:${aMemFA}` : ''}</td>
+        <td class="num">${aMemC+aMemA+aMemFC+aMemFA}</td>
+      </tr>
       <tr class="total-row"><td colspan="3"><strong>รวม Walk-in</strong></td><td class="num"><strong>${aTotal}</strong></td></tr>
     </tbody>
   </table>
@@ -1560,8 +1639,10 @@ async function exportDailyBriefingPDF(date) {
         <td colspan="2"><strong>รวม Group</strong></td>
         <td class="num">${bThaiC}</td><td class="num">${bThaiA}</td>
         <td class="num">${bForC}</td><td class="num">${bForA}</td>
-        <td class="num"><strong>${bTotal}</strong></td>
+        <td class="num"><strong>${bThaiC+bThaiA+bForC+bForA}</strong></td>
       </tr>
+      ${(bIC+bIA) > 0 ? `<tr><td colspan="6">สมาชิก IC: ${bIC} / IA: ${bIA}</td><td class="num"><strong>${bIC+bIA}</strong></td></tr>` : ''}
+      ${(bIC+bIA) > 0 ? `<tr class="total-row"><td colspan="6"><strong>รวม Group ทั้งหมด (รวมสมาชิก)</strong></td><td class="num"><strong>${bTotal}</strong></td></tr>` : ''}
     </tfoot>
   </table>
 
@@ -1603,6 +1684,68 @@ async function exportDailyBriefingPDF(date) {
       <tbody><tr><td>จำนวน</td><td class="num">${aTotal}</td><td class="num">${bTotal}</td><td class="num">${cSenior}</td><td class="num">${dTotal}</td><td class="num"><strong>${grandTotal.toLocaleString()}</strong></td></tr></tbody>
     </table>
   </div>
+
+  <!-- Nationality Splits -->
+  <div style="font-weight:600;color:#003087;margin:8px 0 4px;font-size:11pt;">แยกตามสัญชาติ</div>
+  <table>
+    <thead>
+      <tr>
+        <th>ประเภท</th>
+        <th class="num">รวม</th>
+        <th class="num">ไทย</th>
+        <th class="num">ต่างชาติ</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>รวมนิทรรศการ (Walk-in)</td>
+        <td class="num">${aTotal}</td>
+        <td class="num">${walkInThai}</td>
+        <td class="num">${walkInForeign}</td>
+      </tr>
+      <tr>
+        <td>รวมกลุ่ม (Group)</td>
+        <td class="num">${bTotal}</td>
+        <td class="num">${groupThai}</td>
+        <td class="num">${groupForeign}</td>
+      </tr>
+      <tr>
+        <td>รวมกิจกรรมการศึกษา</td>
+        <td class="num">${dTotal}</td>
+        <td class="num">${eduThai}</td>
+        <td class="num">${eduForeign}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Summary by Nationality and Age -->
+  <div style="font-weight:600;color:#003087;margin:8px 0 4px;font-size:11pt;">สรุปตามสัญชาติและวัย</div>
+  <table>
+    <thead>
+      <tr>
+        <th>หมวด</th>
+        <th class="num">เด็กไทย</th>
+        <th class="num">ผู้ใหญ่ไทย</th>
+        <th class="num">เด็กต่างชาติ</th>
+        <th class="num">ผู้ใหญ่ต่างชาติ</th>
+        <th class="num">เด็กทั้งหมด</th>
+        <th class="num">ผู้ใหญ่ทั้งหมด</th>
+        <th class="num">รวม</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="total-row">
+        <td><strong>รวมทั้งหมด</strong></td>
+        <td class="num">${sumThaiChild}</td>
+        <td class="num">${sumThaiAdult}</td>
+        <td class="num">${sumForChild}</td>
+        <td class="num">${sumForAdult}</td>
+        <td class="num"><strong>${sumAllChild}</strong></td>
+        <td class="num"><strong>${sumAllAdult}</strong></td>
+        <td class="num"><strong>${grandTotal.toLocaleString()}</strong></td>
+      </tr>
+    </tbody>
+  </table>
 
   <!-- Revenue -->
   <div class="section-header" style="margin-top:8px;">รายได้ประจำวัน</div>

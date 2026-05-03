@@ -624,7 +624,14 @@
           <div class="section-title"><span class="section-badge">A</span> ผู้เข้าชมทั่วไป (Walk-in)</div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>ประเภท</th><th>เด็ก</th><th>ผู้ใหญ่</th><th>รวม</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>ประเภท</th>
+                  <th>เด็ก</th>
+                  <th>ผู้ใหญ่</th>
+                  <th>รวม</th>
+                </tr>
+              </thead>
               <tbody>
                 <tr>
                   <td>ผู้เข้าชมไทย</td>
@@ -637,6 +644,25 @@
                   <td><input type="number" id="vis-a-for-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
                   <td><input type="number" id="vis-a-for-adult" class="num-input" min="0" value="0" oninput="calcVis()"></td>
                   <td class="computed" id="vis-a-for-total">0</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div>สมาชิก</div>
+                    <div style="font-size:11px;color:var(--text-muted);">(เด็ก / ผู้ใหญ่ / FC / FA)</div>
+                  </td>
+                  <td>
+                    <div style="display:flex;flex-direction:column;gap:3px;">
+                      <input type="number" id="vis-a-mem-child" class="num-input" min="0" value="0" oninput="calcVis()" placeholder="เด็ก">
+                      <input type="number" id="vis-a-mem-fc" class="num-input" min="0" value="0" oninput="calcVis()" placeholder="FC">
+                    </div>
+                  </td>
+                  <td>
+                    <div style="display:flex;flex-direction:column;gap:3px;">
+                      <input type="number" id="vis-a-mem-adult" class="num-input" min="0" value="0" oninput="calcVis()" placeholder="ผู้ใหญ่">
+                      <input type="number" id="vis-a-mem-fa" class="num-input" min="0" value="0" oninput="calcVis()" placeholder="FA">
+                    </div>
+                  </td>
+                  <td class="computed" id="vis-a-mem-total">0</td>
                 </tr>
                 <tr class="total-row">
                   <td colspan="3"><strong>รวม Walk-in</strong></td>
@@ -689,6 +715,20 @@
               </tfoot>
             </table>
           </div>
+          <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:12px;">IC (สมาชิกเด็ก)</label>
+              <input type="number" id="vis-b-ic" class="num-input" min="0" value="0" oninput="calcGroupRows()" style="width:90px;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:12px;">IA (สมาชิกผู้ใหญ่)</label>
+              <input type="number" id="vis-b-ia" class="num-input" min="0" value="0" oninput="calcGroupRows()" style="width:90px;">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding-bottom:4px;">
+              <span style="font-size:13px;color:var(--text-muted);">รวมสมาชิกกลุ่ม:</span>
+              <span class="computed" id="vis-b-mem-total" style="font-size:16px;font-weight:700;">0</span>
+            </div>
+          </div>
         </div>
 
         <!-- Section C Senior -->
@@ -703,35 +743,147 @@
 
         <!-- Section D Educational Activities -->
         <div class="card" style="margin-bottom:16px;">
-            <!-- TOTAL -->
-            <div class="g-row total">
-              <div class="cell" style="grid-column: span 5;"><strong>รวมกิจกรรมการศึกษา</strong></div>
-              <div class="cell computed" id="vis-d-total">0</div>
-            </div>
+          <div class="section-title"><span class="section-badge">D</span> กิจกรรมการศึกษา</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th rowspan="2">กิจกรรม</th>
+                  <th colspan="2" style="text-align:center;">ชาวไทย</th>
+                  <th colspan="2" style="text-align:center;">ชาวต่างชาติ</th>
+                  <th rowspan="2">รวม</th>
+                </tr>
+                <tr>
+                  <th style="font-size:12px;text-align:center;">เด็ก</th>
+                  <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
+                  <th style="font-size:12px;text-align:center;">เด็ก</th>
+                  <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Inspire Lab</td>
+                  <td><input type="number" id="vis-d-ins-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-ins-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-ins-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-ins-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td class="computed" id="vis-d-ins-total">0</td>
+                </tr>
+                <tr>
+                  <td>Innovation Space</td>
+                  <td><input type="number" id="vis-d-inv-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-inv-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-inv-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-inv-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td class="computed" id="vis-d-inv-total">0</td>
+                </tr>
+                <tr>
+                  <td>Walk Rallies</td>
+                  <td><input type="number" id="vis-d-wr-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-wr-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-wr-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-wr-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td class="computed" id="vis-d-wr-total">0</td>
+                </tr>
+                <tr>
+                  <td>Mini Make &amp; Play</td>
+                  <td><input type="number" id="vis-d-mm-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td colspan="3" style="color:var(--text-muted);font-size:12px;text-align:center;">เด็กเท่านั้น</td>
+                  <td class="computed" id="vis-d-mm-total">0</td>
+                </tr>
+                <tr>
+                  <td>Special Event</td>
+                  <td><input type="number" id="vis-d-sp-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-sp-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-sp-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-sp-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td class="computed" id="vis-d-sp-total">0</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div>อื่น ๆ</div>
+                    <input type="text" id="vis-d-oth-name" class="form-input" style="margin-top:4px;font-size:12px;" placeholder="ระบุชื่อกิจกรรม">
+                  </td>
+                  <td colspan="4">
+                    <input type="number" id="vis-d-oth-count" class="num-input" min="0" value="0" oninput="calcVis()" style="width:100px;">
+                  </td>
+                  <td class="computed" id="vis-d-oth-total">0</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="total-row">
+                  <td colspan="5"><strong>รวมกิจกรรมการศึกษา</strong></td>
+                  <td class="computed" id="vis-d-total">0</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
 
         <!-- Grand Total -->
         <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">🏆 ยอดรวมทั้งหมด</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
+          <div class="section-title">ยอดรวมทั้งหมด</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
             <div class="card" style="background:var(--surface2);text-align:center;">
               <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รวมนิทรรศการ (Walk-in)</div>
               <div style="font-size:24px;font-weight:700;color:var(--success);" id="grand-walkin">0</div>
+              <div style="display:flex;justify-content:space-evenly;margin-top:6px;font-size:12px;">
+                <span style="color:var(--text-muted);">ไทย: <strong id="grand-walkin-thai">0</strong></span>
+                <span style="color:var(--text-muted);">ต่างชาติ: <strong id="grand-walkin-foreign">0</strong></span>
+              </div>
             </div>
             <div class="card" style="background:var(--surface2);text-align:center;">
               <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รวมกลุ่ม (Group)</div>
               <div style="font-size:24px;font-weight:700;color:var(--info);" id="grand-group">0</div>
+              <div style="display:flex;justify-content:space-evenly;margin-top:6px;font-size:12px;">
+                <span style="color:var(--text-muted);">ไทย: <strong id="grand-group-thai">0</strong></span>
+                <span style="color:var(--text-muted);">ต่างชาติ: <strong id="grand-group-foreign">0</strong></span>
+              </div>
             </div>
             <div class="card" style="background:var(--surface2);text-align:center;">
               <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รวมกิจกรรมการศึกษา</div>
               <div style="font-size:24px;font-weight:700;color:var(--warning);" id="grand-education">0</div>
+              <div style="display:flex;justify-content:space-evenly;margin-top:6px;font-size:12px;">
+                <span style="color:var(--text-muted);">ไทย: <strong id="grand-edu-thai">0</strong></span>
+                <span style="color:var(--text-muted);">ต่างชาติ: <strong id="grand-edu-foreign">0</strong></span>
+              </div>
             </div>
           </div>
           <div class="grand-total-box">
             <div class="grand-total-label">รวมผู้เข้าชมทั้งหมด</div>
             <div class="grand-total-number" id="grand-total">0</div>
             <div class="grand-total-label">คน</div>
+          </div>
+
+          <!-- Summary by Nationality and Age -->
+          <div style="margin-top:16px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:8px;">สรุปตามสัญชาติและวัย</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:11px;color:var(--text-muted);">เด็กไทย</div>
+                <div style="font-size:20px;font-weight:700;color:var(--success);" id="sum-thai-child">0</div>
+              </div>
+              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:11px;color:var(--text-muted);">ผู้ใหญ่ไทย</div>
+                <div style="font-size:20px;font-weight:700;color:var(--success);" id="sum-thai-adult">0</div>
+              </div>
+              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:11px;color:var(--text-muted);">เด็กต่างชาติ</div>
+                <div style="font-size:20px;font-weight:700;color:var(--info);" id="sum-for-child">0</div>
+              </div>
+              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:11px;color:var(--text-muted);">ผู้ใหญ่ต่างชาติ</div>
+                <div style="font-size:20px;font-weight:700;color:var(--info);" id="sum-for-adult">0</div>
+              </div>
+              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:11px;color:var(--text-muted);">เด็กทั้งหมด</div>
+                <div style="font-size:20px;font-weight:700;color:var(--warning);" id="sum-all-child">0</div>
+              </div>
+              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:11px;color:var(--text-muted);">ผู้ใหญ่ทั้งหมด</div>
+                <div style="font-size:20px;font-weight:700;color:var(--warning);" id="sum-all-adult">0</div>
+              </div>
+            </div>
           </div>
         </div>
 
