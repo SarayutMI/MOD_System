@@ -400,6 +400,34 @@ function sanitizeYearMonth(str) {
   return /^\d{4}-\d{2}$/.test(s) ? s : '';
 }
 
+// ============ VALIDATION ============
+/**
+ * ตรวจสอบข้อมูลก่อนบันทึก/ส่ง
+ * Returns array of Thai error messages; empty array = valid.
+ */
+function validateDailyForm() {
+  const errors = [];
+  // วันที่ต้องระบุ
+  const date = getCurrentDate();
+  if (!date || date.startsWith('-') || date.split('-').length < 3) {
+    errors.push('กรุณาเลือกวันที่บันทึก');
+  }
+  // MOD ประจำวัน (ต้องระบุ)
+  const modName = getInputVal('mod-morning').trim();
+  if (!modName) {
+    errors.push('กรุณากรอกชื่อ MOD ประจำวัน (แท็บ "ช่วงเช้า")');
+  }
+  // ตรวจสอบค่าตัวเลขไม่ติดลบ
+  let hasNegative = false;
+  document.querySelectorAll('#page-daily-log input[type="number"]').forEach(inp => {
+    if (parseFloat(inp.value) < 0) hasNegative = true;
+  });
+  if (hasNegative) {
+    errors.push('ค่าตัวเลขต้องไม่ติดลบ กรุณาตรวจสอบข้อมูลผู้เข้าชม / รายได้');
+  }
+  return errors;
+}
+
 // ============ CALCULATIONS ============
 function calcVis() {
   // Section A - Walk-in
@@ -720,31 +748,41 @@ function deleteRecord(date) {
 
 // ============ GOOGLE SHEETS ============
 function submitAll() {
-  const settings = getSettings();
-  if (!settings.sheetsURL) {
-    openModal('settings-modal');
-    showToast('กรุณาตั้งค่า Google Sheets URL ก่อน', 'warning');
+  // 1. ตรวจสอบข้อมูล
+  const errors = validateDailyForm();
+  if (errors.length > 0) {
+    errors.forEach((msg, i) => setTimeout(() => showToast(msg, 'error'), i * 450));
     return;
   }
-  // Save current form first
+  // 2. บันทึกลง localStorage ก่อน
   saveToLocal(false);
+  // 3. ส่ง Google Sheets (ถ้าตั้งค่า URL ไว้)
+  const settings = getSettings();
+  if (!settings.sheetsURL) {
+    showToast('บันทึกสำเร็จ! (ยังไม่ได้ตั้งค่า Google Sheets URL)', 'success');
+    return;
+  }
   const records = getAllRecords();
   if (!records.length) { showToast('ไม่มีข้อมูลที่จะส่ง', 'warning'); return; }
-  showProgress('กำลังส่งข้อมูล...', `ส่ง ${records.length} รายการ`);
-  const payload = JSON.stringify({ action: 'bulkInsert', sheetName: settings.sheetName || 'Sheet1', records });
+  showProgress('กำลังบันทึกและส่งข้อมูล...', `กำลังส่ง ${records.length} รายการ ไปยัง Google Sheets`);
+  const payload = JSON.stringify({
+    action: 'bulkInsert',
+    sheetName: settings.sheetName || 'Sheet1',
+    records: records.map(r => ({ ...r, submittedAt: new Date().toISOString() }))
+  });
   fetch(settings.sheetsURL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: payload
   })
   .then(r => r.text())
-  .then(text => {
+  .then(() => {
     hideProgress();
-    showToast('ส่งข้อมูลสำเร็จ! ' + records.length + ' รายการ', 'success');
+    showToast('บันทึกและส่ง Google Sheets สำเร็จ! ' + records.length + ' รายการ', 'success');
   })
   .catch(err => {
     hideProgress();
-    showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+    showToast('บันทึกสำเร็จ แต่ไม่สามารถส่ง Google Sheets: ' + err.message, 'warning');
   });
 }
 
@@ -819,6 +857,7 @@ function renderHistory(filterMonth) {
         <td style="color:var(--warning);">${fmtNum(r.totalRevenue || 0)}</td>
         <td style="white-space:nowrap;">
           <button class="btn btn-ghost btn-sm" onclick="viewRecord('${safeDate}')" title="ดูรายละเอียด">👁</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportDailyBriefingPDF('${safeDate}')" title="Export Briefing PDF" style="color:var(--danger);">📄</button>
           <button class="btn btn-ghost btn-sm" onclick="editRecord('${safeDate}')" title="แก้ไข" style="color:var(--info);">✏️</button>
           <button class="btn btn-ghost btn-sm" onclick="confirmDelete('${safeDate}')" title="ลบ" style="color:var(--danger);">🗑</button>
         </td>
@@ -895,7 +934,8 @@ function viewRecord(date) {
         </div>
       </div>
       ${r.notes ? `<div class="info-box"><strong>หมายเหตุ:</strong> ${escHtml(r.notes)}</div>` : ''}
-      <div style="margin-top:12px;text-align:right;">
+      <div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="exportDailyBriefingPDF('${sanitizeDate(date)}')">📄 Export Briefing PDF</button>
         <button class="btn btn-primary btn-sm" onclick="editRecord('${sanitizeDate(date)}');closeModal('view-modal')">✏️ แก้ไขข้อมูล</button>
       </div>
     `;
@@ -1102,6 +1142,420 @@ function exportPDF(startDate, endDate) {
     console.error('PDF export error:', e);
     showToast('เกิดข้อผิดพลาดในการสร้าง PDF: ' + (e.message || 'unknown error'), 'error');
   }
+}
+
+// ============ DAILY BRIEFING PDF EXPORT ============
+/**
+ * สร้าง HTML Popup และ Print เป็น PDF รูปแบบ Daily Briefing
+ * ใช้ฟอนต์ Sarabun (TH Sarabun) จาก Google Fonts
+ * หน้าที่ 1: Briefing ช่วงเช้า + Briefing ช่วงเย็น
+ * หน้าที่ 2: ยอดผู้เข้าชม + รายได้ + ลายเซ็น
+ */
+function exportDailyBriefingPDF(date) {
+  if (!date) { showToast('กรุณาระบุวันที่', 'warning'); return; }
+  const raw = localStorage.getItem('nsm_' + date);
+  if (!raw) { showToast('ไม่พบข้อมูลวันที่ ' + date, 'warning'); return; }
+  let r;
+  try { r = JSON.parse(raw); } catch(e) { showToast('ข้อมูลผิดพลาด', 'error'); return; }
+
+  // ---- วันที่ภาษาไทย ----
+  const thaiMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+    'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  function toThaiDate(dateStr) {
+    if (!dateStr) return '-';
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return dateStr;
+    const d = parseInt(parts[2], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const y = parseInt(parts[0], 10) + 543;
+    return `${d} ${thaiMonths[m]} ${y}`;
+  }
+  const today = new Date();
+  const genDate = `${today.getDate()}/${today.getMonth()+1}/${today.getFullYear()+543}`;
+  const recDate = toThaiDate(date);
+
+  // ---- ข้อมูลผู้เข้าชม ----
+  const va = r.visAThai||{}, vaf = r.visAFor||{}, vam = r.visAMem||{};
+  const vb = r.visBThai||{}, vbf = r.visBFor||{}, vbm = r.visBMem||{};
+  const vdi = r.visDIns||{}, vdn = r.visDInv||{}, vdw = r.visDWr||{};
+  const vdm = r.visDMm||{}, vds = r.visDSp||{}, vdo = r.visDOth||{};
+  const rev = r.rev||{}, onl = r.online||{};
+
+  const aThaiC = va.child||0, aThaiA = va.adult||0;
+  const aForC = vaf.child||0, aForA = vaf.adult||0;
+  const aMemC = vam.child||0, aMemA = vam.adult||0, aMemFC = vam.fc||0, aMemFA = vam.fa||0;
+  const aTotal = aThaiC+aThaiA+aForC+aForA+aMemC+aMemA+aMemFC+aMemFA;
+
+  const bThaiC = vb.child||0, bThaiA = vb.adult||0;
+  const bForC = vbf.child||0, bForA = vbf.adult||0;
+  const bIC = vbm.ic||0, bIA = vbm.ia||0;
+  const bTotal = bThaiC+bThaiA+bForC+bForA+bIC+bIA;
+
+  const cSenior = r.visCsenior||0;
+
+  const dInsTotal = (vdi.tc||0)+(vdi.ta||0)+(vdi.fc||0)+(vdi.fa||0);
+  const dInvTotal = (vdn.tc||0)+(vdn.ta||0)+(vdn.fc||0)+(vdn.fa||0);
+  const dWrTotal  = (vdw.tc||0)+(vdw.ta||0)+(vdw.fc||0)+(vdw.fa||0);
+  const dMmTotal  = vdm.child||0;
+  const dSpTotal  = (vds.tc||0)+(vds.ta||0)+(vds.fc||0)+(vds.fa||0);
+  const dOthTotal = vdo.count||0;
+  const dTotal = dInsTotal+dInvTotal+dWrTotal+dMmTotal+dSpTotal+dOthTotal;
+
+  const grandTotal = r.totalVisitors || (aTotal+bTotal+cSenior+dTotal);
+  const totalRevenue = r.totalRevenue || 0;
+
+  // ---- bookings HTML ----
+  const bookingRows = (r.bookings||[]).map((b,i) =>
+    `<tr><td>${i+1}</td><td>${b.group||''}</td><td>${b.count||''}</td><td>${b.time||''}</td><td>${b.responsible||''}</td></tr>`
+  ).join('') || '<tr><td colspan="5" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
+
+  // ---- activities HTML ----
+  const actRows = (r.activities||[]).map(a => {
+    const total = (a.thaiChild||0)+(a.thaiAdult||0)+(a.foreignChild||0)+(a.foreignAdult||0);
+    return `<tr><td>${a.name||a.type||''}</td><td>${a.operator||''}</td><td>${a.thaiChild||0}</td><td>${a.thaiAdult||0}</td><td>${a.foreignChild||0}</td><td>${a.foreignAdult||0}</td><td>${total}</td></tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
+
+  // ---- SVG Logos ----
+  const nsmLogo = `<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="48" height="48" rx="8" fill="#003087"/>
+    <text x="24" y="18" text-anchor="middle" fill="white" font-size="9" font-family="Sarabun,sans-serif" font-weight="700">NSM</text>
+    <text x="24" y="30" text-anchor="middle" fill="white" font-size="7" font-family="Sarabun,sans-serif">พิพิธภัณฑ์</text>
+    <text x="24" y="40" text-anchor="middle" fill="white" font-size="7" font-family="Sarabun,sans-serif">วิทยาศาสตร์</text>
+  </svg>`;
+  const modLogo = `<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="48" height="48" rx="8" fill="#0055FF"/>
+    <text x="24" y="20" text-anchor="middle" fill="white" font-size="11" font-family="Sarabun,sans-serif" font-weight="700">MOD</text>
+    <text x="24" y="34" text-anchor="middle" fill="white" font-size="7" font-family="Sarabun,sans-serif">Museum of</text>
+    <text x="24" y="43" text-anchor="middle" fill="white" font-size="7" font-family="Sarabun,sans-serif">Discovery</text>
+  </svg>`;
+
+  // ---- สร้าง HTML ----
+  const html = `<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOD Daily Briefing - ${date}</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Sarabun', sans-serif; font-size: 11pt; color: #1a1a1a; background: white; }
+  .page { width: 210mm; min-height: 297mm; padding: 12mm 14mm; page-break-after: always; position: relative; }
+  .page:last-child { page-break-after: avoid; }
+  /* Header */
+  .doc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid #003087; }
+  .logos { display: flex; align-items: center; gap: 10px; }
+  .date-box { text-align: right; font-size: 11pt; }
+  .date-box .date-label { font-weight: 700; color: #003087; font-size: 12pt; }
+  /* Titles */
+  .section-header { background: #003087; color: white; font-weight: 700; font-size: 12pt; padding: 5px 10px; margin: 10px 0 6px; border-radius: 3px; }
+  .sub-header { background: #0055FF; color: white; font-weight: 600; font-size: 11pt; padding: 4px 10px; margin: 8px 0 5px; }
+  /* Staff info */
+  .staff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-bottom: 8px; }
+  .staff-item { display: flex; gap: 8px; }
+  .staff-label { color: #444; font-size: 10pt; white-space: nowrap; }
+  .staff-value { font-weight: 600; border-bottom: 1px dotted #888; flex: 1; min-width: 60px; }
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 10pt; margin-bottom: 8px; }
+  th { background: #003087; color: white; text-align: center; padding: 4px 6px; font-weight: 600; border: 1px solid #002060; }
+  td { border: 1px solid #ccc; padding: 3px 6px; vertical-align: middle; }
+  tr:nth-child(even) td { background: #f5f8ff; }
+  .total-row td { background: #e8eeff; font-weight: 700; }
+  .num { text-align: right; }
+  .center { text-align: center; }
+  /* Grand total box */
+  .grand-box { border: 2px solid #003087; border-radius: 6px; padding: 8px 14px; display: inline-flex; align-items: center; gap: 14px; margin: 8px 0; }
+  .grand-num { font-size: 22pt; font-weight: 700; color: #0055FF; }
+  /* Info row */
+  .info-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .info-item { display: flex; gap: 6px; }
+  .info-label { color: #444; font-size: 10pt; }
+  .info-value { font-weight: 600; border-bottom: 1px dotted #888; min-width: 80px; }
+  /* Signature */
+  .sig-box { display: flex; justify-content: flex-end; margin-top: 10px; }
+  .sig-inner { border: 1px solid #ccc; border-radius: 6px; padding: 10px 20px; text-align: center; min-width: 200px; }
+  .sig-line { border-top: 1px solid #555; width: 160px; margin: 20px auto 4px; }
+  .notes-box { border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; min-height: 30px; font-size: 10pt; color: #333; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { margin: 0; padding: 12mm 14mm; width: 100%; min-height: 0; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== PAGE 1: BRIEFING MORNING + EVENING ====== -->
+<div class="page">
+  <!-- Header -->
+  <div class="doc-header">
+    <div class="logos">
+      ${nsmLogo}
+      ${modLogo}
+      <div style="margin-left:8px;">
+        <div style="font-size:14pt;font-weight:700;color:#003087;">NSM MOD System</div>
+        <div style="font-size:10pt;color:#555;">Museum of Discovery — Daily Briefing</div>
+      </div>
+    </div>
+    <div class="date-box">
+      <div class="date-label">MOD วันที่ ${genDate}</div>
+      <div style="font-size:10pt;color:#555;">วันที่บันทึก: ${recDate}</div>
+    </div>
+  </div>
+
+  <!-- MORNING BRIEFING -->
+  <div class="section-header">🌅 Briefing ช่วงเช้า — Morning Briefing</div>
+
+  <div class="staff-grid">
+    <div class="staff-item"><span class="staff-label">MOD ประจำวัน:</span><span class="staff-value">${r.modMorning||''}</span></div>
+    <div class="staff-item"><span class="staff-label">M-Exhibition:</span><span class="staff-value">${r.mExhibition||''}</span></div>
+    <div class="staff-item"><span class="staff-label">M-Education:</span><span class="staff-value">${r.mEducation||''}</span></div>
+    <div class="staff-item"><span class="staff-label">M-Visitor Service:</span><span class="staff-value">${r.mVisitor||''}</span></div>
+  </div>
+
+  <div class="info-row">
+    <div class="info-item"><span class="info-label">อังคาร–ศุกร์:</span><span class="info-value">${r.hoursTueFri||'เวลา 9.00 - 16.00 น.'}</span></div>
+    <div class="info-item"><span class="info-label">เสาร์–อาทิตย์:</span><span class="info-value">${r.hoursSatSun||'เวลา 10.00 - 17.00 น.'}</span></div>
+    <div class="info-item"><span class="info-label">วันหยุด:</span><span class="info-value">${r.hoursClosed||'หยุดทุกวันจันทร์'}</span></div>
+  </div>
+
+  ${(r.bookings||[]).length ? `
+  <div class="sub-header">📋 ตารางจองกลุ่ม</div>
+  <table>
+    <thead><tr><th style="width:30px">#</th><th>กลุ่ม / ชื่อ</th><th style="width:70px">จำนวน</th><th style="width:70px">เวลา</th><th>ผู้รับผิดชอบ</th></tr></thead>
+    <tbody>${bookingRows}</tbody>
+  </table>` : ''}
+
+  ${r.mEducationActivities ? `
+  <div class="sub-header">🎓 กิจกรรมส่งเสริมการเรียนรู้</div>
+  <div class="notes-box">${r.mEducationActivities}</div>` : ''}
+
+  ${r.visitorServiceInfo ? `
+  <div class="sub-header">ℹ️ บริการผู้เข้าชม</div>
+  <div class="notes-box">${r.visitorServiceInfo}</div>` : ''}
+
+  ${(r.special1||r.special2) ? `
+  <div class="sub-header">⭐ กิจกรรมพิเศษ</div>
+  <div class="info-row">
+    ${r.special1 ? `<div class="info-item"><span class="info-label">กิจกรรม 1:</span><span class="info-value">${r.special1}</span></div>` : ''}
+    ${r.special2 ? `<div class="info-item"><span class="info-label">กิจกรรม 2:</span><span class="info-value">${r.special2}</span></div>` : ''}
+  </div>` : ''}
+
+  <!-- EVENING BRIEFING -->
+  <div class="section-header" style="margin-top:10px;">🌆 Briefing ช่วงเย็น — Evening Briefing</div>
+
+  <div class="sub-header">VS Visitor Service — เคาน์เตอร์</div>
+  <table>
+    <thead><tr><th>พื้นที่</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+    <tbody>
+      <tr><td>เคาน์เตอร์ชั้น 1</td><td>${r.vsCounter1Name||''}</td><td>${r.vsCounter1Issue||''}</td><td>${r.vsCounter1Note||''}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sub-header">EX Exhibition Zones</div>
+  <table>
+    <thead><tr><th>โซน</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+    <tbody>
+      <tr><td>โซน 1 ค้นพบตัวตน</td><td>${r.exZ1Name||''}</td><td>${r.exZ1Issue||''}</td><td>${r.exZ1Note||''}</td></tr>
+      <tr><td>โซน 2 เปิดโลกทางการแพทย์</td><td>${r.exZ2Name||''}</td><td>${r.exZ2Issue||''}</td><td>${r.exZ2Note||''}</td></tr>
+      <tr><td>โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td>${r.exZ3Name||''}</td><td>${r.exZ3Issue||''}</td><td>${r.exZ3Note||''}</td></tr>
+      <tr><td>โซน 4 การบินและอวกาศ</td><td>${r.exZ4Name||''}</td><td>${r.exZ4Issue||''}</td><td>${r.exZ4Note||''}</td></tr>
+      <tr><td>นิทรรศการชั่วคราว</td><td>${r.exTempName||''}</td><td>${r.exTempIssue||''}</td><td>${r.exTempNote||''}</td></tr>
+    </tbody>
+  </table>
+
+  ${(r.activities||[]).length ? `
+  <div class="sub-header">OP ผู้ดำเนินกิจกรรม</div>
+  <table>
+    <thead>
+      <tr><th rowspan="2">กิจกรรม</th><th rowspan="2">ผู้ดำเนิน</th><th colspan="2">ชาวไทย</th><th colspan="2">ชาวต่างชาติ</th><th rowspan="2">รวม</th></tr>
+      <tr><th>เด็ก</th><th>ผู้ใหญ่</th><th>เด็ก</th><th>ผู้ใหญ่</th></tr>
+    </thead>
+    <tbody>${actRows}</tbody>
+  </table>` : ''}
+
+  <div class="sub-header">ED Education Programs</div>
+  <table>
+    <thead><tr><th>โปรแกรม</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+    <tbody>
+      <tr><td>Inspire Lab</td><td>${r.edInspireName||''}</td><td>${r.edInspireIssue||''}</td><td>${r.edInspireNote||''}</td></tr>
+      <tr><td>Innovation Space</td><td>${r.edInnovationName||''}</td><td>${r.edInnovationIssue||''}</td><td>${r.edInnovationNote||''}</td></tr>
+      <tr><td>Mini Make &amp; Play</td><td>${r.edMiniName||''}</td><td>${r.edMiniIssue||''}</td><td>${r.edMiniNote||''}</td></tr>
+    </tbody>
+  </table>
+</div><!-- /page 1 -->
+
+<!-- ====== PAGE 2: VISITOR STATISTICS + REVENUE ====== -->
+<div class="page">
+  <!-- Header -->
+  <div class="doc-header">
+    <div class="logos">
+      ${nsmLogo}
+      ${modLogo}
+      <div style="margin-left:8px;">
+        <div style="font-size:14pt;font-weight:700;color:#003087;">NSM MOD System</div>
+        <div style="font-size:10pt;color:#555;">Museum of Discovery — ยอดผู้เข้าชม &amp; รายได้</div>
+      </div>
+    </div>
+    <div class="date-box">
+      <div class="date-label">MOD วันที่ ${genDate}</div>
+      <div style="font-size:10pt;color:#555;">วันที่บันทึก: ${recDate}</div>
+    </div>
+  </div>
+
+  <div class="section-header">👥 ยอดผู้เข้าชมประจำวัน</div>
+
+  <!-- Section A: Walk-in -->
+  <div class="sub-header">A. ผู้เข้าชมทั่วไป (Walk-in)</div>
+  <table>
+    <thead><tr><th>ประเภท</th><th class="num">เด็ก</th><th class="num">ผู้ใหญ่</th><th class="num">รวม</th></tr></thead>
+    <tbody>
+      <tr><td>ผู้เข้าชมไทย</td><td class="num">${aThaiC}</td><td class="num">${aThaiA}</td><td class="num">${aThaiC+aThaiA}</td></tr>
+      <tr><td>ผู้เข้าชมต่างชาติ</td><td class="num">${aForC}</td><td class="num">${aForA}</td><td class="num">${aForC+aForA}</td></tr>
+      <tr><td>สมาชิก (เด็ก/ผู้ใหญ่/FC/FA)</td><td class="num">${aMemC}</td><td class="num">${aMemA+aMemFC+aMemFA}</td><td class="num">${aMemC+aMemA+aMemFC+aMemFA}</td></tr>
+      <tr class="total-row"><td colspan="3"><strong>รวม Walk-in</strong></td><td class="num"><strong>${aTotal}</strong></td></tr>
+    </tbody>
+  </table>
+
+  <!-- Section B: Group -->
+  <div class="sub-header">B. ผู้เข้าชมกลุ่ม (Group)</div>
+  <table>
+    <thead><tr><th>ประเภท</th><th class="num">เด็ก</th><th class="num">ผู้ใหญ่</th><th class="num">รวม</th></tr></thead>
+    <tbody>
+      <tr><td>ผู้เข้าชมไทย</td><td class="num">${bThaiC}</td><td class="num">${bThaiA}</td><td class="num">${bThaiC+bThaiA}</td></tr>
+      <tr><td>ผู้เข้าชมต่างชาติ</td><td class="num">${bForC}</td><td class="num">${bForA}</td><td class="num">${bForC+bForA}</td></tr>
+      <tr><td>สมาชิก IC / IA</td><td class="num">${bIC}</td><td class="num">${bIA}</td><td class="num">${bIC+bIA}</td></tr>
+      <tr class="total-row"><td colspan="3"><strong>รวม Group</strong></td><td class="num"><strong>${bTotal}</strong></td></tr>
+    </tbody>
+  </table>
+
+  <!-- Section C: Senior -->
+  <div style="margin-bottom:6px;">
+    <span style="font-weight:600;color:#003087;">C. ผู้สูงอายุ:</span>
+    <span style="font-size:13pt;font-weight:700;margin-left:10px;">${cSenior}</span> คน
+  </div>
+
+  <!-- Section D: Education -->
+  <div class="sub-header">D. กิจกรรมการศึกษา</div>
+  <table>
+    <thead>
+      <tr><th rowspan="2">กิจกรรม</th><th colspan="2">ไทย</th><th colspan="2">ต่างชาติ</th><th rowspan="2" class="num">รวม</th></tr>
+      <tr><th class="num">เด็ก</th><th class="num">ผู้ใหญ่</th><th class="num">เด็ก</th><th class="num">ผู้ใหญ่</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Inspire Lab</td><td class="num">${vdi.tc||0}</td><td class="num">${vdi.ta||0}</td><td class="num">${vdi.fc||0}</td><td class="num">${vdi.fa||0}</td><td class="num">${dInsTotal}</td></tr>
+      <tr><td>Innovation Space</td><td class="num">${vdn.tc||0}</td><td class="num">${vdn.ta||0}</td><td class="num">${vdn.fc||0}</td><td class="num">${vdn.fa||0}</td><td class="num">${dInvTotal}</td></tr>
+      <tr><td>Walk Rallies</td><td class="num">${vdw.tc||0}</td><td class="num">${vdw.ta||0}</td><td class="num">${vdw.fc||0}</td><td class="num">${vdw.fa||0}</td><td class="num">${dWrTotal}</td></tr>
+      <tr><td>Mini Make &amp; Play</td><td class="num">${vdm.child||0}</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">${dMmTotal}</td></tr>
+      <tr><td>Special Event</td><td class="num">${vds.tc||0}</td><td class="num">${vds.ta||0}</td><td class="num">${vds.fc||0}</td><td class="num">${vds.fa||0}</td><td class="num">${dSpTotal}</td></tr>
+      ${dOthTotal ? `<tr><td>กิจกรรมอื่น${vdo.name?' ('+vdo.name+')':''}</td><td class="num" colspan="4">${dOthTotal}</td><td class="num">${dOthTotal}</td></tr>` : ''}
+      <tr class="total-row"><td colspan="5"><strong>รวมกิจกรรมการศึกษา</strong></td><td class="num"><strong>${dTotal}</strong></td></tr>
+    </tbody>
+  </table>
+
+  <!-- Grand Total -->
+  <div style="display:flex;align-items:center;gap:20px;margin:8px 0;">
+    <div class="grand-box">
+      <div>
+        <div style="font-size:10pt;color:#555;">รวมผู้เข้าชมทั้งหมด</div>
+        <div class="grand-num">${grandTotal.toLocaleString()}</div>
+        <div style="font-size:10pt;color:#555;">คน</div>
+      </div>
+    </div>
+    <table style="flex:1;margin:0;">
+      <thead><tr><th>ประเภท</th><th class="num">Walk-in</th><th class="num">Group</th><th class="num">ผู้สูงอายุ</th><th class="num">การศึกษา</th><th class="num">รวม</th></tr></thead>
+      <tbody><tr><td>จำนวน</td><td class="num">${aTotal}</td><td class="num">${bTotal}</td><td class="num">${cSenior}</td><td class="num">${dTotal}</td><td class="num"><strong>${grandTotal.toLocaleString()}</strong></td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Revenue -->
+  <div class="section-header" style="margin-top:8px;">💰 รายได้ประจำวัน</div>
+  <table>
+    <thead>
+      <tr><th>ประเภท</th><th class="num">Exhibition</th><th class="num">Inspire Lab</th><th class="num">Innovation</th><th class="num">Walk Rally</th><th class="num">Mini M&amp;P</th><th class="num">Special</th><th class="num">สมาชิก</th><th class="num">อื่นๆ</th><th class="num">รวม</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>รายได้ (บาท)</td>
+        <td class="num">${(rev.ex||0).toLocaleString()}</td>
+        <td class="num">${(rev.ins||0).toLocaleString()}</td>
+        <td class="num">${(rev.inv||0).toLocaleString()}</td>
+        <td class="num">${(rev.wr||0).toLocaleString()}</td>
+        <td class="num">${(rev.mm||0).toLocaleString()}</td>
+        <td class="num">${(rev.sp||0).toLocaleString()}</td>
+        <td class="num">${(rev.mem||0).toLocaleString()}</td>
+        <td class="num">${(rev.oth||0).toLocaleString()}</td>
+        <td class="num">${Object.values(rev).reduce((s,v)=>s+(v||0),0).toLocaleString()}</td>
+      </tr>
+      <tr>
+        <td>ออนไลน์ (บาท)</td>
+        <td class="num">${(onl.ex||0).toLocaleString()}</td>
+        <td class="num">${(onl.ins||0).toLocaleString()}</td>
+        <td class="num">${(onl.inv||0).toLocaleString()}</td>
+        <td class="num">${(onl.wr||0).toLocaleString()}</td>
+        <td class="num">${(onl.mm||0).toLocaleString()}</td>
+        <td class="num">${(onl.sp||0).toLocaleString()}</td>
+        <td class="num">${(onl.mem||0).toLocaleString()}</td>
+        <td class="num">${(onl.oth||0).toLocaleString()}</td>
+        <td class="num">${Object.values(onl).reduce((s,v)=>s+(v||0),0).toLocaleString()}</td>
+      </tr>
+      <tr class="total-row">
+        <td><strong>รวมรายได้ทั้งหมด</strong></td>
+        <td class="num">${((rev.ex||0)+(onl.ex||0)).toLocaleString()}</td>
+        <td class="num">${((rev.ins||0)+(onl.ins||0)).toLocaleString()}</td>
+        <td class="num">${((rev.inv||0)+(onl.inv||0)).toLocaleString()}</td>
+        <td class="num">${((rev.wr||0)+(onl.wr||0)).toLocaleString()}</td>
+        <td class="num">${((rev.mm||0)+(onl.mm||0)).toLocaleString()}</td>
+        <td class="num">${((rev.sp||0)+(onl.sp||0)).toLocaleString()}</td>
+        <td class="num">${((rev.mem||0)+(onl.mem||0)).toLocaleString()}</td>
+        <td class="num">${((rev.oth||0)+(onl.oth||0)).toLocaleString()}</td>
+        <td class="num"><strong>${totalRevenue.toLocaleString()}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Notes -->
+  ${r.notes ? `
+  <div style="margin-top:8px;">
+    <div style="font-weight:600;color:#003087;margin-bottom:4px;">📌 หมายเหตุประจำวัน</div>
+    <div class="notes-box">${r.notes}</div>
+  </div>` : ''}
+
+  <!-- Signature -->
+  <div class="sig-box" style="margin-top:16px;">
+    <div class="sig-inner">
+      <div style="font-size:10pt;color:#555;margin-bottom:4px;">ลายเซ็น MOD ประจำวัน</div>
+      <div class="sig-line"></div>
+      <div style="font-weight:600;">${r.modSign||'...........................'}</div>
+      <div style="font-size:10pt;color:#555;margin-top:4px;">วันที่: ${r.signDate ? toThaiDate(r.signDate) : recDate}</div>
+    </div>
+  </div>
+</div><!-- /page 2 -->
+
+<script>
+  window.onload = function() {
+    setTimeout(function() { window.print(); }, 600);
+  };
+<\/script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
+  if (!win) {
+    showToast('กรุณาอนุญาต Popup ในเบราว์เซอร์เพื่อ Export PDF', 'warning');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  showToast('กำลังเปิดหน้า Briefing PDF...', 'info');
+}
+
+/** Export briefing PDF จากหน้า Export โดยเลือกจาก date picker */
+function exportBriefingFromDate() {
+  const inp = document.getElementById('briefing-date');
+  const date = inp ? inp.value : '';
+  if (!date) { showToast('กรุณาเลือกวันที่', 'warning'); return; }
+  exportDailyBriefingPDF(date);
 }
 
 // ============ DASHBOARD ============

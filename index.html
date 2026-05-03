@@ -1008,12 +1008,20 @@
         </div>
       </div>
       <div class="export-card">
-        <div class="export-card-title">📄 Export PDF</div>
-        <div class="export-card-desc">สร้างรายงาน PDF สำหรับพิมพ์หรือแชร์</div>
+        <div class="export-card-title">📄 Export PDF สรุปข้อมูล</div>
+        <div class="export-card-desc">สร้างรายงาน PDF สรุปข้อมูลผู้เข้าชมและรายได้ในช่วงวันที่กำหนด</div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <div class="input-group"><span class="input-label">จาก:</span><input type="date" id="pdf-start" class="form-input" style="width:160px;"></div>
           <div class="input-group"><span class="input-label">ถึง:</span><input type="date" id="pdf-end" class="form-input" style="width:160px;"></div>
           <button class="btn btn-danger" onclick="exportPDF(document.getElementById('pdf-start').value, document.getElementById('pdf-end').value)">📄 ดาวน์โหลด PDF</button>
+        </div>
+      </div>
+      <div class="export-card" style="border-color:var(--accent);background:var(--accent-dim);">
+        <div class="export-card-title" style="color:var(--accent);">📋 Export Daily Briefing PDF <span style="font-size:12px;background:var(--accent);color:white;padding:2px 8px;border-radius:12px;font-weight:600;">ใหม่!</span></div>
+        <div class="export-card-desc">สร้างรายงาน Briefing ประจำวัน (2 หน้า) พร้อมโลโก้ ฟอนต์ TH Sarabun รูปแบบมาตรฐาน MOD</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="input-group"><span class="input-label">วันที่:</span><input type="date" id="briefing-date" class="form-input" style="width:160px;"></div>
+          <button class="btn btn-primary" onclick="exportBriefingFromDate()">📋 Export Briefing PDF</button>
         </div>
       </div>
       <div class="export-card">
