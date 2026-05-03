@@ -1436,8 +1436,7 @@ async function exportDailyBriefingPDF(date) {
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
 
   // ---- group rows HTML ----
-  const filledGroups = (r.groups||[]).filter(g => (g.group||'').trim() !== '');
-  const groupCount = filledGroups.length;
+  const groupCount = (r.groups||[]).filter(g => (g.group||'').trim() !== '').length;
   const groupRows = (r.groups||[]).map((g,i) => {
     const total = (g.thaiChild||0)+(g.thaiAdult||0)+(g.foreignChild||0)+(g.foreignAdult||0);
     return `<tr><td>${i+1}</td><td>${e(g.group)}</td><td class="num">${g.thaiChild||0}</td><td class="num">${g.thaiAdult||0}</td><td class="num">${g.foreignChild||0}</td><td class="num">${g.foreignAdult||0}</td><td class="num">${total}</td></tr>`;
@@ -1577,7 +1576,7 @@ async function exportDailyBriefingPDF(date) {
 
   <div class="sub-header">EX Exhibition Zones</div>
   <table>
-    <thead><tr><th>โซน / ห้อง</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+    <thead><tr><th>พื้นที่</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
     <tbody>
       <tr><td>โซน 1 ค้นพบตัวตน</td><td>${e(r.exZ1Name)}</td><td>${e(r.exZ1Issue)}</td><td>${e(r.exZ1Note)}</td></tr>
       <tr><td>โซน 2 เปิดโลกทางการแพทย์</td><td>${e(r.exZ2Name)}</td><td>${e(r.exZ2Issue)}</td><td>${e(r.exZ2Note)}</td></tr>
