@@ -177,10 +177,24 @@
       #sidebar { transform: translateX(-100%); }
       #sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
       #main-content { margin-left: 0; }
-      .page-content { padding: 16px; }
+      .page-content { padding: 12px; }
       .login-card { width: 95vw; padding: 28px 20px; }
       .grand-total-number { font-size: 36px; }
       .tab-btn { font-size: 12px; padding: 7px 8px; }
+      /* Responsive grids on mobile */
+      .resp-2col { grid-template-columns: 1fr !important; }
+      .resp-3col { grid-template-columns: 1fr !important; }
+      .card { padding: 14px; }
+      .stat-card { padding: 14px; }
+      .btn { font-size: 13px; padding: 7px 14px; }
+      /* Stack action buttons */
+      .action-row { flex-direction: column; }
+      /* Ensure num-input is large enough for touch */
+      .num-input { min-height: 36px; }
+    }
+    @media (max-width: 480px) {
+      .tab-btn { font-size: 11px; padding: 6px 6px; }
+      .grand-total-number { font-size: 28px; }
     }
     /* Overlay for mobile sidebar */
     #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
@@ -343,7 +357,7 @@
         </div>
       </div>
       <!-- Chart + Recent Activity -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:24px;">
         <div class="card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <div style="font-size:15px;font-weight:600;">แนวโน้มผู้เข้าชม (7 วัน)</div>
@@ -363,18 +377,18 @@
         </div>
       </div>
       <!-- Month Grid + Quick Actions -->
-      <div style="display:grid;grid-template-columns:1fr auto;gap:16px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
         <div class="card">
           <div style="font-size:15px;font-weight:600;margin-bottom:16px;">ภาพรวมรายเดือน <span id="dash-year-label" style="font-size:13px;color:var(--text-muted);"></span></div>
           <div class="month-grid" id="month-grid"></div>
         </div>
-        <div class="card" style="min-width:200px;">
+        <div class="card">
           <div style="font-size:15px;font-weight:600;margin-bottom:16px;">Quick Actions</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <div class="quick-action" onclick="gotoPage('daily-log')"><div class="quick-action-icon">📝</div><div class="quick-action-label">บันทึกใหม่</div></div>
-            <div class="quick-action" onclick="gotoPage('history')"><div class="quick-action-icon">📋</div><div class="quick-action-label">ประวัติ</div></div>
-            <div class="quick-action" onclick="gotoPage('export')"><div class="quick-action-icon">📤</div><div class="quick-action-label">ส่งออก</div></div>
-            <div class="quick-action" onclick="openModal('settings-modal')"><div class="quick-action-icon">⚙️</div><div class="quick-action-label">ตั้งค่า</div></div>
+            <div class="quick-action" onclick="gotoPage('daily-log')"><div class="quick-action-icon">&#x1F4DD;</div><div class="quick-action-label">บันทึกใหม่</div></div>
+            <div class="quick-action" onclick="gotoPage('history')"><div class="quick-action-icon">&#x1F4CB;</div><div class="quick-action-label">ประวัติ</div></div>
+            <div class="quick-action" onclick="gotoPage('export')"><div class="quick-action-icon">&#x1F4E4;</div><div class="quick-action-label">ส่งออก</div></div>
+            <div class="quick-action" onclick="openModal('settings-modal')"><div class="quick-action-icon">&#x2699;&#xFE0F;</div><div class="quick-action-label">ตั้งค่า</div></div>
           </div>
         </div>
       </div>
@@ -477,7 +491,7 @@
 
         <div class="card" style="margin-bottom:16px;">
           <div class="section-title">⭐ กิจกรรมพิเศษ</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
             <div class="form-group" style="margin:0;">
               <label class="form-label">กิจกรรมพิเศษ 1</label>
               <input id="special1" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
@@ -584,7 +598,7 @@
         <div class="section-title"><span class="section-badge">VS</span> Visitor Service</div>
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
               <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter1-name" type="text" class="form-input"></div>
               <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="vs-counter1-issue" type="text" class="form-input"></div>
               <div><label class="form-label">หมายเหตุ</label><input id="vs-counter1-note" type="text" class="form-input"></div>
@@ -682,8 +696,8 @@
 
         <!-- Section B Group -->
         <div class="card" style="margin-bottom:16px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <div class="section-title" style="margin:0;"><span class="section-badge">B</span> ผู้เข้าชมกลุ่ม (Group)</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            <div class="section-title" style="margin:0;"><span class="section-badge">B</span> ผู้เข้าชมกลุ่ม (Group) — <span style="font-size:13px;color:var(--text-muted);">จำนวนกลุ่ม: <strong id="vis-b-group-count" style="color:var(--accent);">0</strong> กลุ่ม</span></div>
             <button class="btn btn-primary btn-sm" onclick="addGroupRow()">+ เพิ่มกลุ่ม</button>
           </div>
           <div class="table-wrap">
@@ -722,7 +736,13 @@
               </tfoot>
             </table>
           </div>
-          
+          <div style="display:flex;align-items:center;gap:16px;margin-top:10px;flex-wrap:wrap;">
+            <span style="font-size:13px;color:var(--text-muted);">สมาชิกกลุ่ม —</span>
+            <label for="vis-b-ic" class="form-label" style="margin:0;font-size:13px;color:var(--text-muted);">IC:</label>
+            <input type="number" id="vis-b-ic" class="num-input" min="0" value="0" oninput="calcVis()" style="width:80px;" placeholder="0">
+            <label for="vis-b-ia" class="form-label" style="margin:0;font-size:13px;color:var(--text-muted);">IA:</label>
+            <input type="number" id="vis-b-ia" class="num-input" min="0" value="0" oninput="calcVis()" style="width:80px;" placeholder="0">
+          </div>
         </div>
 
         <!-- Section C Senior -->
@@ -961,7 +981,7 @@
 
         <!-- MOD Signature -->
         <div class="card" style="margin-bottom:16px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end;">
             <div>
               <label class="form-label">ลายเซ็น MOD</label>
               <input id="mod-sign" type="text" class="form-input" placeholder="ชื่อ - นามสกุล">
@@ -1073,7 +1093,7 @@
           <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">เฉลี่ย/วัน</div><div style="font-size:24px;font-weight:700;" id="sum-stat-avg">0</div></div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:24px;">
         <div class="card">
           <div style="font-size:15px;font-weight:600;margin-bottom:16px;">แนวโน้มผู้เข้าชมรายเดือน</div>
           <canvas id="summary-chart" height="220"></canvas>
