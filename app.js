@@ -1543,13 +1543,17 @@ function exportDailyBriefingPDF(date) {
 </body>
 </html>`;
 
-  const win = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
+  // Use Blob URL to avoid document.write with user-derived HTML
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
+  const win = window.open(blobUrl, '_blank', 'width=900,height=700,scrollbars=yes');
   if (!win) {
+    URL.revokeObjectURL(blobUrl);
     showToast('กรุณาอนุญาต Popup ในเบราว์เซอร์เพื่อ Export PDF', 'warning');
     return;
   }
-  win.document.write(html);
-  win.document.close();
+  // Release the Blob URL after the window has had time to load
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   showToast('กำลังเปิดหน้า Briefing PDF...', 'info');
 }
 
