@@ -503,10 +503,14 @@ function calcVis() {
   const aTotal = aThai + aFor + aMem;
   setTxt('vis-a-total', aTotal);
 
-  // Section B - Group
-  const bThai = getVal('vis-b-thai-child') + getVal('vis-b-thai-adult');
+  // Section B - Group (totals are maintained by calcGroupRows via tfoot cells)
+  const bThaiChild = parseInt(document.getElementById('vis-b-thai-child-total')?.textContent) || 0;
+  const bThaiAdult = parseInt(document.getElementById('vis-b-thai-adult-total')?.textContent) || 0;
+  const bForChild  = parseInt(document.getElementById('vis-b-for-child-total')?.textContent) || 0;
+  const bForAdult  = parseInt(document.getElementById('vis-b-for-adult-total')?.textContent) || 0;
+  const bThai = bThaiChild + bThaiAdult;
   setTxt('vis-b-thai-total', bThai);
-  const bFor = getVal('vis-b-for-child') + getVal('vis-b-for-adult');
+  const bFor = bForChild + bForAdult;
   setTxt('vis-b-for-total', bFor);
   const bMem = getVal('vis-b-ic') + getVal('vis-b-ia');
   setTxt('vis-b-mem-total', bMem);
@@ -605,6 +609,24 @@ function getFormData() {
       });
     }
   });
+  // Collect group rows (Section B) and compute totals
+  const groups = [];
+  let bThaiChild = 0, bThaiAdult = 0, bForChild = 0, bForAdult = 0;
+  document.querySelectorAll('#group-tbody tr').forEach(tr => {
+    const textInputs = tr.querySelectorAll('input[type="text"]');
+    const numInputs  = tr.querySelectorAll('input[type="number"]');
+    if (numInputs.length >= 4) {
+      const tc = parseInt(numInputs[0].value)||0;
+      const ta = parseInt(numInputs[1].value)||0;
+      const fc = parseInt(numInputs[2].value)||0;
+      const fa = parseInt(numInputs[3].value)||0;
+      bThaiChild += tc; bThaiAdult += ta; bForChild += fc; bForAdult += fa;
+      groups.push({
+        group: textInputs[0]?.value || '',
+        thaiChild: tc, thaiAdult: ta, foreignChild: fc, foreignAdult: fa
+      });
+    }
+  });
   // Grand total
   const gt = document.getElementById('grand-total');
   const totalVisitors = gt ? parseInt(gt.textContent) || 0 : 0;
@@ -619,9 +641,10 @@ function getFormData() {
     modMorning: getInputVal('mod-morning'),
     mExhibition: getInputVal('m-exhibition'),
     mEducation: getInputVal('m-education'),
-    mVisitor: getInputVal('m-visitor'),
+    mVisitor: getInputVal('m-visitor-service'),
     bookings,
     activities,
+    groups,
     hoursTueFri: getInputVal('hours-tue-fri'),
     hoursSatSun: getInputVal('hours-sat-sun'),
     hoursClosed: getInputVal('hours-closed'),
@@ -631,6 +654,10 @@ function getFormData() {
     regulation2: getInputVal('regulation-2'),
     special1: getInputVal('special1'),
     special2: getInputVal('special2'),
+    special3: getInputVal('special3'),
+    special4: getInputVal('special4'),
+    special5: getInputVal('special5'),
+    special6: getInputVal('special6'),
     // Evening - VS
     vsCounter2Name: getInputVal('vs-counter2-name'), vsCounter2Issue: getInputVal('vs-counter2-issue'), vsCounter2Note: getInputVal('vs-counter2-note'),
     vsCounter1Name: getInputVal('vs-counter1-name'), vsCounter1Issue: getInputVal('vs-counter1-issue'), vsCounter1Note: getInputVal('vs-counter1-note'),
@@ -649,9 +676,9 @@ function getFormData() {
     visAThai: { child: getVal('vis-a-thai-child'), adult: getVal('vis-a-thai-adult') },
     visAFor: { child: getVal('vis-a-for-child'), adult: getVal('vis-a-for-adult') },
     visAMem: { child: getVal('vis-a-mem-child'), adult: getVal('vis-a-mem-adult'), fc: getVal('vis-a-mem-fc'), fa: getVal('vis-a-mem-fa') },
-    // Visitors B
-    visBThai: { child: getVal('vis-b-thai-child'), adult: getVal('vis-b-thai-adult') },
-    visBFor: { child: getVal('vis-b-for-child'), adult: getVal('vis-b-for-adult') },
+    // Visitors B (computed from group rows)
+    visBThai: { child: bThaiChild, adult: bThaiAdult },
+    visBFor: { child: bForChild, adult: bForAdult },
     visBMem: { ic: getVal('vis-b-ic'), ia: getVal('vis-b-ia') },
     // Visitors C
     visCsenior: getVal('vis-c-senior'),
@@ -684,7 +711,7 @@ function setFormData(data) {
   setInputVal('mod-morning', data.modMorning);
   setInputVal('m-exhibition', data.mExhibition);
   setInputVal('m-education', data.mEducation);
-  setInputVal('m-visitor', data.mVisitor);
+  setInputVal('m-visitor-service', data.mVisitor);
   setChecked('cb-inspire-lab', data.cbInspireLab);
   setChecked('cb-innovation-space', data.cbInnovationSpace);
   setChecked('cb-walk-rally', data.cbWalkRally);
@@ -697,11 +724,30 @@ function setFormData(data) {
   setInputVal('regulation-2', data.regulation2);
   setInputVal('special1', data.special1);
   setInputVal('special2', data.special2);
+  setInputVal('special3', data.special3);
+  setInputVal('special4', data.special4);
+  setInputVal('special5', data.special5);
+  setInputVal('special6', data.special6);
   // Booking rows
   const tbody = document.getElementById('booking-tbody');
   if (tbody) { tbody.innerHTML = ''; bookingRowCount = 0; }
   if (data.bookings && data.bookings.length) {
     data.bookings.forEach(b => addBookingRow(b));
+  }
+  // Group rows (Section B)
+  const groupTbody = document.getElementById('group-tbody');
+  if (groupTbody) { groupTbody.innerHTML = ''; groupRowCount = 0; }
+  if (data.groups && data.groups.length) {
+    data.groups.forEach(g => addGroupRow(g));
+  } else if ((data.visBThai?.child || data.visBThai?.adult || data.visBFor?.child || data.visBFor?.adult)) {
+    // Legacy data: reconstruct a single aggregate row for backward compatibility
+    addGroupRow({
+      group: '',
+      thaiChild: data.visBThai?.child || 0,
+      thaiAdult: data.visBThai?.adult || 0,
+      foreignChild: data.visBFor?.child || 0,
+      foreignAdult: data.visBFor?.adult || 0
+    });
   }
   // Activity rows
   const activityTbody = document.getElementById('activity-tbody');
@@ -727,9 +773,7 @@ function setFormData(data) {
   const va = data.visAThai || {}; setInputVal('vis-a-thai-child', va.child||0); setInputVal('vis-a-thai-adult', va.adult||0);
   const vaf = data.visAFor || {}; setInputVal('vis-a-for-child', vaf.child||0); setInputVal('vis-a-for-adult', vaf.adult||0);
   const vam = data.visAMem || {}; setInputVal('vis-a-mem-child', vam.child||0); setInputVal('vis-a-mem-adult', vam.adult||0); setInputVal('vis-a-mem-fc', vam.fc||0); setInputVal('vis-a-mem-fa', vam.fa||0);
-  // Visitors B
-  const vb = data.visBThai || {}; setInputVal('vis-b-thai-child', vb.child||0); setInputVal('vis-b-thai-adult', vb.adult||0);
-  const vbf = data.visBFor || {}; setInputVal('vis-b-for-child', vbf.child||0); setInputVal('vis-b-for-adult', vbf.adult||0);
+  // Visitors B is restored via group rows above (calcGroupRows is called by addGroupRow)
   const vbm = data.visBMem || {}; setInputVal('vis-b-ic', vbm.ic||0); setInputVal('vis-b-ia', vbm.ia||0);
   // Visitors C
   setInputVal('vis-c-senior', data.visCsenior||0);
@@ -748,102 +792,11 @@ function setFormData(data) {
   });
   setInputVal('daily-notes', data.notes);
   // Recalculate
+  calcGroupRows();
   calcVis();
   calcRev();
 }
 
-
-let bookingIndex = 0;
-
-// helper: สร้าง input
-function createInput(type, name, placeholder = "") {
-  const input = document.createElement("input");
-  input.type = type;
-  input.name = name;
-  input.placeholder = placeholder;
-  input.style = "width:100%;padding:6px;border-radius:6px;";
-  return input;
-}
-
-// helper: สร้าง time picker
-function createTimeInput() {
-  const input = document.createElement("input");
-  input.type = "time";
-  input.name = "time[]";
-  input.min = "09:00";
-  input.max = "18:00";
-  input.step = "900"; // 15 นาที
-  input.required = true;
-  input.style = "width:100%;padding:6px;border-radius:6px;";
-  return input;
-}
-
-// helper: สร้าง td
-function createCell(content) {
-  const td = document.createElement("td");
-  td.style = "padding:8px;border:1px solid #1A1A1F";
-  if (content instanceof HTMLElement) {
-    td.appendChild(content);
-  } else {
-    td.innerText = content;
-  }
-  return td;
-}
-
-// เพิ่มแถว
-function addBookingRow() {
-  bookingIndex++;
-
-  const tbody = document.getElementById("booking-tbody");
-  const tr = document.createElement("tr");
-
-  // #
-  tr.appendChild(createCell(bookingIndex));
-
-  // กลุ่ม
-  tr.appendChild(createCell(createInput("text", "group[]", "ชื่อกลุ่ม")));
-
-  // จำนวน
-  const peopleInput = createInput("number", "people[]", "จำนวน");
-  peopleInput.min = 1;
-  tr.appendChild(createCell(peopleInput));
-
-  // เวลา (time picker)
-  tr.appendChild(createCell(createTimeInput()));
-
-  // ผู้รับผิดชอบ
-  tr.appendChild(createCell(createInput("text", "owner[]", "ผู้รับผิดชอบ")));
-
-  // ปุ่มลบ
-  const btn = document.createElement("button");
-  btn.innerText = "ลบ";
-  btn.style = "padding:5px 10px;border:none;border-radius:6px;background:#dc3545;color:#fff;cursor:pointer;";
-  btn.onclick = function () {
-    tr.remove();
-    reIndex();
-  };
-
-  const actionTd = createCell("");
-  actionTd.style.textAlign = "center";
-  actionTd.appendChild(btn);
-  tr.appendChild(actionTd);
-
-  tbody.appendChild(tr);
-}
-
-// re-index
-function reIndex() {
-  const rows = document.querySelectorAll("#booking-tbody tr");
-  bookingIndex = 0;
-
-  rows.forEach((row, i) => {
-    bookingIndex = i + 1;
-    row.children[0].innerText = bookingIndex;
-  });
-}
-
-// default
-addBookingRow();
 
 function clearFormFields() {
   // Reset all inputs in daily log
@@ -853,9 +806,12 @@ function clearFormFields() {
   document.querySelectorAll('#page-daily-log input[type=checkbox]').forEach(el => el.checked = false);
   const tbody = document.getElementById('booking-tbody');
   if (tbody) { tbody.innerHTML = ''; bookingRowCount = 0; }
+  const groupTbody = document.getElementById('group-tbody');
+  if (groupTbody) { groupTbody.innerHTML = ''; groupRowCount = 0; }
   // เคลียร์ activity rows
   const activityTbody = document.getElementById('activity-tbody');
   if (activityTbody) { activityTbody.innerHTML = ''; activityRowCount = 0; addActivityRow(); }
+  calcGroupRows();
   calcVis();
   calcRev();
 }
@@ -1302,12 +1258,28 @@ function exportPDF(startDate, endDate) {
 
 // ============ DAILY BRIEFING PDF EXPORT ============
 /**
+ * โหลด LOGO.png เป็น data URL สำหรับฝังใน PDF
+ */
+async function getLogoDataUrl() {
+  try {
+    const response = await fetch('./LOGO.png');
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) { return null; }
+}
+
+/**
  * สร้าง HTML Popup และ Print เป็น PDF รูปแบบ Daily Briefing
  * ใช้ฟอนต์ Sarabun (TH Sarabun) จาก Google Fonts
  * หน้าที่ 1: Briefing ช่วงเช้า + Briefing ช่วงเย็น
  * หน้าที่ 2: ยอดผู้เข้าชม + รายได้ + ลายเซ็น
  */
-function exportDailyBriefingPDF(date) {
+async function exportDailyBriefingPDF(date) {
   if (!date) { showToast('กรุณาระบุวันที่', 'warning'); return; }
   const raw = localStorage.getItem('nsm_' + date);
   if (!raw) { showToast('ไม่พบข้อมูลวันที่ ' + date, 'warning'); return; }
@@ -1374,19 +1346,30 @@ function exportDailyBriefingPDF(date) {
     return `<tr><td>${e(a.name||a.type)}</td><td>${e(a.operator)}</td><td>${a.thaiChild||0}</td><td>${a.thaiAdult||0}</td><td>${a.foreignChild||0}</td><td>${a.foreignAdult||0}</td><td>${total}</td></tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
 
-  // ---- SVG Logos ----
-  const nsmLogo = `<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="48" height="48" rx="8" fill="#003087"/>
-    <text x="24" y="18" text-anchor="middle" fill="white" font-size="9" font-family="Sarabun,sans-serif" font-weight="700">NSM</text>
-    <text x="24" y="30" text-anchor="middle" fill="white" font-size="7" font-family="Sarabun,sans-serif">พิพิธภัณฑ์</text>
-    <text x="24" y="40" text-anchor="middle" fill="white" font-size="7" font-family="Sarabun,sans-serif">วิทยาศาสตร์</text>
-  </svg>`;
-  const modLogo = `<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="48" height="48" rx="8" fill="#0055FF"/>
-    <text x="24" y="20" text-anchor="middle" fill="white" font-size="11" font-family="Sarabun,sans-serif" font-weight="700">MOD</text>
-    <text x="24" y="34" text-anchor="middle" fill="white" font-size="7" font-family="Sarabun,sans-serif">Museum of</text>
-    <text x="24" y="43" text-anchor="middle" fill="white" font-size="7" font-family="Sarabun,sans-serif">Discovery</text>
-  </svg>`;
+  // ---- group rows HTML ----
+  const groupRows = (r.groups||[]).map((g,i) => {
+    const total = (g.thaiChild||0)+(g.thaiAdult||0)+(g.foreignChild||0)+(g.foreignAdult||0);
+    return `<tr><td>${i+1}</td><td>${e(g.group)}</td><td class="num">${g.thaiChild||0}</td><td class="num">${g.thaiAdult||0}</td><td class="num">${g.foreignChild||0}</td><td class="num">${g.foreignAdult||0}</td><td class="num">${total}</td></tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
+
+  // ---- LOGO (embedded as data URL) ----
+  const logoDataUrl = await getLogoDataUrl();
+  const logoHtml = logoDataUrl
+    ? `<img src="${logoDataUrl}" alt="NSM Logo" style="height:56px;width:auto;object-fit:contain;">`
+    : `<svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="56" height="56" rx="10" fill="#003087"/>
+        <text x="28" y="22" text-anchor="middle" fill="white" font-size="10" font-family="Sarabun,sans-serif" font-weight="700">NSM</text>
+        <text x="28" y="35" text-anchor="middle" fill="white" font-size="8" font-family="Sarabun,sans-serif">พิพิธภัณฑ์</text>
+        <text x="28" y="47" text-anchor="middle" fill="white" font-size="8" font-family="Sarabun,sans-serif">วิทยาศาสตร์</text>
+      </svg>`;
+
+  // ---- specials HTML ----
+  const specials = [r.special1,r.special2,r.special3,r.special4,r.special5,r.special6].filter(Boolean);
+  const specialsHtml = specials.length ? `
+  <div class="sub-header">กิจกรรมพิเศษ</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin-bottom:8px;">
+    ${specials.map((s,i) => `<div class="info-item"><span class="info-label">กิจกรรม ${i+1}:</span><span class="info-value">${e(s)}</span></div>`).join('')}
+  </div>` : '';
 
   // ---- สร้าง HTML ----
   const html = `<!DOCTYPE html>
@@ -1395,10 +1378,10 @@ function exportDailyBriefingPDF(date) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MOD Daily Briefing - ${date}</title>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Sarabun', sans-serif; font-size: 11pt; color: #1a1a1a; background: white; }
+  body { font-family: 'TH Sarabun New', 'Sarabun', 'TH Sarabun PSK', sans-serif; font-size: 12pt; color: #1a1a1a; background: white; }
   .page { width: 210mm; min-height: 297mm; padding: 12mm 14mm; page-break-after: always; position: relative; }
   .page:last-child { page-break-after: avoid; }
   /* Header */
@@ -1449,8 +1432,7 @@ function exportDailyBriefingPDF(date) {
   <!-- Header -->
   <div class="doc-header">
     <div class="logos">
-      ${nsmLogo}
-      ${modLogo}
+      ${logoHtml}
       <div style="margin-left:8px;">
         <div style="font-size:14pt;font-weight:700;color:#003087;">NSM MOD System</div>
         <div style="font-size:10pt;color:#555;">Museum of Discovery — Daily Briefing</div>
@@ -1463,7 +1445,7 @@ function exportDailyBriefingPDF(date) {
   </div>
 
   <!-- MORNING BRIEFING -->
-  <div class="section-header">🌅 Briefing ช่วงเช้า — Morning Briefing</div>
+  <div class="section-header">Briefing ช่วงเช้า — Morning Briefing</div>
 
   <div class="staff-grid">
     <div class="staff-item"><span class="staff-label">MOD ประจำวัน:</span><span class="staff-value">${e(r.modMorning)}</span></div>
@@ -1473,31 +1455,26 @@ function exportDailyBriefingPDF(date) {
   </div>
 
   <div class="info-row">
-    <div class="info-item"><span class="info-label">อังคาร–ศุกร์:</span><span class="info-value">${e(r.hoursTueFri||'เวลา 9.00 - 16.00 น.')}</span></div>
-    <div class="info-item"><span class="info-label">เสาร์–อาทิตย์:</span><span class="info-value">${e(r.hoursSatSun||'เวลา 10.00 - 17.00 น.')}</span></div>
+    <div class="info-item"><span class="info-label">อังคาร–ศุกร์:</span><span class="info-value">${e(r.hoursTueFri||'เวลา 8.30 - 16.30 น.')}</span></div>
+    <div class="info-item"><span class="info-label">เสาร์–อาทิตย์:</span><span class="info-value">${e(r.hoursSatSun||'เวลา 9.30 - 16.30 น.')}</span></div>
     <div class="info-item"><span class="info-label">วันหยุด:</span><span class="info-value">${e(r.hoursClosed||'หยุดทุกวันจันทร์')}</span></div>
   </div>
 
   ${(r.bookings||[]).length ? `
-  <div class="sub-header">📋 ตารางจองกลุ่ม</div>
+  <div class="sub-header">ตารางจองกลุ่ม</div>
   <table>
     <thead><tr><th style="width:30px">#</th><th>กลุ่ม / ชื่อ</th><th style="width:70px">จำนวน</th><th style="width:70px">เวลา</th><th>ผู้รับผิดชอบ</th></tr></thead>
     <tbody>${bookingRows}</tbody>
   </table>` : ''}
 
   ${r.mEducationActivities ? `
-  <div class="sub-header">🎓 กิจกรรมพิเศษอื่นๆ</div>
+  <div class="sub-header">กิจกรรมพิเศษ M-Education</div>
   <div class="notes-box">${e(r.mEducationActivities)}</div>` : ''}
 
-  ${(r.special1||r.special2) ? `
-  <div class="sub-header">⭐ กิจกรรมพิเศษ</div>
-  <div class="info-row">
-    ${r.special1 ? `<div class="info-item"><span class="info-label">กิจกรรม 1:</span><span class="info-value">${e(r.special1)}</span></div>` : ''}
-    ${r.special2 ? `<div class="info-item"><span class="info-label">กิจกรรม 2:</span><span class="info-value">${e(r.special2)}</span></div>` : ''}
-  </div>` : ''}
+  ${specialsHtml}
 
   <!-- EVENING BRIEFING -->
-  <div class="section-header" style="margin-top:10px;">🌆 Briefing ช่วงเย็น — Evening Briefing</div>
+  <div class="section-header" style="margin-top:10px;">Briefing ช่วงเย็น — Evening Briefing</div>
 
   <div class="sub-header">VS Visitor Service — เคาน์เตอร์</div>
   <table>
@@ -1545,8 +1522,7 @@ function exportDailyBriefingPDF(date) {
   <!-- Header -->
   <div class="doc-header">
     <div class="logos">
-      ${nsmLogo}
-      ${modLogo}
+      ${logoHtml}
       <div style="margin-left:8px;">
         <div style="font-size:14pt;font-weight:700;color:#003087;">NSM MOD System</div>
         <div style="font-size:10pt;color:#555;">Museum of Discovery — ยอดผู้เข้าชม &amp; รายได้</div>
@@ -1558,7 +1534,7 @@ function exportDailyBriefingPDF(date) {
     </div>
   </div>
 
-  <div class="section-header">👥 ยอดผู้เข้าชมประจำวัน</div>
+  <div class="section-header">ยอดผู้เข้าชมประจำวัน</div>
 
   <!-- Section A: Walk-in -->
   <div class="sub-header">A. ผู้เข้าชมทั่วไป (Walk-in)</div>
@@ -1575,13 +1551,18 @@ function exportDailyBriefingPDF(date) {
   <!-- Section B: Group -->
   <div class="sub-header">B. ผู้เข้าชมกลุ่ม (Group)</div>
   <table>
-    <thead><tr><th>ประเภท</th><th class="num">เด็ก</th><th class="num">ผู้ใหญ่</th><th class="num">รวม</th></tr></thead>
-    <tbody>
-      <tr><td>ผู้เข้าชมไทย</td><td class="num">${bThaiC}</td><td class="num">${bThaiA}</td><td class="num">${bThaiC+bThaiA}</td></tr>
-      <tr><td>ผู้เข้าชมต่างชาติ</td><td class="num">${bForC}</td><td class="num">${bForA}</td><td class="num">${bForC+bForA}</td></tr>
-      <tr><td>สมาชิก IC / IA</td><td class="num">${bIC}</td><td class="num">${bIA}</td><td class="num">${bIC+bIA}</td></tr>
-      <tr class="total-row"><td colspan="3"><strong>รวม Group</strong></td><td class="num"><strong>${bTotal}</strong></td></tr>
-    </tbody>
+    <thead>
+      <tr><th>#</th><th>ชื่อกลุ่ม</th><th class="num">ไทย เด็ก</th><th class="num">ไทย ผู้ใหญ่</th><th class="num">ต่างชาติ เด็ก</th><th class="num">ต่างชาติ ผู้ใหญ่</th><th class="num">รวม</th></tr>
+    </thead>
+    <tbody>${groupRows}</tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td colspan="2"><strong>รวม Group</strong></td>
+        <td class="num">${bThaiC}</td><td class="num">${bThaiA}</td>
+        <td class="num">${bForC}</td><td class="num">${bForA}</td>
+        <td class="num"><strong>${bTotal}</strong></td>
+      </tr>
+    </tfoot>
   </table>
 
   <!-- Section C: Senior -->
@@ -1624,7 +1605,7 @@ function exportDailyBriefingPDF(date) {
   </div>
 
   <!-- Revenue -->
-  <div class="section-header" style="margin-top:8px;">💰 รายได้ประจำวัน</div>
+  <div class="section-header" style="margin-top:8px;">รายได้ประจำวัน</div>
   <table>
     <thead>
       <tr><th>ประเภท</th><th class="num">Exhibition</th><th class="num">Inspire Lab</th><th class="num">Innovation</th><th class="num">Walk Rally</th><th class="num">Mini M&amp;P</th><th class="num">Special</th><th class="num">สมาชิก</th><th class="num">อื่นๆ</th><th class="num">รวม</th></tr>
@@ -1672,7 +1653,7 @@ function exportDailyBriefingPDF(date) {
   <!-- Notes -->
   ${r.notes ? `
   <div style="margin-top:8px;">
-    <div style="font-weight:600;color:#003087;margin-bottom:4px;">📌 หมายเหตุประจำวัน</div>
+    <div style="font-weight:600;color:#003087;margin-bottom:4px;">หมายเหตุประจำวัน</div>
     <div class="notes-box">${e(r.notes)}</div>
   </div>` : ''}
 
