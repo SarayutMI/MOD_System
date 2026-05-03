@@ -294,7 +294,9 @@ function removeGroupRow(btn) {
 
 function calcGroupRows() {
   let thaiChild = 0, thaiAdult = 0, forChild = 0, forAdult = 0;
+  let groupCount = 0;
   document.querySelectorAll('#group-tbody tr').forEach(tr => {
+    const textInputs = tr.querySelectorAll('input[type="text"]');
     const inputs = tr.querySelectorAll('input[type="number"]');
     if (inputs.length >= 4) {
       const tc = parseInt(inputs[0].value)||0;
@@ -304,9 +306,12 @@ function calcGroupRows() {
       thaiChild += tc; thaiAdult += ta; forChild += fc; forAdult += fa;
       const rowTotal = tr.querySelector('td.computed');
       if (rowTotal) rowTotal.textContent = tc + ta + fc + fa;
+      // Count only rows with a filled group name
+      if (textInputs[0] && textInputs[0].value.trim() !== '') groupCount++;
     }
   });
   const subTotal = thaiChild + thaiAdult + forChild + forAdult;
+  setTxt('vis-b-group-count', groupCount);
   setTxt('vis-b-thai-child-total', thaiChild);
   setTxt('vis-b-thai-adult-total', thaiAdult);
   setTxt('vis-b-for-child-total', forChild);
@@ -726,7 +731,10 @@ function getFormData() {
     exZ2Name: getInputVal('ex-z2-name'), exZ2Issue: getInputVal('ex-z2-issue'), exZ2Note: getInputVal('ex-z2-note'),
     exZ3Name: getInputVal('ex-z3-name'), exZ3Issue: getInputVal('ex-z3-issue'), exZ3Note: getInputVal('ex-z3-note'),
     exZ4Name: getInputVal('ex-z4-name'), exZ4Issue: getInputVal('ex-z4-issue'), exZ4Note: getInputVal('ex-z4-note'),
-    exTempName: getInputVal('ex-temp-name'), exTempIssue: getInputVal('ex-temp-issue'), exTempNote: getInputVal('ex-temp-note'),
+    exInnovationName: getInputVal('ex-innovation-name'), exInnovationIssue: getInputVal('ex-innovation-issue'), exInnovationNote: getInputVal('ex-innovation-note'),
+    exInspireName: getInputVal('ex-inspire-name'), exInspireIssue: getInputVal('ex-inspire-issue'), exInspireNote: getInputVal('ex-inspire-note'),
+    exMakePlay1Name: getInputVal('ex-make-play1-name'), exMakePlay1Issue: getInputVal('ex-make-play1-issue'), exMakePlay1Note: getInputVal('ex-make-play1-note'),
+    exMakePlay2Name: getInputVal('ex-make-play2-name'), exMakePlay2Issue: getInputVal('ex-make-play2-issue'), exMakePlay2Note: getInputVal('ex-make-play2-note'),
     // Evening - Education
     edInspireName: getInputVal('ed-inspire-name'), edInspireIssue: getInputVal('ed-inspire-issue'), edInspireNote: getInputVal('ed-inspire-note'),
     edInnovationName: getInputVal('ed-innovation-name'), edInnovationIssue: getInputVal('ed-innovation-issue'), edInnovationNote: getInputVal('ed-innovation-note'),
@@ -824,7 +832,10 @@ function setFormData(data) {
   setInputVal('ex-z2-name', data.exZ2Name); setInputVal('ex-z2-issue', data.exZ2Issue); setInputVal('ex-z2-note', data.exZ2Note);
   setInputVal('ex-z3-name', data.exZ3Name); setInputVal('ex-z3-issue', data.exZ3Issue); setInputVal('ex-z3-note', data.exZ3Note);
   setInputVal('ex-z4-name', data.exZ4Name); setInputVal('ex-z4-issue', data.exZ4Issue); setInputVal('ex-z4-note', data.exZ4Note);
-  setInputVal('ex-temp-name', data.exTempName); setInputVal('ex-temp-issue', data.exTempIssue); setInputVal('ex-temp-note', data.exTempNote);
+  setInputVal('ex-innovation-name', data.exInnovationName); setInputVal('ex-innovation-issue', data.exInnovationIssue); setInputVal('ex-innovation-note', data.exInnovationNote);
+  setInputVal('ex-inspire-name', data.exInspireName); setInputVal('ex-inspire-issue', data.exInspireIssue); setInputVal('ex-inspire-note', data.exInspireNote);
+  setInputVal('ex-make-play1-name', data.exMakePlay1Name); setInputVal('ex-make-play1-issue', data.exMakePlay1Issue); setInputVal('ex-make-play1-note', data.exMakePlay1Note);
+  setInputVal('ex-make-play2-name', data.exMakePlay2Name); setInputVal('ex-make-play2-issue', data.exMakePlay2Issue); setInputVal('ex-make-play2-note', data.exMakePlay2Note);
   setInputVal('ed-inspire-name', data.edInspireName); setInputVal('ed-inspire-issue', data.edInspireIssue); setInputVal('ed-inspire-note', data.edInspireNote);
   setInputVal('ed-innovation-name', data.edInnovationName); setInputVal('ed-innovation-issue', data.edInnovationIssue); setInputVal('ed-innovation-note', data.edInnovationNote);
   setInputVal('ed-mini-name', data.edMiniName); setInputVal('ed-mini-issue', data.edMiniIssue); setInputVal('ed-mini-note', data.edMiniNote);
@@ -1425,6 +1436,8 @@ async function exportDailyBriefingPDF(date) {
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
 
   // ---- group rows HTML ----
+  const filledGroups = (r.groups||[]).filter(g => (g.group||'').trim() !== '');
+  const groupCount = filledGroups.length;
   const groupRows = (r.groups||[]).map((g,i) => {
     const total = (g.thaiChild||0)+(g.thaiAdult||0)+(g.foreignChild||0)+(g.foreignAdult||0);
     return `<tr><td>${i+1}</td><td>${e(g.group)}</td><td class="num">${g.thaiChild||0}</td><td class="num">${g.thaiAdult||0}</td><td class="num">${g.foreignChild||0}</td><td class="num">${g.foreignAdult||0}</td><td class="num">${total}</td></tr>`;
@@ -1564,13 +1577,16 @@ async function exportDailyBriefingPDF(date) {
 
   <div class="sub-header">EX Exhibition Zones</div>
   <table>
-    <thead><tr><th>โซน</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+    <thead><tr><th>โซน / ห้อง</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
     <tbody>
       <tr><td>โซน 1 ค้นพบตัวตน</td><td>${e(r.exZ1Name)}</td><td>${e(r.exZ1Issue)}</td><td>${e(r.exZ1Note)}</td></tr>
       <tr><td>โซน 2 เปิดโลกทางการแพทย์</td><td>${e(r.exZ2Name)}</td><td>${e(r.exZ2Issue)}</td><td>${e(r.exZ2Note)}</td></tr>
       <tr><td>โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td>${e(r.exZ3Name)}</td><td>${e(r.exZ3Issue)}</td><td>${e(r.exZ3Note)}</td></tr>
       <tr><td>โซน 4 การบินและอวกาศ</td><td>${e(r.exZ4Name)}</td><td>${e(r.exZ4Issue)}</td><td>${e(r.exZ4Note)}</td></tr>
-      <tr><td>นิทรรศการชั่วคราว</td><td>${e(r.exTempName)}</td><td>${e(r.exTempIssue)}</td><td>${e(r.exTempNote)}</td></tr>
+      <tr><td>ห้อง Innovation Space</td><td>${e(r.exInnovationName)}</td><td>${e(r.exInnovationIssue)}</td><td>${e(r.exInnovationNote)}</td></tr>
+      <tr><td>ห้อง Inspire Lab</td><td>${e(r.exInspireName)}</td><td>${e(r.exInspireIssue)}</td><td>${e(r.exInspireNote)}</td></tr>
+      <tr><td>ห้อง Make and Play 1</td><td>${e(r.exMakePlay1Name)}</td><td>${e(r.exMakePlay1Issue)}</td><td>${e(r.exMakePlay1Note)}</td></tr>
+      <tr><td>ห้อง Make and Play 2</td><td>${e(r.exMakePlay2Name)}</td><td>${e(r.exMakePlay2Issue)}</td><td>${e(r.exMakePlay2Note)}</td></tr>
     </tbody>
   </table>
 
@@ -1632,7 +1648,7 @@ async function exportDailyBriefingPDF(date) {
   </table>
 
   <!-- Section B: Group -->
-  <div class="sub-header">B. ผู้เข้าชมกลุ่ม (Group)</div>
+  <div class="sub-header">B. ผู้เข้าชมกลุ่ม (Group) — จำนวนกลุ่ม: ${groupCount} กลุ่ม</div>
   <table>
     <thead>
       <tr><th>#</th><th>ชื่อกลุ่ม</th><th class="num">ไทย เด็ก</th><th class="num">ไทย ผู้ใหญ่</th><th class="num">ต่างชาติ เด็ก</th><th class="num">ต่างชาติ ผู้ใหญ่</th><th class="num">รวม</th></tr>
