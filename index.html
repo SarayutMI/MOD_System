@@ -536,16 +536,6 @@
             </div>
           </div>
         </div>
-        <div class="section-title"><span class="section-badge">VS</span> Visitor Service</div>
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter1-name" type="text" class="form-input"></div>
-              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="vs-counter1-issue" type="text" class="form-input"></div>
-              <div><label class="form-label">หมายเหตุ</label><input id="vs-counter1-note" type="text" class="form-input"></div>
-            </div>
-          </div>
-        </div>
 
         <!-- Exhibition Zones - Staff Assignment -->
         <div class="card" style="margin-bottom:16px;">
@@ -558,7 +548,10 @@
           <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-name" type="text" class="form-input"></td></tr>
           <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-name" type="text" class="form-input"></td></tr>
           <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-name" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">นิทรรศการชั่วคราว</td><td><input id="ex-temp-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><input id="ex-inspire-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-name" type="text" class="form-input"></td></tr>
               </tbody>
             </table>
           </div>
@@ -575,13 +568,27 @@
             <table class="data-table">
               <thead><tr><th>โซน</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
               <tbody>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1</td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2</td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3</td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4</td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">นิทรรศการชั่วคราว</td><td><input id="ex-temp-issue" type="text" class="form-input"></td><td><input id="ex-temp-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-issue" type="text" class="form-input"></td><td><input id="ex-innovation-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab </td><td><input id="ex-inspire-issue" type="text" class="form-input"></td><td><input id="ex-inspire-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-issue" type="text" class="form-input"></td><td><input id="ex-make-play1-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-issue" type="text" class="form-input"></td><td><input id="ex-make-play2-note" type="text" class="form-input"></td></tr>
+          
               </tbody>
             </table>
+          </div>
+        </div>
+        <div class="section-title"><span class="section-badge">VS</span> Visitor Service</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter1-name" type="text" class="form-input"></div>
+              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="vs-counter1-issue" type="text" class="form-input"></div>
+              <div><label class="form-label">หมายเหตุ</label><input id="vs-counter1-note" type="text" class="form-input"></div>
+            </div>
           </div>
         </div>
 
@@ -715,20 +722,7 @@
               </tfoot>
             </table>
           </div>
-          <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;align-items:flex-end;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label" style="font-size:12px;">IC (สมาชิกเด็ก)</label>
-              <input type="number" id="vis-b-ic" class="num-input" min="0" value="0" oninput="calcGroupRows()" style="width:90px;">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label" style="font-size:12px;">IA (สมาชิกผู้ใหญ่)</label>
-              <input type="number" id="vis-b-ia" class="num-input" min="0" value="0" oninput="calcGroupRows()" style="width:90px;">
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;padding-bottom:4px;">
-              <span style="font-size:13px;color:var(--text-muted);">รวมสมาชิกกลุ่ม:</span>
-              <span class="computed" id="vis-b-mem-total" style="font-size:16px;font-weight:700;">0</span>
-            </div>
-          </div>
+          
         </div>
 
         <!-- Section C Senior -->
