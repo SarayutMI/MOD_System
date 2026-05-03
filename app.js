@@ -1204,15 +1204,18 @@ function exportDailyBriefingPDF(date) {
   const grandTotal = r.totalVisitors || (aTotal+bTotal+cSenior+dTotal);
   const totalRevenue = r.totalRevenue || 0;
 
+  // ---- HTML-escape shorthand (all user data must be escaped before inserting into HTML) ----
+  const e = s => escHtml(String(s || ''));
+
   // ---- bookings HTML ----
   const bookingRows = (r.bookings||[]).map((b,i) =>
-    `<tr><td>${i+1}</td><td>${b.group||''}</td><td>${b.count||''}</td><td>${b.time||''}</td><td>${b.responsible||''}</td></tr>`
+    `<tr><td>${i+1}</td><td>${e(b.group)}</td><td>${e(b.count)}</td><td>${e(b.time)}</td><td>${e(b.responsible)}</td></tr>`
   ).join('') || '<tr><td colspan="5" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
 
   // ---- activities HTML ----
   const actRows = (r.activities||[]).map(a => {
     const total = (a.thaiChild||0)+(a.thaiAdult||0)+(a.foreignChild||0)+(a.foreignAdult||0);
-    return `<tr><td>${a.name||a.type||''}</td><td>${a.operator||''}</td><td>${a.thaiChild||0}</td><td>${a.thaiAdult||0}</td><td>${a.foreignChild||0}</td><td>${a.foreignAdult||0}</td><td>${total}</td></tr>`;
+    return `<tr><td>${e(a.name||a.type)}</td><td>${e(a.operator)}</td><td>${a.thaiChild||0}</td><td>${a.thaiAdult||0}</td><td>${a.foreignChild||0}</td><td>${a.foreignAdult||0}</td><td>${total}</td></tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
 
   // ---- SVG Logos ----
@@ -1307,16 +1310,16 @@ function exportDailyBriefingPDF(date) {
   <div class="section-header">🌅 Briefing ช่วงเช้า — Morning Briefing</div>
 
   <div class="staff-grid">
-    <div class="staff-item"><span class="staff-label">MOD ประจำวัน:</span><span class="staff-value">${r.modMorning||''}</span></div>
-    <div class="staff-item"><span class="staff-label">M-Exhibition:</span><span class="staff-value">${r.mExhibition||''}</span></div>
-    <div class="staff-item"><span class="staff-label">M-Education:</span><span class="staff-value">${r.mEducation||''}</span></div>
-    <div class="staff-item"><span class="staff-label">M-Visitor Service:</span><span class="staff-value">${r.mVisitor||''}</span></div>
+    <div class="staff-item"><span class="staff-label">MOD ประจำวัน:</span><span class="staff-value">${e(r.modMorning)}</span></div>
+    <div class="staff-item"><span class="staff-label">M-Exhibition:</span><span class="staff-value">${e(r.mExhibition)}</span></div>
+    <div class="staff-item"><span class="staff-label">M-Education:</span><span class="staff-value">${e(r.mEducation)}</span></div>
+    <div class="staff-item"><span class="staff-label">M-Visitor Service:</span><span class="staff-value">${e(r.mVisitor)}</span></div>
   </div>
 
   <div class="info-row">
-    <div class="info-item"><span class="info-label">อังคาร–ศุกร์:</span><span class="info-value">${r.hoursTueFri||'เวลา 9.00 - 16.00 น.'}</span></div>
-    <div class="info-item"><span class="info-label">เสาร์–อาทิตย์:</span><span class="info-value">${r.hoursSatSun||'เวลา 10.00 - 17.00 น.'}</span></div>
-    <div class="info-item"><span class="info-label">วันหยุด:</span><span class="info-value">${r.hoursClosed||'หยุดทุกวันจันทร์'}</span></div>
+    <div class="info-item"><span class="info-label">อังคาร–ศุกร์:</span><span class="info-value">${e(r.hoursTueFri||'เวลา 9.00 - 16.00 น.')}</span></div>
+    <div class="info-item"><span class="info-label">เสาร์–อาทิตย์:</span><span class="info-value">${e(r.hoursSatSun||'เวลา 10.00 - 17.00 น.')}</span></div>
+    <div class="info-item"><span class="info-label">วันหยุด:</span><span class="info-value">${e(r.hoursClosed||'หยุดทุกวันจันทร์')}</span></div>
   </div>
 
   ${(r.bookings||[]).length ? `
@@ -1328,17 +1331,17 @@ function exportDailyBriefingPDF(date) {
 
   ${r.mEducationActivities ? `
   <div class="sub-header">🎓 กิจกรรมส่งเสริมการเรียนรู้</div>
-  <div class="notes-box">${r.mEducationActivities}</div>` : ''}
+  <div class="notes-box">${e(r.mEducationActivities)}</div>` : ''}
 
   ${r.visitorServiceInfo ? `
   <div class="sub-header">ℹ️ บริการผู้เข้าชม</div>
-  <div class="notes-box">${r.visitorServiceInfo}</div>` : ''}
+  <div class="notes-box">${e(r.visitorServiceInfo)}</div>` : ''}
 
   ${(r.special1||r.special2) ? `
   <div class="sub-header">⭐ กิจกรรมพิเศษ</div>
   <div class="info-row">
-    ${r.special1 ? `<div class="info-item"><span class="info-label">กิจกรรม 1:</span><span class="info-value">${r.special1}</span></div>` : ''}
-    ${r.special2 ? `<div class="info-item"><span class="info-label">กิจกรรม 2:</span><span class="info-value">${r.special2}</span></div>` : ''}
+    ${r.special1 ? `<div class="info-item"><span class="info-label">กิจกรรม 1:</span><span class="info-value">${e(r.special1)}</span></div>` : ''}
+    ${r.special2 ? `<div class="info-item"><span class="info-label">กิจกรรม 2:</span><span class="info-value">${e(r.special2)}</span></div>` : ''}
   </div>` : ''}
 
   <!-- EVENING BRIEFING -->
@@ -1348,7 +1351,7 @@ function exportDailyBriefingPDF(date) {
   <table>
     <thead><tr><th>พื้นที่</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
     <tbody>
-      <tr><td>เคาน์เตอร์ชั้น 1</td><td>${r.vsCounter1Name||''}</td><td>${r.vsCounter1Issue||''}</td><td>${r.vsCounter1Note||''}</td></tr>
+      <tr><td>เคาน์เตอร์ชั้น 1</td><td>${e(r.vsCounter1Name)}</td><td>${e(r.vsCounter1Issue)}</td><td>${e(r.vsCounter1Note)}</td></tr>
     </tbody>
   </table>
 
@@ -1356,11 +1359,11 @@ function exportDailyBriefingPDF(date) {
   <table>
     <thead><tr><th>โซน</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
     <tbody>
-      <tr><td>โซน 1 ค้นพบตัวตน</td><td>${r.exZ1Name||''}</td><td>${r.exZ1Issue||''}</td><td>${r.exZ1Note||''}</td></tr>
-      <tr><td>โซน 2 เปิดโลกทางการแพทย์</td><td>${r.exZ2Name||''}</td><td>${r.exZ2Issue||''}</td><td>${r.exZ2Note||''}</td></tr>
-      <tr><td>โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td>${r.exZ3Name||''}</td><td>${r.exZ3Issue||''}</td><td>${r.exZ3Note||''}</td></tr>
-      <tr><td>โซน 4 การบินและอวกาศ</td><td>${r.exZ4Name||''}</td><td>${r.exZ4Issue||''}</td><td>${r.exZ4Note||''}</td></tr>
-      <tr><td>นิทรรศการชั่วคราว</td><td>${r.exTempName||''}</td><td>${r.exTempIssue||''}</td><td>${r.exTempNote||''}</td></tr>
+      <tr><td>โซน 1 ค้นพบตัวตน</td><td>${e(r.exZ1Name)}</td><td>${e(r.exZ1Issue)}</td><td>${e(r.exZ1Note)}</td></tr>
+      <tr><td>โซน 2 เปิดโลกทางการแพทย์</td><td>${e(r.exZ2Name)}</td><td>${e(r.exZ2Issue)}</td><td>${e(r.exZ2Note)}</td></tr>
+      <tr><td>โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td>${e(r.exZ3Name)}</td><td>${e(r.exZ3Issue)}</td><td>${e(r.exZ3Note)}</td></tr>
+      <tr><td>โซน 4 การบินและอวกาศ</td><td>${e(r.exZ4Name)}</td><td>${e(r.exZ4Issue)}</td><td>${e(r.exZ4Note)}</td></tr>
+      <tr><td>นิทรรศการชั่วคราว</td><td>${e(r.exTempName)}</td><td>${e(r.exTempIssue)}</td><td>${e(r.exTempNote)}</td></tr>
     </tbody>
   </table>
 
@@ -1378,9 +1381,9 @@ function exportDailyBriefingPDF(date) {
   <table>
     <thead><tr><th>โปรแกรม</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
     <tbody>
-      <tr><td>Inspire Lab</td><td>${r.edInspireName||''}</td><td>${r.edInspireIssue||''}</td><td>${r.edInspireNote||''}</td></tr>
-      <tr><td>Innovation Space</td><td>${r.edInnovationName||''}</td><td>${r.edInnovationIssue||''}</td><td>${r.edInnovationNote||''}</td></tr>
-      <tr><td>Mini Make &amp; Play</td><td>${r.edMiniName||''}</td><td>${r.edMiniIssue||''}</td><td>${r.edMiniNote||''}</td></tr>
+      <tr><td>Inspire Lab</td><td>${e(r.edInspireName)}</td><td>${e(r.edInspireIssue)}</td><td>${e(r.edInspireNote)}</td></tr>
+      <tr><td>Innovation Space</td><td>${e(r.edInnovationName)}</td><td>${e(r.edInnovationIssue)}</td><td>${e(r.edInnovationNote)}</td></tr>
+      <tr><td>Mini Make &amp; Play</td><td>${e(r.edMiniName)}</td><td>${e(r.edMiniIssue)}</td><td>${e(r.edMiniNote)}</td></tr>
     </tbody>
   </table>
 </div><!-- /page 1 -->
@@ -1448,7 +1451,7 @@ function exportDailyBriefingPDF(date) {
       <tr><td>Walk Rallies</td><td class="num">${vdw.tc||0}</td><td class="num">${vdw.ta||0}</td><td class="num">${vdw.fc||0}</td><td class="num">${vdw.fa||0}</td><td class="num">${dWrTotal}</td></tr>
       <tr><td>Mini Make &amp; Play</td><td class="num">${vdm.child||0}</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">${dMmTotal}</td></tr>
       <tr><td>Special Event</td><td class="num">${vds.tc||0}</td><td class="num">${vds.ta||0}</td><td class="num">${vds.fc||0}</td><td class="num">${vds.fa||0}</td><td class="num">${dSpTotal}</td></tr>
-      ${dOthTotal ? `<tr><td>กิจกรรมอื่น${vdo.name?' ('+vdo.name+')':''}</td><td class="num" colspan="4">${dOthTotal}</td><td class="num">${dOthTotal}</td></tr>` : ''}
+      ${dOthTotal ? `<tr><td>กิจกรรมอื่น${vdo.name?' ('+e(vdo.name)+')':''}</td><td class="num" colspan="4">${dOthTotal}</td><td class="num">${dOthTotal}</td></tr>` : ''}
       <tr class="total-row"><td colspan="5"><strong>รวมกิจกรรมการศึกษา</strong></td><td class="num"><strong>${dTotal}</strong></td></tr>
     </tbody>
   </table>
@@ -1518,7 +1521,7 @@ function exportDailyBriefingPDF(date) {
   ${r.notes ? `
   <div style="margin-top:8px;">
     <div style="font-weight:600;color:#003087;margin-bottom:4px;">📌 หมายเหตุประจำวัน</div>
-    <div class="notes-box">${r.notes}</div>
+    <div class="notes-box">${e(r.notes)}</div>
   </div>` : ''}
 
   <!-- Signature -->
@@ -1526,7 +1529,7 @@ function exportDailyBriefingPDF(date) {
     <div class="sig-inner">
       <div style="font-size:10pt;color:#555;margin-bottom:4px;">ลายเซ็น MOD ประจำวัน</div>
       <div class="sig-line"></div>
-      <div style="font-weight:600;">${r.modSign||'...........................'}</div>
+      <div style="font-weight:600;">${e(r.modSign||'...........................')}</div>
       <div style="font-size:10pt;color:#555;margin-top:4px;">วันที่: ${r.signDate ? toThaiDate(r.signDate) : recDate}</div>
     </div>
   </div>
