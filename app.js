@@ -269,7 +269,7 @@ function addGroupRow(data) {
   tr.dataset.id = groupRowCount;
   tr.innerHTML = `
     <td style="color:var(--text-muted);font-size:12px;">${groupRowCount}</td>
-    <td><input type="text" class="form-input" style="min-width:140px;" placeholder="ชื่อกลุ่ม" value="${data?.group||''}"></td>
+    <td><input type="text" class="form-input group-name-input" style="min-width:140px;" placeholder="ชื่อกลุ่ม" value="${data?.group||''}"></td>
     <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:70px;" oninput="calcGroupRows()"></td>
     <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:70px;" oninput="calcGroupRows()"></td>
     <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:70px;" oninput="calcGroupRows()"></td>
@@ -296,7 +296,7 @@ function calcGroupRows() {
   let thaiChild = 0, thaiAdult = 0, forChild = 0, forAdult = 0;
   let groupCount = 0;
   document.querySelectorAll('#group-tbody tr').forEach(tr => {
-    const textInputs = tr.querySelectorAll('input[type="text"]');
+    const groupNameInput = tr.querySelector('input.group-name-input');
     const inputs = tr.querySelectorAll('input[type="number"]');
     if (inputs.length >= 4) {
       const tc = parseInt(inputs[0].value)||0;
@@ -307,7 +307,7 @@ function calcGroupRows() {
       const rowTotal = tr.querySelector('td.computed');
       if (rowTotal) rowTotal.textContent = tc + ta + fc + fa;
       // Count only rows with a filled group name
-      if (textInputs[0] && textInputs[0].value.trim() !== '') groupCount++;
+      if (groupNameInput && groupNameInput.value.trim() !== '') groupCount++;
     }
   });
   const subTotal = thaiChild + thaiAdult + forChild + forAdult;
@@ -678,7 +678,7 @@ function getFormData() {
   const groups = [];
   let bThaiChild = 0, bThaiAdult = 0, bForChild = 0, bForAdult = 0;
   document.querySelectorAll('#group-tbody tr').forEach(tr => {
-    const textInputs = tr.querySelectorAll('input[type="text"]');
+    const groupNameInput = tr.querySelector('input.group-name-input');
     const numInputs  = tr.querySelectorAll('input[type="number"]');
     if (numInputs.length >= 4) {
       const tc = parseInt(numInputs[0].value)||0;
@@ -687,7 +687,7 @@ function getFormData() {
       const fa = parseInt(numInputs[3].value)||0;
       bThaiChild += tc; bThaiAdult += ta; bForChild += fc; bForAdult += fa;
       groups.push({
-        group: textInputs[0]?.value || '',
+        group: groupNameInput?.value || '',
         thaiChild: tc, thaiAdult: ta, foreignChild: fc, foreignAdult: fa
       });
     }

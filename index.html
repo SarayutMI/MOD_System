@@ -385,10 +385,10 @@
         <div class="card">
           <div style="font-size:15px;font-weight:600;margin-bottom:16px;">Quick Actions</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <div class="quick-action" onclick="gotoPage('daily-log')"><div class="quick-action-icon">+</div><div class="quick-action-label">บันทึกใหม่</div></div>
-            <div class="quick-action" onclick="gotoPage('history')"><div class="quick-action-icon">||</div><div class="quick-action-label">ประวัติ</div></div>
-            <div class="quick-action" onclick="gotoPage('export')"><div class="quick-action-icon">^</div><div class="quick-action-label">ส่งออก</div></div>
-            <div class="quick-action" onclick="openModal('settings-modal')"><div class="quick-action-icon">O</div><div class="quick-action-label">ตั้งค่า</div></div>
+            <div class="quick-action" onclick="gotoPage('daily-log')"><div class="quick-action-icon">&#x1F4DD;</div><div class="quick-action-label">บันทึกใหม่</div></div>
+            <div class="quick-action" onclick="gotoPage('history')"><div class="quick-action-icon">&#x1F4CB;</div><div class="quick-action-label">ประวัติ</div></div>
+            <div class="quick-action" onclick="gotoPage('export')"><div class="quick-action-icon">&#x1F4E4;</div><div class="quick-action-label">ส่งออก</div></div>
+            <div class="quick-action" onclick="openModal('settings-modal')"><div class="quick-action-icon">&#x2699;&#xFE0F;</div><div class="quick-action-label">ตั้งค่า</div></div>
           </div>
         </div>
       </div>
@@ -737,9 +737,10 @@
             </table>
           </div>
           <div style="display:flex;align-items:center;gap:16px;margin-top:10px;flex-wrap:wrap;">
-            <span style="font-size:13px;color:var(--text-muted);">สมาชิกกลุ่ม — IC:</span>
+            <span style="font-size:13px;color:var(--text-muted);">สมาชิกกลุ่ม —</span>
+            <label for="vis-b-ic" class="form-label" style="margin:0;font-size:13px;color:var(--text-muted);">IC:</label>
             <input type="number" id="vis-b-ic" class="num-input" min="0" value="0" oninput="calcVis()" style="width:80px;" placeholder="0">
-            <span style="font-size:13px;color:var(--text-muted);">IA:</span>
+            <label for="vis-b-ia" class="form-label" style="margin:0;font-size:13px;color:var(--text-muted);">IA:</label>
             <input type="number" id="vis-b-ia" class="num-input" min="0" value="0" oninput="calcVis()" style="width:80px;" placeholder="0">
           </div>
         </div>
