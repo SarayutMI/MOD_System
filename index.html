@@ -56,7 +56,7 @@
     .form-label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
     .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 14px; transition: border-color 0.2s; }
     .form-input:focus { outline: none; border-color: var(--accent); }
-    .form-input[type=number] { -moz-appearance: textfield; }
+    .form-input[type=number] { appearance: textfield; -moz-appearance: textfield; }
     .form-input[type=number]::-webkit-outer-spin-button,
     .form-input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
     select.form-input { cursor: pointer; }
@@ -426,17 +426,9 @@
           <div class="section-title">⏰ เวลาเปิดทำการประจำวัน</div>
           <div style="display:grid;gap:12px;">
             <div class="form-group" style="margin:0;">
-              <label class="form-label">1. อังคาร-ศุกร์</label>
-              <input id="hours-tue-fri" type="text" class="form-input" placeholder="เวลา 9.00 - 16.00 น." value="เวลา 9.00 - 16.00 น.">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">2. เสาร์-อาทิตย์ และหยุดนักขัตฤกษ์</label>
-              <input id="hours-sat-sun" type="text" class="form-input" placeholder="เวลา 10.00 - 17.00 น." value="เวลา 10.00 - 17.00 น.">
-            </div>
-            <div class="form-group" style="margin:0;">
+              <label class="form-label">1. อังคาร-ศุกร์ เวลา 8.30 - 16.30 น.</label>
+              <label class="form-label">2. เสาร์-อาทิตย์ และหยุดนักขัตฤกษ์ เวลา 9.30 - 16.30 น.</label>
               <label class="form-label">3. หยุดทุกวันจันทร์</label>
-              <input id="hours-closed" type="text" class="form-input" placeholder="หยุดทุกวันจันทร์" value="หยุดทุกวันจันทร์">
-            </div>
           </div>
         </div>
 
@@ -489,6 +481,14 @@
               <label class="form-label">กิจกรรมพิเศษ 2</label>
               <input id="special2" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
             </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">กิจกรรมพิเศษ 3</label>
+              <input id="special3" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">กิจกรรมพิเศษ 4</label>
+              <input id="special4" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
+            </div>
           </div>
         </div>
 
@@ -501,7 +501,8 @@
           <div class="section-body" style="max-height:300px;margin-top:12px;">
             <div class="info-box">
               <ul>
-                <li>เวลาทำการ: 09:30 - 17:00 น. (วันอังคาร - วันอาทิตย์)</li>
+                <li>เวลาทำการ: 08:30 - 16:30 น. (วันอังคาร - ศุกร์)</li>
+                <li>เวลาทำการ: 09:30 - 17:30 น. (วันเสาร์ - วันอาทิตย์และวันหยุดนักขัตฤกษ์)</li>
                 <li>MOD ต้องรายงาน Briefing เช้าทุกวัน</li>
                 <li>บันทึกข้อมูลผู้เข้าชมให้ครบถ้วนในแต่ละวัน</li>
                 <li>กรณีเกิดเหตุฉุกเฉิน ติดต่อหัวหน้าทันที</li>
@@ -516,20 +517,13 @@
           <div style="display:grid;gap:12px;">
             <div class="form-group" style="margin:0;">
               <label class="form-label">1. ดูแลเรื่องการแต่งกายให้เรียบร้อยเหมาะสม และกิริยามารยาท</label>
-              <input id="regulation-1" type="text" class="form-input" placeholder="รายละเอียด...">
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label">2. เน้นหมายของการบริการ คือ ความปลอดภัยของผู้เข้าชม ความปลอดภัยของทีมงาน และความพึงพอใจของผู้เข้าชม</label>
-              <textarea id="regulation-2" class="form-input" rows="2" placeholder="รายละเอียด..."></textarea>
             </div>
           </div>
         </div>
-      </div><!-- /tab morning -->
-
-      <!-- TAB 2: EVENING -->
-      <div id="day-tab-1" class="tab-content">
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">VS</span> Visitor Service</div>
+        <div class="section-title"><span class="section-badge">VS</span> Visitor Service</div>
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
@@ -540,17 +534,39 @@
           </div>
         </div>
 
+        <!-- Exhibition Zones - Staff Assignment -->
         <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">EX</span> Exhibition Zones</div>
+          <div class="section-title"><span class="section-badge">EX</span> Exhibition Zones - เจ้าหน้าที่ประจำโซน</div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>โซน</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+              <thead><tr><th>โซน</th><th>ชื่อเจ้าหน้าที่</th></tr></thead>
               <tbody>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-name" type="text" class="form-input"></td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-name" type="text" class="form-input"></td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-name" type="text" class="form-input"></td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-name" type="text" class="form-input"></td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">นิทรรศการชั่วคราว</td><td><input id="ex-temp-name" type="text" class="form-input"></td><td><input id="ex-temp-issue" type="text" class="form-input"></td><td><input id="ex-temp-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">นิทรรศการชั่วคราว</td><td><input id="ex-temp-name" type="text" class="form-input"></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- TAB 2: EVENING -->
+      <div id="day-tab-1" class="tab-content">
+        <div class="card" style="margin-bottom:16px;">
+
+<!-- Exhibition Zones - Issues Found -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">⚠️</span> ปัญหา / ข้อเสนอประจำโซน</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>โซน</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+              <tbody>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1</td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2</td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3</td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4</td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">นิทรรศการชั่วคราว</td><td><input id="ex-temp-issue" type="text" class="form-input"></td><td><input id="ex-temp-note" type="text" class="form-input"></td></tr>
               </tbody>
             </table>
           </div>
@@ -883,7 +899,12 @@
             </div>
           </div>
         </div>
-
+ 
+        
+        </div>
+      </div>
+    
+         
         <!-- Save / Clear buttons -->
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
           <button class="btn btn-primary" onclick="submitAll()">💾 บันทึก</button>
