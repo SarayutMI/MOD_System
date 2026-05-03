@@ -592,6 +592,8 @@ function calcVis() {
     + dInsFA + dInvFA + dWrFA + dSpFA;
   // All children and adults
   const sumAllChild = sumThaiChild + sumForChild;
+  // Note: cSenior (ผู้สูงอายุ) are counted as adults by definition.
+  // dOth (other education activities) has no age/nationality breakdown, so counted as adults.
   const sumAllAdult = sumThaiAdult + sumForAdult + cSenior + dOth;
 
   setTxt('sum-thai-child', sumThaiChild);
@@ -1404,6 +1406,8 @@ async function exportDailyBriefingPDF(date) {
   const sumForChild  = aForC + bForC + aMemFC + (vdi.fc||0) + (vdn.fc||0) + (vdw.fc||0) + (vds.fc||0);
   const sumForAdult  = aForA + bForA + aMemFA + (vdi.fa||0) + (vdn.fa||0) + (vdw.fa||0) + (vds.fa||0);
   const sumAllChild  = sumThaiChild + sumForChild;
+  // Note: cSenior (ผู้สูงอายุ) are counted as adults by definition.
+  // dOthTotal (other education activities) has no age/nationality breakdown, so counted as adults.
   const sumAllAdult  = sumThaiAdult + sumForAdult + cSenior + dOthTotal;
 
   // ---- HTML-escape shorthand (all user data must be escaped before inserting into HTML) ----
