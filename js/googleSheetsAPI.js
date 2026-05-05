@@ -235,7 +235,7 @@ function buildMODPayload(action, data) {
     inspireLab:    (vdi.tc||0)+(vdi.ta||0)+(vdi.fc||0)+(vdi.fa||0),
     innovationSpace: (vdn.tc||0)+(vdn.ta||0)+(vdn.fc||0)+(vdn.fa||0),
     walkRally:     (vdw.tc||0)+(vdw.ta||0)+(vdw.fc||0)+(vdw.fa||0),
-    miniMakePlay:  (vdm.child || 0),
+    miniMakePlay:  (vdm.child1 || vdm.child || 0) + (vdm.child2 || 0),
     specialEvent:  (vds.tc||0)+(vds.ta||0)+(vds.fc||0)+(vds.fa||0),
     other:         (vdo.count || 0),
     // Totals
