@@ -449,36 +449,42 @@
         </div>
         </div>
 
-        <div class="card" style="margin-bottom:16px; padding:16px; border-radius:10px;">
-          
-          <!-- Header -->
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <div style="font-weight:bold;font-size:18px;">📋 ตารางจองกลุ่ม</div>
-            <button onclick="addBookingRow()" 
-              style="padding:6px 12px;border:none;border-radius:6px;background:#007bff;color:#000007;cursor:pointer;">
-              + เพิ่มแถว
-            </button>
-          </div>
-
-          <!-- Table -->
-          <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse;">
-              <thead>
-                <tr style="background:#000000;">
-                  <th style="padding:10px;border:1px solid #1A1A1F;">#</th>
-                  <th style="padding:10px;border:1px solid #1A1A1F;">กลุ่ม / ชื่อ</th>
-                  <th style="padding:10px;border:1px solid #1A1A1F;">จำนวน (คน)</th>
-                  <th style="padding:10px;border:1px solid #1A1A1F;">เวลา</th>
-                  <th style="padding:10px;border:1px solid #1A1A1F;">ผู้รับผิดชอบ</th>
-                  <th style="padding:10px;border:1px solid #1A1A1F;"></th>
-                </tr>
-              </thead>
-              <tbody id="booking-tbody"></tbody>
-            </table>
-          </div>
-
-          <small style="color:#888;">เลือกเวลา 09:00 - 18:00 (ทุก 15 นาที)</small>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="section-title">📅 ตารางจองเวลากิจกรรม</div>
+          <button class="btn btn-primary btn-sm" onclick="addBookingRow()">+ เพิ่มแถว</button>
         </div>
+
+        <div class="table-wrap">
+          <table class="data-table" id="booking-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>ชื่อโรงเรียน</th>
+                <th>ชื่อกิจกรรม</th>
+                <th>จำนวน (คน)</th>
+                <th>เวลา</th>
+                <th>เจ้าหน้าที่ผู้รับผิดชอบ</th>
+                <th style="width:50px;"></th>
+              </tr>
+            </thead>
+
+            <tbody id="booking-tbody">
+              <tr>
+                <td>1</td>
+                <td><input type="text" class="form-input"></td>
+                <td><input type="text" class="form-input"></td>
+                <td><input type="number" class="form-input" min="0"></td>
+                <td><input type="time" class="form-input"></td>
+                <td><input type="text" class="form-input"></td>
+                <td>
+                  <button class="btn btn-danger btn-sm" onclick="deleteBookingRow(this)">✕</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
 
 
@@ -572,6 +578,7 @@
           </div>
         </div>
       </div>
+
       <!-- TAB 2: EVENING -->
       <div id="day-tab-1" class="tab-content">
         <div class="card" style="margin-bottom:16px;">
@@ -581,16 +588,16 @@
           <div class="section-title"><span class="section-badge">⚠️</span> ปัญหา / ข้อเสนอประจำโซน</div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>โซน</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+              <thead><tr><th>โซน</th><th>อาสาผู้รับผิดชอบ</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
               <tbody>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-issue" type="text" class="form-input"></td><td><input id="ex-innovation-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab </td><td><input id="ex-inspire-issue" type="text" class="form-input"></td><td><input id="ex-inspire-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-issue" type="text" class="form-input"></td><td><input id="ex-make-play1-note" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-issue" type="text" class="form-input"></td><td><input id="ex-make-play2-note" type="text" class="form-input"></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-staff" type="text" class="form-input"></td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-staff" type="text" class="form-input"></td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-staff" type="text" class="form-input"></td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-staff" type="text" class="form-input"></td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-staff" type="text" class="form-input"></td><td><input id="ex-innovation-issue" type="text" class="form-input"></td><td><input id="ex-innovation-note" type="text" class="form-input"></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab </td><td><input id="ex-inspire-staff" type="text" class="form-input"></td><td><input id="ex-inspire-issue" type="text" class="form-input"></td><td><input id="ex-inspire-note" type="text" class="form-input"></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-staff" type="text" class="form-input"></td><td><input id="ex-make-play1-issue" type="text" class="form-input"></td><td><input id="ex-make-play1-note" type="text" class="form-input"></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-staff" type="text" class="form-input"></td><td><input id="ex-make-play2-issue" type="text" class="form-input"></td><td><input id="ex-make-play2-note" type="text" class="form-input"></td></tr>
           
               </tbody>
             </table>
@@ -612,7 +619,7 @@
           <div class="section-title"><span class="section-badge">ED</span> Education Programs</div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>โปรแกรม</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+              <thead><tr><th>โปรแกรม</th><th>ชื่ออาสา</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
               <tbody>
                 <tr><td style="color:var(--text-muted);white-space:nowrap;">Inspire Lab</td><td><input id="ed-inspire-name" type="text" class="form-input"></td><td><input id="ed-inspire-issue" type="text" class="form-input"></td><td><input id="ed-inspire-note" type="text" class="form-input"></td></tr>
                 <tr><td style="color:var(--text-muted);white-space:nowrap;">Innovation Space</td><td><input id="ed-innovation-name" type="text" class="form-input"></td><td><input id="ed-innovation-issue" type="text" class="form-input"></td><td><input id="ed-innovation-note" type="text" class="form-input"></td></tr>
@@ -624,7 +631,7 @@
 
         <div class="card" style="margin-bottom:16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <div class="section-title" style="margin:0;"><span class="section-badge">OP</span> ผู้ดำเนินกิจกรรม</div>
+            <div class="section-title" style="margin:0;"><span class="section-badge">OP</span> ผู้เข้าร่วมกิจกรรม Activity Room</div>
             <button class="btn btn-primary btn-sm" onclick="addActivityRow()">+ เพิ่มแถว</button>
           </div>
           <div class="table-wrap">
@@ -633,7 +640,7 @@
                 <tr>
                   <th style="width:180px;">กิจกรรม</th>
                   <th>ชื่อกิจกรรม</th>
-                  <th>ผู้ดำเนินกิจกรรม</th>
+                  <th>เจ้าหน้าที่ผู้ดำเนินกิจกรรม</th>
                   <th colspan="2" style="text-align:center;">ชาวไทย</th>
                   <th colspan="2" style="text-align:center;">ชาวต่างชาติ</th>
                   <th style="width:50px;"></th>
@@ -713,7 +720,7 @@
         <!-- Section B Group -->
         <div class="card" style="margin-bottom:16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-            <div class="section-title" style="margin:0;"><span class="section-badge">B</span> ผู้เข้าชมกลุ่ม (Group) — <span style="font-size:13px;color:var(--text-muted);">จำนวนกลุ่ม: <strong id="vis-b-group-count" style="color:var(--accent);">0</strong> กลุ่ม</span></div>
+            <div class="section-title" style="margin:0;"><span class="section-badge">B</span> ผู้เข้าชมนิทรรศกาลแบบกลุ่ม (Group) — <span style="font-size:13px;color:var(--text-muted);">จำนวนกลุ่ม: <input type="number" id="vis-b-group-count" class="num-input" min="0" value="0" style="width:70px;display:inline-block;margin:0 4px;" oninput="calcVis()"> กลุ่ม</span></div>
             <button class="btn btn-primary btn-sm" onclick="addGroupRow()">+ เพิ่มกลุ่ม</button>
           </div>
           <div class="table-wrap">
@@ -761,15 +768,7 @@
           </div>
         </div>
 
-        <!-- Section C Senior -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">C</span> ผู้สูงอายุ</div>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <label class="form-label" style="margin:0;white-space:nowrap;">ผู้สูงอายุ จำนวน:</label>
-            <input type="number" id="vis-c-senior" class="num-input" min="0" value="0" oninput="calcVis()" style="width:100px;">
-            <span style="font-size:13px;color:var(--text-muted);">คน</span>
-          </div>
-        </div>
+
 
         <!-- Section D Educational Activities -->
         <div class="card" style="margin-bottom:16px;">
@@ -816,7 +815,13 @@
                   <td class="computed" id="vis-d-wr-total">0</td>
                 </tr>
                 <tr>
-                  <td>Mini Make &amp; Play</td>
+                  <td>Mini Make &amp; Play 1</td>
+                  <td><input type="number" id="vis-d-mm-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td colspan="3" style="color:var(--text-muted);font-size:12px;text-align:center;">เด็กเท่านั้น</td>
+                  <td class="computed" id="vis-d-mm-total">0</td>
+                </tr>
+                                <tr>
+                  <td>Mini Make &amp; Play 2</td>
                   <td><input type="number" id="vis-d-mm-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
                   <td colspan="3" style="color:var(--text-muted);font-size:12px;text-align:center;">เด็กเท่านั้น</td>
                   <td class="computed" id="vis-d-mm-total">0</td>
@@ -842,7 +847,7 @@
               </tbody>
               <tfoot>
                 <tr class="total-row">
-                  <td colspan="5"><strong>รวมกิจกรรมการศึกษา</strong></td>
+                  <td colspan="5"><strong>รวมจำนวนผู้เข้าร่วมกิจกรรม</strong></td>
                   <td class="computed" id="vis-d-total">0</td>
                 </tr>
               </tfoot>
@@ -905,14 +910,14 @@
                 <div style="font-size:11px;color:var(--text-muted);">ผู้ใหญ่ต่างชาติ</div>
                 <div style="font-size:20px;font-weight:700;color:var(--info);" id="sum-for-adult">0</div>
               </div>
-              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+                <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
                 <div style="font-size:11px;color:var(--text-muted);">เด็กทั้งหมด</div>
-                <div style="font-size:20px;font-weight:700;color:var(--warning);" id="sum-all-child">0</div>
-              </div>
-              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:20px;font-weight:700;color:white;" id="sum-all-child">0</div>
+                </div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
                 <div style="font-size:11px;color:var(--text-muted);">ผู้ใหญ่ทั้งหมด</div>
-                <div style="font-size:20px;font-weight:700;color:var(--warning);" id="sum-all-adult">0</div>
-              </div>
+                <div style="font-size:20px;font-weight:700;color:white;" id="sum-all-adult">0</div>
+                </div>
             </div>
           </div>
         </div>

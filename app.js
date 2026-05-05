@@ -250,6 +250,7 @@ function addBookingRow(data) {
   tr.innerHTML = `
     <td style="color:var(--text-muted);font-size:12px;">${bookingRowCount}</td>
     <td><input type="text" class="form-input" style="min-width:140px;" placeholder="ชื่อกลุ่ม / โรงเรียน" value="${data?.group||''}"></td>
+    <td><input type="text" class="form-input" style="min-width:140px;" placeholder="ชื่อกิจกรรม" value="${data?.activity||''}"></td>
     <td><input type="number" class="num-input" min="0" value="${data?.count||''}" placeholder="0" style="width:80px;"></td>
     <td><input type="text" class="form-input" style="width:100px;" placeholder="09:00" value="${data?.time||''}"></td>
     <td><input type="text" class="form-input" style="min-width:100px;" placeholder="ชื่อ" value="${data?.responsible||''}"></td>
