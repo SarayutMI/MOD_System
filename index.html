@@ -421,19 +421,19 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
             <div class="form-group" style="margin:0;">
               <label class="form-label">MOD ประจำวัน</label>
-              <input id="mod-morning" type="text" class="form-input" placeholder="ชื่อ MOD">
+              <input id="mod-morning" type="text" class="form-input" placeholder="ชื่อ MOD" list="officers-datalist">
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label">M-Exhibition</label>
-              <input id="m-exhibition" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่">
+              <input id="m-exhibition" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่" list="officers-datalist">
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label">M-Education</label>
-              <input id="m-education" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่">
+              <input id="m-education" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่" list="officers-datalist">
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label">M-Visitor Service</label>
-              <input id="m-visitor-service" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่">
+              <input id="m-visitor-service" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่" list="officers-datalist">
             </div>
           </div>
         </div>
@@ -565,22 +565,36 @@
             <table class="data-table">
               <thead><tr><th>โซน</th><th>ชื่ออาสาประจำจุด</th></tr></thead>
               <tbody>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-name" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-name" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-name" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-name" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-name" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><input id="ex-inspire-name" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-name" type="text" class="form-input"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-name" type="text" class="form-input"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><input id="ex-inspire-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
               </tbody>
             </table>
           </div>
+        </div>
+
+        <!-- Morning save -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;">
+          <button class="btn btn-success" onclick="saveMorningSession()">💾 บันทึกช่วงเช้า</button>
+          <span id="morning-save-status" style="font-size:13px;color:var(--text-muted);align-self:center;"></span>
         </div>
       </div>
 
       <!-- TAB 2: EVENING -->
       <div id="day-tab-1" class="tab-content">
+        <!-- Auto-sync morning data checkbox -->
+        <div class="card" style="margin-bottom:16px;background:var(--accent-dim);border-color:var(--accent);">
+          <label class="check-label">
+            <input type="checkbox" id="sync-morning-data" onchange="toggleMorningSync(this.checked)">
+            <span style="font-weight:600;color:var(--accent);">🔄 ใช้ข้อมูลเจ้าหน้าที่เดียวกับช่วงเช้า</span>
+          </label>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">เมื่อเปิดใช้ ชื่อเจ้าหน้าที่ในช่วงเช้าจะถูกคัดลอกมาใช้ในช่วงเย็นโดยอัตโนมัติ</div>
+        </div>
         <div class="card" style="margin-bottom:16px;">
 
 <!-- Exhibition Zones - Issues Found -->
@@ -607,9 +621,17 @@
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
-              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter1-name" type="text" class="form-input"></div>
+              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter1-name" type="text" class="form-input" list="officers-datalist"></div>
               <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="vs-counter1-issue" type="text" class="form-input"></div>
               <div><label class="form-label">หมายเหตุ</label><input id="vs-counter1-note" type="text" class="form-input"></div>
+            </div>
+          </div>
+          <div style="margin-top:10px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 2</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter2-name" type="text" class="form-input" list="officers-datalist"></div>
+              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="vs-counter2-issue" type="text" class="form-input"></div>
+              <div><label class="form-label">หมายเหตุ</label><input id="vs-counter2-note" type="text" class="form-input"></div>
             </div>
           </div>
         </div>
@@ -768,7 +790,15 @@
           </div>
         </div>
 
-
+        <!-- Section C Senior -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">C</span> ผู้สูงอายุ (Senior)</div>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <span style="font-size:14px;color:var(--text-muted);">จำนวนผู้สูงอายุ (60 ปีขึ้นไป):</span>
+            <input type="number" id="vis-c-senior" class="num-input" min="0" value="0" oninput="calcVis()" style="width:100px;">
+            <span style="font-size:14px;color:var(--text-muted);">คน</span>
+          </div>
+        </div>
 
         <!-- Section D Educational Activities -->
         <div class="card" style="margin-bottom:16px;">
@@ -816,15 +846,15 @@
                 </tr>
                 <tr>
                   <td>Mini Make &amp; Play 1</td>
-                  <td><input type="number" id="vis-d-mm-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-mm1-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
                   <td colspan="3" style="color:var(--text-muted);font-size:12px;text-align:center;">เด็กเท่านั้น</td>
-                  <td class="computed" id="vis-d-mm-total">0</td>
+                  <td class="computed" id="vis-d-mm1-total">0</td>
                 </tr>
                                 <tr>
                   <td>Mini Make &amp; Play 2</td>
-                  <td><input type="number" id="vis-d-mm-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
+                  <td><input type="number" id="vis-d-mm2-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
                   <td colspan="3" style="color:var(--text-muted);font-size:12px;text-align:center;">เด็กเท่านั้น</td>
-                  <td class="computed" id="vis-d-mm-total">0</td>
+                  <td class="computed" id="vis-d-mm2-total">0</td>
                 </tr>
                 <tr>
                   <td>Special Event</td>
@@ -1019,10 +1049,14 @@
     
          
         <!-- Save / Clear buttons -->
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="submitAll()">💾 บันทึก</button>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-success" onclick="saveAfternoonSession()">💾 บันทึกช่วงเย็น</button>
+          <button class="btn btn-primary" onclick="submitAll()">🌐 บันทึกและส่ง Google Sheets</button>
           <button class="btn btn-danger" onclick="clearAllFields()">🗑 ล้างข้อมูล</button>
+          <span id="sheets-save-status" style="font-size:13px;color:var(--text-muted);align-self:center;"></span>
         </div>
+        <datalist id="officers-datalist"></datalist>
+        <datalist id="volunteers-datalist"></datalist>
       </div><!-- /tab evening -->
 
     </div><!-- /page-daily-log -->
@@ -1238,6 +1272,20 @@
         </div>
       </div>
     </div>
+    <hr class="divider">
+    <div style="font-size:14px;font-weight:600;margin-bottom:8px;">📋 รายชื่อเจ้าหน้าที่ / อาสาสมัคร</div>
+    <div class="form-group">
+      <label class="form-label">รายชื่อเจ้าหน้าที่ (1 ชื่อต่อบรรทัด)</label>
+      <textarea id="set-officers-list" class="form-input" rows="4" placeholder="ชื่อเจ้าหน้าที่ 1&#10;ชื่อเจ้าหน้าที่ 2&#10;..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">รายชื่ออาสาสมัคร (1 ชื่อต่อบรรทัด)</label>
+      <textarea id="set-volunteers-list" class="form-input" rows="4" placeholder="ชื่ออาสาสมัคร 1&#10;ชื่ออาสาสมัคร 2&#10;..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <button class="btn btn-ghost btn-sm" onclick="syncFromGoogleSheets()">🔄 ดึงข้อมูลจาก Google Sheets</button>
+      <span id="sync-status-label" style="font-size:12px;color:var(--text-muted);align-self:center;"></span>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeModal('settings-modal')">ยกเลิก</button>
       <button class="btn btn-primary" onclick="saveSettingsModal()">💾 บันทึกการตั้งค่า</button>
@@ -1322,6 +1370,7 @@
   </div>
 </div>
 
+<script src="js/googleSheetsAPI.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
