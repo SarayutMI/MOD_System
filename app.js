@@ -88,6 +88,17 @@ function showApp(username) {
   if (el2) el2.textContent = uname;
   initDateSelectors();
   loadToday();
+  updateDropdownDatalist();
+  // Try to load from Google Sheets in background
+  if (window.GoogleSheetsAPI) {
+    window.GoogleSheetsAPI.populateDropdowns().then(result => {
+      const settings = getSettings();
+      if (result.officers && result.officers.length) settings.customOfficers = result.officers;
+      if (result.volunteers && result.volunteers.length) settings.customVolunteers = result.volunteers;
+      saveSettings(settings);
+      updateDropdownDatalist();
+    }).catch(() => {/* silent fail */});
+  }
   gotoPage('dashboard');
   checkMenuToggleVisibility();
 }
@@ -546,8 +557,9 @@ function calcVis() {
   const dWr = dWrTC + dWrTA + dWrFC + dWrFA;
   setTxt('vis-d-wr-total', dWr);
 
-  const dMmChild = getVal('vis-d-mm-child');
-  setTxt('vis-d-mm-total', dMmChild);
+  const dMmChild = getVal('vis-d-mm1-child') + getVal('vis-d-mm2-child');
+  setTxt('vis-d-mm1-total', getVal('vis-d-mm1-child'));
+  setTxt('vis-d-mm2-total', getVal('vis-d-mm2-child'));
 
   const dSpTC = getVal('vis-d-sp-tc'), dSpTA = getVal('vis-d-sp-ta');
   const dSpFC = getVal('vis-d-sp-fc'), dSpFA = getVal('vis-d-sp-fa');
@@ -755,7 +767,7 @@ function getFormData() {
     visDIns: { tc: getVal('vis-d-ins-tc'), ta: getVal('vis-d-ins-ta'), fc: getVal('vis-d-ins-fc'), fa: getVal('vis-d-ins-fa') },
     visDInv: { tc: getVal('vis-d-inv-tc'), ta: getVal('vis-d-inv-ta'), fc: getVal('vis-d-inv-fc'), fa: getVal('vis-d-inv-fa') },
     visDWr: { tc: getVal('vis-d-wr-tc'), ta: getVal('vis-d-wr-ta'), fc: getVal('vis-d-wr-fc'), fa: getVal('vis-d-wr-fa') },
-    visDMm: { child: getVal('vis-d-mm-child') },
+    visDMm: { child1: getVal('vis-d-mm1-child'), child2: getVal('vis-d-mm2-child') },
     visDSp: { tc: getVal('vis-d-sp-tc'), ta: getVal('vis-d-sp-ta'), fc: getVal('vis-d-sp-fc'), fa: getVal('vis-d-sp-fa') },
     visDOth: { name: getInputVal('vis-d-oth-name'), count: getVal('vis-d-oth-count') },
     // Revenue
@@ -853,7 +865,7 @@ function setFormData(data) {
   const vdi = data.visDIns || {}; setInputVal('vis-d-ins-tc', vdi.tc||0); setInputVal('vis-d-ins-ta', vdi.ta||0); setInputVal('vis-d-ins-fc', vdi.fc||0); setInputVal('vis-d-ins-fa', vdi.fa||0);
   const vdn = data.visDInv || {}; setInputVal('vis-d-inv-tc', vdn.tc||0); setInputVal('vis-d-inv-ta', vdn.ta||0); setInputVal('vis-d-inv-fc', vdn.fc||0); setInputVal('vis-d-inv-fa', vdn.fa||0);
   const vdw = data.visDWr || {}; setInputVal('vis-d-wr-tc', vdw.tc||0); setInputVal('vis-d-wr-ta', vdw.ta||0); setInputVal('vis-d-wr-fc', vdw.fc||0); setInputVal('vis-d-wr-fa', vdw.fa||0);
-  const vdm = data.visDMm || {}; setInputVal('vis-d-mm-child', vdm.child||0);
+  const vdm = data.visDMm || {}; setInputVal('vis-d-mm1-child', vdm.child1||vdm.child||0); setInputVal('vis-d-mm2-child', vdm.child2||0);
   const vds = data.visDSp || {}; setInputVal('vis-d-sp-tc', vds.tc||0); setInputVal('vis-d-sp-ta', vds.ta||0); setInputVal('vis-d-sp-fc', vds.fc||0); setInputVal('vis-d-sp-fa', vds.fa||0);
   const vdo = data.visDOth || {}; setInputVal('vis-d-oth-name', vdo.name||''); setInputVal('vis-d-oth-count', vdo.count||0);
   // Revenue
@@ -931,7 +943,7 @@ function deleteRecord(date) {
 }
 
 // ============ GOOGLE SHEETS ============
-function submitAll() {
+async function submitAll() {
   // 1. ตรวจสอบข้อมูล
   const errors = validateDailyForm();
   if (errors.length > 0) {
@@ -940,34 +952,52 @@ function submitAll() {
   }
   // 2. บันทึกลง localStorage ก่อน
   saveToLocal(false);
-  // 3. ส่ง Google Sheets (ถ้าตั้งค่า URL ไว้)
+  const statusEl = document.getElementById('sheets-save-status');
+  if (statusEl) statusEl.textContent = '🔄 กำลังบันทึก...';
+
   const settings = getSettings();
-  if (!settings.sheetsURL) {
+  if (!settings.sheetsURL && !window.GoogleSheetsAPI) {
     showToast('บันทึกสำเร็จ! (ยังไม่ได้ตั้งค่า Google Sheets URL)', 'success');
+    if (statusEl) statusEl.textContent = '⚠️ ยังไม่ได้ตั้งค่า Google Sheets URL';
     return;
   }
-  const records = getAllRecords();
-  if (!records.length) { showToast('ไม่มีข้อมูลที่จะส่ง', 'warning'); return; }
-  showProgress('กำลังบันทึกและส่งข้อมูล...', `กำลังส่ง ${records.length} รายการ ไปยัง Google Sheets`);
-  const payload = JSON.stringify({
-    action: 'bulkInsert',
-    sheetName: settings.sheetName || 'Sheet1',
-    records: records.map(r => ({ ...r, submittedAt: new Date().toISOString() }))
-  });
-  fetch(settings.sheetsURL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: payload
-  })
-  .then(r => r.text())
-  .then(() => {
+
+  const data = getFormData();
+  showProgress('กำลังบันทึกข้อมูล...', 'กำลังส่งไปยัง Google Sheets MOD_Data');
+  try {
+    if (window.GoogleSheetsAPI) {
+      await window.GoogleSheetsAPI.saveDailyRecord(data);
+    } else {
+      // Fallback: direct fetch
+      const records = getAllRecords();
+      if (!records.length) { hideProgress(); showToast('ไม่มีข้อมูลที่จะส่ง', 'warning'); return; }
+      const payload = JSON.stringify({
+        action: 'bulkInsert',
+        sheetName: settings.sheetName || 'Sheet1',
+        records: records.map(r => ({ ...r, submittedAt: new Date().toISOString() }))
+      });
+      await fetch(settings.sheetsURL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: payload });
+    }
     hideProgress();
-    showToast('บันทึกและส่ง Google Sheets สำเร็จ! ' + records.length + ' รายการ', 'success');
-  })
-  .catch(err => {
+    if (statusEl) {
+      const now = new Date();
+      statusEl.textContent = '✅ บันทึกสำเร็จ ' + now.toLocaleTimeString('th-TH');
+    }
+    showToast('บันทึกข้อมูลไปยัง Google Sheets สำเร็จ!', 'success');
+  } catch (err) {
     hideProgress();
+    if (statusEl) statusEl.textContent = '❌ บันทึกไม่สำเร็จ';
     showToast('บันทึกสำเร็จ แต่ไม่สามารถส่ง Google Sheets: ' + err.message, 'warning');
-  });
+    // Fallback: try bulk insert with direct fetch
+    const records = getAllRecords();
+    if (records.length && settings.sheetsURL) {
+      showProgress('กำลังส่งข้อมูลแบบเดิม...', `กำลังส่ง ${records.length} รายการ`);
+      const payload = JSON.stringify({ action: 'bulkInsert', sheetName: settings.sheetName || 'Sheet1', records });
+      fetch(settings.sheetsURL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: payload })
+        .then(() => { hideProgress(); showToast('ส่งข้อมูลสำเร็จ (แบบเดิม)', 'success'); })
+        .catch(() => { hideProgress(); showToast('บันทึกใน localStorage แล้ว แต่ยังไม่ได้ส่ง Google Sheets', 'warning'); });
+    }
+  }
 }
 
 function showProgress(title, sub) {
@@ -1088,7 +1118,7 @@ function calcGroupFromData(r) {
 }
 function calcEduFromData(r) {
   const di = r.visDIns||{}, dn = r.visDInv||{}, dw = r.visDWr||{}, dm = r.visDMm||{}, ds = r.visDSp||{}, doth = r.visDOth||{};
-  return (di.tc||0)+(di.ta||0)+(di.fc||0)+(di.fa||0)+(dn.tc||0)+(dn.ta||0)+(dn.fc||0)+(dn.fa||0)+(dw.tc||0)+(dw.ta||0)+(dw.fc||0)+(dw.fa||0)+(dm.child||0)+(ds.tc||0)+(ds.ta||0)+(ds.fc||0)+(ds.fa||0)+(doth.count||0);
+  return (di.tc||0)+(di.ta||0)+(di.fc||0)+(di.fa||0)+(dn.tc||0)+(dn.ta||0)+(dn.fc||0)+(dn.fa||0)+(dw.tc||0)+(dw.ta||0)+(dw.fc||0)+(dw.fa||0)+(dm.child1||dm.child||0)+(dm.child2||0)+(ds.tc||0)+(ds.ta||0)+(ds.fc||0)+(ds.fa||0)+(doth.count||0);
 }
 
 function viewRecord(date) {
@@ -2035,6 +2065,10 @@ function loadSettings() {
   setInputVal('set-sheet-name', s.sheetName || 'Sheet1');
   setInputVal('set-username', s.username || 'admin');
   setInputVal('set-password', ''); // Never pre-fill password field
+  const officersEl = document.getElementById('set-officers-list');
+  if (officersEl) officersEl.value = (s.customOfficers || []).join('\n');
+  const volunteersEl = document.getElementById('set-volunteers-list');
+  if (volunteersEl) volunteersEl.value = (s.customVolunteers || []).join('\n');
 }
 
 async function saveSettingsModal() {
@@ -2042,13 +2076,18 @@ async function saveSettingsModal() {
   const existing = getSettings();
   // Hash the new password if provided, otherwise keep existing hash
   const passwordHash = rawPass ? await sha256hex(rawPass) : existing.passwordHash;
+  const officersText = document.getElementById('set-officers-list')?.value || '';
+  const volunteersText = document.getElementById('set-volunteers-list')?.value || '';
   const s = {
     sheetsURL: getInputVal('set-sheets-url'),
     sheetName: getInputVal('set-sheet-name') || 'Sheet1',
     username: getInputVal('set-username') || 'admin',
-    passwordHash: passwordHash || null
+    passwordHash: passwordHash || null,
+    customOfficers: officersText.split('\n').map(s => s.trim()).filter(Boolean),
+    customVolunteers: volunteersText.split('\n').map(s => s.trim()).filter(Boolean)
   };
   saveSettings(s);
+  updateDropdownDatalist();
   closeModal('settings-modal');
   showToast('บันทึกการตั้งค่าเรียบร้อย', 'success');
 }
@@ -2062,6 +2101,85 @@ document.addEventListener('keydown', function(e) {
     });
   }
 });
+
+// ============ NEW SESSION & DROPDOWN FUNCTIONS ============
+function saveMorningSession() {
+  const date = getCurrentDate();
+  if (!date || date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
+  const data = getFormData();
+  localStorage.setItem('mod_morning_data_' + date, JSON.stringify(data));
+  showToast('บันทึกช่วงเช้าสำเร็จ: ' + date, 'success');
+  const statusEl = document.getElementById('morning-save-status');
+  if (statusEl) {
+    const now = new Date();
+    statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
+  }
+}
+
+function saveAfternoonSession() {
+  const date = getCurrentDate();
+  if (!date || date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
+  const data = getFormData();
+  localStorage.setItem('mod_afternoon_data_' + date, JSON.stringify(data));
+  saveToLocal(false); // Also save as the main record
+  showToast('บันทึกช่วงเย็นสำเร็จ: ' + date, 'success');
+  const statusEl = document.getElementById('sheets-save-status');
+  if (statusEl) {
+    const now = new Date();
+    statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
+  }
+}
+
+function toggleMorningSync(enabled) {
+  if (!enabled) return;
+  const vis = getInputVal('m-visitor-service');
+  const mod = getInputVal('mod-morning');
+  if (!getInputVal('vs-counter1-name') && vis) setInputVal('vs-counter1-name', vis);
+  if (!getInputVal('vs-counter2-name') && mod) setInputVal('vs-counter2-name', mod);
+  showToast('คัดลอกข้อมูลเจ้าหน้าที่จากช่วงเช้าแล้ว', 'info');
+}
+
+function updateDropdownDatalist() {
+  const settings = getSettings();
+  const officers = settings.customOfficers || [];
+  const volunteers = settings.customVolunteers || [];
+
+  const officersList = document.getElementById('officers-datalist');
+  if (officersList) {
+    officersList.innerHTML = officers.map(n => `<option value="${escHtml(n)}">`).join('');
+  }
+
+  const volunteersList = document.getElementById('volunteers-datalist');
+  if (volunteersList) {
+    volunteersList.innerHTML = volunteers.map(n => `<option value="${escHtml(n)}">`).join('');
+  }
+}
+
+async function syncFromGoogleSheets() {
+  const statusEl = document.getElementById('sync-status-label');
+  if (statusEl) statusEl.textContent = '🔄 กำลังดึงข้อมูล...';
+  try {
+    if (!window.GoogleSheetsAPI) throw new Error('GoogleSheetsAPI ไม่พร้อมใช้งาน');
+    const result = await window.GoogleSheetsAPI.refreshDropdownData();
+    const settings = getSettings();
+    settings.customOfficers = result.officers || [];
+    settings.customVolunteers = result.volunteers || [];
+    saveSettings(settings);
+    const officersTextarea = document.getElementById('set-officers-list');
+    const volunteersTextarea = document.getElementById('set-volunteers-list');
+    if (officersTextarea) officersTextarea.value = settings.customOfficers.join('\n');
+    if (volunteersTextarea) volunteersTextarea.value = settings.customVolunteers.join('\n');
+    updateDropdownDatalist();
+    if (statusEl) {
+      const now = new Date();
+      statusEl.textContent = `✅ ซิงค์สำเร็จ ${settings.customOfficers.length} เจ้าหน้าที่, ${settings.customVolunteers.length} อาสาสมัคร (${now.toLocaleTimeString('th-TH')})`;
+    }
+    showToast('ดึงข้อมูลจาก Google Sheets สำเร็จ', 'success');
+  } catch (e) {
+    if (statusEl) statusEl.textContent = '❌ ไม่สามารถเชื่อมต่อได้: ' + e.message;
+    showToast('ไม่สามารถดึงข้อมูลจาก Google Sheets: ' + e.message, 'error');
+  }
+}
 
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', function() {
