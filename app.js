@@ -356,6 +356,12 @@ function addActivityRow(data) {
   const tbody = document.getElementById('activity-tbody');
   if (!tbody) return;
 
+  // Build officer options from settings
+  const settings = typeof getSettings === 'function' ? getSettings() : {};
+  const officers = settings.customOfficers || [];
+  const officerOpts = '<option value="">-- เลือกเจ้าหน้าที่ --</option>' +
+    officers.map(n => `<option value="${n.replace(/"/g,'&quot;')}"${data?.operator===n?' selected':''}>${n.replace(/</g,'&lt;')}</option>`).join('');
+
   const tr = document.createElement('tr');
   tr.dataset.id = activityRowCount;
   tr.innerHTML = `
@@ -365,19 +371,80 @@ function addActivityRow(data) {
         <option value="inspire" ${data?.type==='inspire'?'selected':''}>Inspire Lab</option>
         <option value="innovation" ${data?.type==='innovation'?'selected':''}>Innovation Space</option>
         <option value="walk" ${data?.type==='walk'?'selected':''}>Walk Rallies</option>
-        <option value="mini" ${data?.type==='mini'?'selected':''}>Mini Make & Play</option>
+        <option value="mini" ${data?.type==='mini'?'selected':''}>Mini Make &amp; Play</option>
         <option value="other" ${data?.type==='other'?'selected':''}>กิจกรรมอื่น</option>
       </select>
     </td>
-    <td><input type="text" class="form-input" placeholder="ชื่อกิจกรรม" value="${data?.name||''}"></td>
-    <td><input type="text" class="form-input" placeholder="ชื่อผู้ดำเนินกิจกรรม" value="${data?.operator||''}"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:80px;"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:80px;"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:80px;"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}" style="width:80px;"></td>
+    <td><input type="text" class="form-input" style="min-width:120px;" placeholder="ชื่อกิจกรรม" value="${data?.name||''}"></td>
+    <td>
+      <select class="form-input" style="min-width:120px;">${officerOpts}</select>
+    </td>
+    <td>
+      <select class="form-input" style="min-width:100px;" onchange="handleParticipantType(this)">
+        <option value="walk-in" ${(data?.participantType||'walk-in')==='walk-in'?'selected':''}>Walk-in</option>
+        <option value="group" ${data?.participantType==='group'?'selected':''}>กลุ่ม</option>
+      </select>
+    </td>
+    <td>
+      <select class="form-input group-name-col" style="min-width:120px;display:${data?.participantType==='group'?'block':'none'};">
+        <option value="">-- เลือกกลุ่ม --</option>
+        ${data?.groupName?`<option value="${data.groupName.replace(/"/g,'&quot;')}" selected>${data.groupName.replace(/</g,'&lt;')}</option>`:''}
+      </select>
+    </td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:55px;" oninput="calcVis()"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:55px;" oninput="calcVis()"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:55px;" oninput="calcVis()"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}" style="width:55px;" oninput="calcVis()"></td>
+    <td><input type="number" class="num-input group-child-col" min="0" value="${data?.groupChild||0}" style="width:55px;display:${data?.participantType==='group'?'':'none'};"></td>
+    <td><input type="number" class="num-input group-adult-col" min="0" value="${data?.groupAdult||0}" style="width:55px;display:${data?.participantType==='group'?'':'none'};"></td>
     <td><button type="button" class="btn btn-ghost btn-sm" onclick="removeActivityRow(this)" style="padding:4px 8px;color:var(--danger);">✕</button></td>
   `;
   tbody.appendChild(tr);
+
+  // Populate group name dropdown if available
+  const groupSel = tr.querySelector('.group-name-col');
+  if (groupSel) loadGroupNamesIntoSelect(groupSel, data?.groupName);
+}
+
+async function loadGroupNamesIntoSelect(sel, currentVal) {
+  if (!window.GoogleSheetsAPI) return;
+  try {
+    const settings = typeof getSettings === 'function' ? getSettings() : {};
+    const groups = settings.customGroups || [];
+    if (groups.length) {
+      sel.innerHTML = '<option value="">-- เลือกกลุ่ม --</option>';
+      groups.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        if (n === currentVal) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+    // Try fetching fresh from API
+    const freshGroups = await window.GoogleSheetsAPI.fetchGroupNames();
+    if (freshGroups.length) {
+      const curVal = sel.value;
+      sel.innerHTML = '<option value="">-- เลือกกลุ่ม --</option>';
+      freshGroups.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        sel.appendChild(opt);
+      });
+      if (curVal || currentVal) sel.value = curVal || currentVal;
+    }
+  } catch(e) {
+    // Silently fail - group name dropdown just stays empty
+  }
+}
+
+function handleParticipantType(sel) {
+  const row = sel.closest('tr');
+  const isGroup = sel.value === 'group';
+  row.querySelectorAll('.group-name-col').forEach(el => { el.style.display = isGroup ? '' : 'none'; });
+  row.querySelectorAll('.group-child-col').forEach(el => { el.style.display = isGroup ? '' : 'none'; });
+  row.querySelectorAll('.group-adult-col').forEach(el => { el.style.display = isGroup ? '' : 'none'; });
 }
 
 function removeActivityRow(btn) {
@@ -694,16 +761,23 @@ function getFormData() {
   const activities = [];
   document.querySelectorAll('#activity-tbody tr').forEach(tr => {
     const selects = tr.querySelectorAll('select');
-    const inputs = tr.querySelectorAll('input');
-    if (selects.length > 0 && inputs.length >= 6) {
+    const numInputs = tr.querySelectorAll('input[type="number"]');
+    const textInputs = tr.querySelectorAll('input[type="text"]');
+    if (selects.length >= 1) {
+      const participantType = selects[2] ? selects[2].value : 'walk-in';
+      const groupNameSel = tr.querySelector('.group-name-col');
       activities.push({
-        type: selects[0].value || '',
-        name: inputs[0].value || '',
-        operator: inputs[1].value || '',
-        thaiChild: parseInt(inputs[2].value) || 0,
-        thaiAdult: parseInt(inputs[3].value) || 0,
-        foreignChild: parseInt(inputs[4].value) || 0,
-        foreignAdult: parseInt(inputs[5].value) || 0
+        type: selects[0]?.value || '',
+        name: textInputs[0]?.value || '',
+        operator: selects[1]?.value || selects[0]?.value || '',
+        participantType,
+        groupName: groupNameSel?.value || '',
+        thaiChild: parseInt(numInputs[0]?.value) || 0,
+        thaiAdult: parseInt(numInputs[1]?.value) || 0,
+        foreignChild: parseInt(numInputs[2]?.value) || 0,
+        foreignAdult: parseInt(numInputs[3]?.value) || 0,
+        groupChild: parseInt(numInputs[4]?.value) || 0,
+        groupAdult: parseInt(numInputs[5]?.value) || 0
       });
     }
   });
@@ -803,7 +877,18 @@ function getFormData() {
     },
     notes: getInputVal('daily-notes'),
     totalVisitors,
-    totalRevenue
+    totalRevenue,
+    // Zone volunteer assignments (morning tab)
+    exZones: [
+      { zone: 'โซน 1 ค้นพบตัวตน', name: getInputVal('ex-z1-name') },
+      { zone: 'โซน 2 เปิดโลกทางการแพทย์', name: getInputVal('ex-z2-name') },
+      { zone: 'โซน 3 ฐานปฏิบัติการภัยพิบัต', name: getInputVal('ex-z3-name') },
+      { zone: 'โซน 4 การบินและอวกาศ', name: getInputVal('ex-z4-name') },
+      { zone: 'ห้อง Innovation Space', name: getInputVal('ex-innovation-name') },
+      { zone: 'ห้อง Inspire Lab', name: getInputVal('ex-inspire-name') },
+      { zone: 'ห้อง Make and Play 1', name: getInputVal('ex-make-play1-name') },
+      { zone: 'ห้อง Make and Play 2', name: getInputVal('ex-make-play2-name') },
+    ].filter(z => z.name)
   };
 }
 
@@ -1507,8 +1592,9 @@ async function exportDailyBriefingPDF(date) {
   // dOthTotal (other education activities) has no age/nationality breakdown, so counted as adults.
   const sumAllAdult  = sumThaiAdult + sumForAdult + cSenior + dOthTotal;
 
-  // ---- HTML-escape shorthand (all user data must be escaped before inserting into HTML) ----
-  const e = s => escHtml(String(s || ''));
+  // ---- HTML-escape shorthand (strip emojis + escape HTML for PDF safety) ----
+  const emojiRe = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
+  const e = s => escHtml(String(s || '').replace(emojiRe, '').trim());
 
   // ---- bookings HTML ----
   const bookingRows = (r.bookings||[]).map((b,i) =>
@@ -1629,6 +1715,15 @@ async function exportDailyBriefingPDF(date) {
     <div class="staff-item"><span class="staff-label">M-Education:</span><span class="staff-value">${e(r.mEducation)}</span></div>
     <div class="staff-item"><span class="staff-label">M-Visitor Service:</span><span class="staff-value">${e(r.mVisitor)}</span></div>
   </div>
+
+  ${(r.exZones || []).filter(z=>z.name).length > 0 ? `
+  <div class="sub-header">อาสาสมัครประจำโซน</div>
+  <table>
+    <thead><tr><th>โซน</th><th>ชื่ออาสาสมัคร</th></tr></thead>
+    <tbody>
+      ${(r.exZones||[]).filter(z=>z.name).map(z=>`<tr><td>${e(z.zone)}</td><td>${e(z.name)}</td></tr>`).join('')}
+    </tbody>
+  </table>` : ''}
 
   <div class="info-row">
     <div class="info-item"><span class="info-label">อังคาร–ศุกร์:</span><span class="info-value">${e(r.hoursTueFri||'เวลา 8.30 - 16.30 น.')}</span></div>
