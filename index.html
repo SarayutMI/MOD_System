@@ -422,19 +422,27 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
             <div class="form-group" style="margin:0;">
               <label class="form-label">MOD ประจำวัน</label>
-              <input id="mod-morning" type="text" class="form-input" placeholder="ชื่อ MOD" list="officers-datalist">
+              <select id="mod-morning" class="form-input">
+                <option value="">-- กำลังโหลด... --</option>
+              </select>
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label">M-Exhibition</label>
-              <input id="m-exhibition" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่" list="officers-datalist">
+              <select id="m-exhibition" class="form-input">
+                <option value="">-- กำลังโหลด... --</option>
+              </select>
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label">M-Education</label>
-              <input id="m-education" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่" list="officers-datalist">
+              <select id="m-education" class="form-input">
+                <option value="">-- กำลังโหลด... --</option>
+              </select>
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label">M-Visitor Service</label>
-              <input id="m-visitor-service" type="text" class="form-input" placeholder="ชื่อเจ้าหน้าที่" list="officers-datalist">
+              <select id="m-visitor-service" class="form-input">
+                <option value="">-- กำลังโหลด... --</option>
+              </select>
             </div>
           </div>
         </div>
@@ -566,14 +574,14 @@
             <table class="data-table">
               <thead><tr><th>โซน</th><th>ชื่ออาสาประจำจุด</th></tr></thead>
               <tbody>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><input id="ex-inspire-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-name" type="text" class="form-input" list="volunteers-datalist"></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><select id="ex-z1-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><select id="ex-z2-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><select id="ex-z3-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><select id="ex-z4-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><select id="ex-innovation-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><select id="ex-inspire-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><select id="ex-make-play1-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
+          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><select id="ex-make-play2-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
               </tbody>
             </table>
           </div>

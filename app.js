@@ -2253,6 +2253,7 @@ function updateDropdownDatalist() {
   const officers = settings.customOfficers || [];
   const volunteers = settings.customVolunteers || [];
 
+  // Update legacy datalist elements
   const officersList = document.getElementById('officers-datalist');
   if (officersList) {
     officersList.innerHTML = officers.map(n => `<option value="${escHtml(n)}">`).join('');
@@ -2262,6 +2263,26 @@ function updateDropdownDatalist() {
   if (volunteersList) {
     volunteersList.innerHTML = volunteers.map(n => `<option value="${escHtml(n)}">`).join('');
   }
+
+  // Update select elements for officers
+  ['mod-morning', 'm-exhibition', 'm-education', 'm-visitor-service'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel || sel.tagName !== 'SELECT') return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">-- เลือกเจ้าหน้าที่ --</option>' +
+      officers.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+    if (cur && officers.includes(cur)) sel.value = cur;
+  });
+
+  // Update select elements for volunteers
+  ['ex-z1-name','ex-z2-name','ex-z3-name','ex-z4-name','ex-innovation-name','ex-inspire-name','ex-make-play1-name','ex-make-play2-name'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel || sel.tagName !== 'SELECT') return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">-- เลือกอาสาสมัคร --</option>' +
+      volunteers.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+    if (cur && volunteers.includes(cur)) sel.value = cur;
+  });
 }
 
 async function syncFromGoogleSheets() {
@@ -2520,5 +2541,11 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add default activity row
   if (document.getElementById('activity-tbody')) {
     addActivityRow();
+  }
+  // Populate dropdowns from settings cache
+  updateDropdownDatalist();
+  // Try to populate from Google Sheets
+  if (window.GoogleSheetsAPI) {
+    window.GoogleSheetsAPI.populateDropdowns().catch(() => {});
   }
 });

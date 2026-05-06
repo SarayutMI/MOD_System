@@ -386,18 +386,12 @@ async function populateDropdowns() {
  * Apply dropdown options to all select elements in the form.
  */
 function applyDropdownOptions(volunteers, officers) {
-  // Officer dropdowns (MOD, M-Exhibition, M-Education, M-Visitor Service)
-  const officerDropdowns = [
-    'mod-morning-select',
-    'm-exhibition-select',
-    'm-education-select',
-    'm-visitor-service-select'
-  ];
-  officerDropdowns.forEach(id => {
+  // Officer select dropdowns (MOD, M-Exhibition, M-Education, M-Visitor Service)
+  const officerSelectIds = ['mod-morning', 'm-exhibition', 'm-education', 'm-visitor-service'];
+  officerSelectIds.forEach(id => {
     const sel = document.getElementById(id);
-    if (!sel) return;
+    if (!sel || sel.tagName !== 'SELECT') return;
     const currentVal = sel.value;
-    // Keep the first placeholder option
     sel.innerHTML = '<option value="">-- เลือกเจ้าหน้าที่ --</option>';
     officers.forEach(name => {
       const opt = document.createElement('option');
@@ -405,18 +399,17 @@ function applyDropdownOptions(volunteers, officers) {
       opt.textContent = name;
       sel.appendChild(opt);
     });
-    // Restore value if still valid
     if (currentVal) sel.value = currentVal;
   });
 
-  // Volunteer dropdowns (zone staff)
-  const volunteerDropdowns = [
+  // Volunteer select dropdowns (zone staff)
+  const volunteerSelectIds = [
     'ex-z1-name', 'ex-z2-name', 'ex-z3-name', 'ex-z4-name',
     'ex-innovation-name', 'ex-inspire-name', 'ex-make-play1-name', 'ex-make-play2-name'
   ];
-  volunteerDropdowns.forEach(baseId => {
-    const sel = document.getElementById(baseId + '-select');
-    if (!sel) return;
+  volunteerSelectIds.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel || sel.tagName !== 'SELECT') return;
     const currentVal = sel.value;
     sel.innerHTML = '<option value="">-- เลือกอาสาสมัคร --</option>';
     volunteers.forEach(name => {
@@ -427,6 +420,26 @@ function applyDropdownOptions(volunteers, officers) {
     });
     if (currentVal) sel.value = currentVal;
   });
+
+  // Also keep legacy datalist elements updated (using DOM methods to avoid XSS)
+  const officersList = document.getElementById('officers-datalist');
+  if (officersList) {
+    officersList.innerHTML = '';
+    officers.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      officersList.appendChild(opt);
+    });
+  }
+  const volunteersList = document.getElementById('volunteers-datalist');
+  if (volunteersList) {
+    volunteersList.innerHTML = '';
+    volunteers.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      volunteersList.appendChild(opt);
+    });
+  }
 }
 
 /**
