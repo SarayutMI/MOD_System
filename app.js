@@ -356,12 +356,7 @@ function addActivityRow(data) {
   const tbody = document.getElementById('activity-tbody');
   if (!tbody) return;
 
-  // Build officer options from settings
-  const settings = typeof getSettings === 'function' ? getSettings() : {};
-  const officers = settings.customOfficers || [];
-  const officerOpts = '<option value="">-- เลือกเจ้าหน้าที่ --</option>' +
-    officers.map(n => `<option value="${n.replace(/"/g,'&quot;')}"${data?.operator===n?' selected':''}>${n.replace(/</g,'&lt;')}</option>`).join('');
-
+  const isGroup = data?.participantType === 'group';
   const tr = document.createElement('tr');
   tr.dataset.id = activityRowCount;
   tr.innerHTML = `
@@ -375,33 +370,48 @@ function addActivityRow(data) {
         <option value="other" ${data?.type==='other'?'selected':''}>กิจกรรมอื่น</option>
       </select>
     </td>
-    <td><input type="text" class="form-input" style="min-width:120px;" placeholder="ชื่อกิจกรรม" value="${data?.name||''}"></td>
-    <td>
-      <select class="form-input" style="min-width:120px;">${officerOpts}</select>
-    </td>
+    <td><input type="text" class="form-input" style="min-width:120px;" placeholder="ชื่อกิจกรรม"></td>
+    <td><select class="form-input activity-officer-sel" style="min-width:120px;"></select></td>
     <td>
       <select class="form-input" style="min-width:100px;" onchange="handleParticipantType(this)">
-        <option value="walk-in" ${(data?.participantType||'walk-in')==='walk-in'?'selected':''}>Walk-in</option>
-        <option value="group" ${data?.participantType==='group'?'selected':''}>กลุ่ม</option>
+        <option value="walk-in" ${!isGroup?'selected':''}>Walk-in</option>
+        <option value="group" ${isGroup?'selected':''}>กลุ่ม</option>
       </select>
     </td>
-    <td>
-      <select class="form-input group-name-col" style="min-width:120px;display:${data?.participantType==='group'?'block':'none'};">
-        <option value="">-- เลือกกลุ่ม --</option>
-        ${data?.groupName?`<option value="${data.groupName.replace(/"/g,'&quot;')}" selected>${data.groupName.replace(/</g,'&lt;')}</option>`:''}
-      </select>
-    </td>
+    <td><select class="form-input group-name-col" style="min-width:120px;display:${isGroup?'':'none'};"></select></td>
     <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:55px;" oninput="calcVis()"></td>
     <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:55px;" oninput="calcVis()"></td>
     <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:55px;" oninput="calcVis()"></td>
     <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}" style="width:55px;" oninput="calcVis()"></td>
-    <td><input type="number" class="num-input group-child-col" min="0" value="${data?.groupChild||0}" style="width:55px;display:${data?.participantType==='group'?'':'none'};"></td>
-    <td><input type="number" class="num-input group-adult-col" min="0" value="${data?.groupAdult||0}" style="width:55px;display:${data?.participantType==='group'?'':'none'};"></td>
+    <td><input type="number" class="num-input group-child-col" min="0" value="${data?.groupChild||0}" style="width:55px;display:${isGroup?'':'none'};"></td>
+    <td><input type="number" class="num-input group-adult-col" min="0" value="${data?.groupAdult||0}" style="width:55px;display:${isGroup?'':'none'};"></td>
     <td><button type="button" class="btn btn-ghost btn-sm" onclick="removeActivityRow(this)" style="padding:4px 8px;color:var(--danger);">✕</button></td>
   `;
   tbody.appendChild(tr);
 
-  // Populate group name dropdown if available
+  // Set text input value safely (no innerHTML injection)
+  const nameInput = tr.querySelector('input[type="text"]');
+  if (nameInput) nameInput.value = data?.name || '';
+
+  // Populate officer select using DOM methods (XSS-safe)
+  const officerSel = tr.querySelector('.activity-officer-sel');
+  if (officerSel) {
+    const settings = typeof getSettings === 'function' ? getSettings() : {};
+    const officers = settings.customOfficers || [];
+    const phOpt = document.createElement('option');
+    phOpt.value = '';
+    phOpt.textContent = '-- เลือกเจ้าหน้าที่ --';
+    officerSel.appendChild(phOpt);
+    officers.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      opt.textContent = n;
+      if (n === data?.operator) opt.selected = true;
+      officerSel.appendChild(opt);
+    });
+  }
+
+  // Populate group name dropdown
   const groupSel = tr.querySelector('.group-name-col');
   if (groupSel) loadGroupNamesIntoSelect(groupSel, data?.groupName);
 }
@@ -764,13 +774,23 @@ function getFormData() {
     const numInputs = tr.querySelectorAll('input[type="number"]');
     const textInputs = tr.querySelectorAll('input[type="text"]');
     if (selects.length >= 1) {
-      const participantType = selects[2] ? selects[2].value : 'walk-in';
+      const officerSel = tr.querySelector('.activity-officer-sel');
+      const participantTypeSel = selects[2] || selects[1];
+      const participantType = participantTypeSel?.value !== 'inspire' && participantTypeSel?.value !== 'innovation' && participantTypeSel?.value !== 'walk' && participantTypeSel?.value !== 'mini' && participantTypeSel?.value !== 'other'
+        ? (participantTypeSel?.value || 'walk-in')
+        : 'walk-in';
+      // More reliable: find participant type select by its option values
+      let partType = 'walk-in';
+      tr.querySelectorAll('select').forEach(s => {
+        const vals = Array.from(s.options).map(o => o.value);
+        if (vals.includes('walk-in') && vals.includes('group')) partType = s.value;
+      });
       const groupNameSel = tr.querySelector('.group-name-col');
       activities.push({
         type: selects[0]?.value || '',
         name: textInputs[0]?.value || '',
-        operator: selects[1]?.value || selects[0]?.value || '',
-        participantType,
+        operator: officerSel?.value || '',
+        participantType: partType,
         groupName: groupNameSel?.value || '',
         thaiChild: parseInt(numInputs[0]?.value) || 0,
         thaiAdult: parseInt(numInputs[1]?.value) || 0,
@@ -1593,7 +1613,8 @@ async function exportDailyBriefingPDF(date) {
   const sumAllAdult  = sumThaiAdult + sumForAdult + cSenior + dOthTotal;
 
   // ---- HTML-escape shorthand (strip emojis + escape HTML for PDF safety) ----
-  const emojiRe = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
+  // Comprehensive emoji regex covering all Unicode emoji ranges
+  const emojiRe = /[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}]/gu;
   const e = s => escHtml(String(s || '').replace(emojiRe, '').trim());
 
   // ---- bookings HTML ----
@@ -2348,35 +2369,35 @@ function updateDropdownDatalist() {
   const officers = settings.customOfficers || [];
   const volunteers = settings.customVolunteers || [];
 
-  // Update legacy datalist elements
-  const officersList = document.getElementById('officers-datalist');
-  if (officersList) {
-    officersList.innerHTML = officers.map(n => `<option value="${escHtml(n)}">`).join('');
-  }
-
-  const volunteersList = document.getElementById('volunteers-datalist');
-  if (volunteersList) {
-    volunteersList.innerHTML = volunteers.map(n => `<option value="${escHtml(n)}">`).join('');
-  }
-
-  // Update select elements for officers
-  ['mod-morning', 'm-exhibition', 'm-education', 'm-visitor-service'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel || sel.tagName !== 'SELECT') return;
+  // Helper: populate a select or datalist using DOM methods (XSS-safe)
+  function populateSelect(sel, options, placeholder) {
+    if (!sel) return;
     const cur = sel.value;
-    sel.innerHTML = '<option value="">-- เลือกเจ้าหน้าที่ --</option>' +
-      officers.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
-    if (cur && officers.includes(cur)) sel.value = cur;
+    sel.innerHTML = '';
+    if (sel.tagName === 'SELECT') {
+      const ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = placeholder;
+      sel.appendChild(ph);
+    }
+    options.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      if (sel.tagName === 'SELECT') opt.textContent = n;
+      sel.appendChild(opt);
+    });
+    if (cur && sel.tagName === 'SELECT') sel.value = cur;
+  }
+
+  populateSelect(document.getElementById('officers-datalist'), officers, '');
+  populateSelect(document.getElementById('volunteers-datalist'), volunteers, '');
+
+  ['mod-morning', 'm-exhibition', 'm-education', 'm-visitor-service'].forEach(id => {
+    populateSelect(document.getElementById(id), officers, '-- เลือกเจ้าหน้าที่ --');
   });
 
-  // Update select elements for volunteers
   ['ex-z1-name','ex-z2-name','ex-z3-name','ex-z4-name','ex-innovation-name','ex-inspire-name','ex-make-play1-name','ex-make-play2-name'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel || sel.tagName !== 'SELECT') return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">-- เลือกอาสาสมัคร --</option>' +
-      volunteers.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
-    if (cur && volunteers.includes(cur)) sel.value = cur;
+    populateSelect(document.getElementById(id), volunteers, '-- เลือกอาสาสมัคร --');
   });
 }
 
