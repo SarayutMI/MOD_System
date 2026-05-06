@@ -173,15 +173,100 @@ async function fetchOfficerStats(year, month) {
   throw new Error(json.message || 'fetchOfficerStats failed');
 }
 
+/**
+ * Fetch group names from Google Sheets (Group_Name sheet)
+ * @returns {Promise<string[]>} Array of group names
+ */
+async function fetchGroupNames() {
+  const url = getAPIURL();
+  const res = await fetch(`${url}?action=getGroupNames`, { mode: 'cors' });
+  const json = await res.json();
+  if (json.status === 'success') return (json.data || []).filter(Boolean);
+  throw new Error(json.message || 'fetchGroupNames failed');
+}
+
+/**
+ * Fetch activity list based on room type
+ * @param {string} roomType - 'Inno' or 'Lab'
+ * @returns {Promise<string[]>} Array of activity names
+ */
+async function fetchActivityList(roomType) {
+  const url = getAPIURL();
+  const res = await fetch(`${url}?action=getActivityList&roomType=${encodeURIComponent(roomType)}`, { mode: 'cors' });
+  const json = await res.json();
+  if (json.status === 'success') return (json.data || []).filter(Boolean);
+  throw new Error(json.message || 'fetchActivityList failed');
+}
+
+/**
+ * Fetch full daily data including MOD_Data + ActivityRoom data
+ * @param {string} date - Date in YYYY-MM-DD format
+ * @returns {Promise<Object|null>}
+ */
+async function fetchFullDailyData(date) {
+  const url = getAPIURL();
+  const res = await fetch(`${url}?action=getFullDailyData&date=${encodeURIComponent(date)}`, { mode: 'cors' });
+  const json = await res.json();
+  if (json.status === 'success') return json.data || null;
+  throw new Error(json.message || 'fetchFullDailyData failed');
+}
+
+/**
+ * Save activity room data to Google Sheets (ActivityRoom_Inno or ActivityRoom_Lab)
+ * @param {Object} data - Activity room data
+ * @returns {Promise<Object>} API response
+ */
+async function saveActivityRoomData(data) {
+  const url = getAPIURL();
+  const payload = { action: 'saveActivityRoomData', ...data };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (json.status !== 'success') throw new Error(json.message || 'saveActivityRoomData failed');
+  return json;
+}
+
+/**
+ * Save an issue/feedback report to Google Sheets (Issues_Feedback sheet)
+ * @param {Object} data - Issue data: {date, type, zone, priority, description, details, reporter, status, timestamp}
+ * @returns {Promise<Object>} API response
+ */
+async function saveIssueFeedback(data) {
+  const url = getAPIURL();
+  const payload = { action: 'saveIssueFeedback', ...data };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (json.status !== 'success') throw new Error(json.message || 'saveIssueFeedback failed');
+  return json;
+}
+
 // ============ Internal Helpers ============
 
 /** Get API URL from settings or fall back to default */
 function getAPIURL() {
   try {
     const settings = JSON.parse(localStorage.getItem('nsm_settings') || '{}');
-    return settings.sheetsURL || GOOGLE_SHEETS_API_URL;
+    return settings.sheetsUrl || settings.sheetsURL || GOOGLE_SHEETS_API_URL;
   } catch (e) {
     return GOOGLE_SHEETS_API_URL;
+  }
+}
+
+/** Update the API URL stored in settings */
+function setUrl(url) {
+  try {
+    const settings = JSON.parse(localStorage.getItem('nsm_settings') || '{}');
+    settings.sheetsUrl = url;
+    localStorage.setItem('nsm_settings', JSON.stringify(settings));
+  } catch (e) {
+    console.warn('setUrl failed:', e);
   }
 }
 
@@ -368,9 +453,14 @@ async function checkConnection() {
 window.GoogleSheetsAPI = {
   fetchVolunteers,
   fetchOfficers,
+  fetchGroupNames,
+  fetchActivityList,
   fetchAllDropdownData,
+  fetchFullDailyData,
   saveDailyRecord,
   updateDailyRecord,
+  saveActivityRoomData,
+  saveIssueFeedback,
   fetchDailyData,
   fetchMonthlyData,
   fetchOfficerStats,
@@ -379,5 +469,6 @@ window.GoogleSheetsAPI = {
   checkConnection,
   clearDropdownCache,
   isCacheValid,
+  setUrl,
   getLastSyncTime: () => localStorage.getItem('nsm_last_sync')
 };

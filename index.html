@@ -304,7 +304,7 @@
       <div class="nav-link" id="nav-export" onclick="gotoPage('export')">
         <span class="nav-icon">📤</span> ส่งออก
       </div>
-      <div class="nav-link" id="nav-settings" onclick="openModal('settings-modal')">
+      <div class="nav-link" id="nav-settings" onclick="gotoPage('settings')">
         <span class="nav-icon">⚙️</span> ตั้งค่า
       </div>
     </nav>
@@ -588,30 +588,34 @@
 
       <!-- TAB 2: AFTERNOON -->
       <div id="day-tab-1" class="tab-content">
-        <!-- Auto-sync morning data checkbox -->
+        <!-- Volunteer display (auto-populated from morning tab) -->
         <div class="card" style="margin-bottom:16px;background:var(--accent-dim);border-color:var(--accent);">
-          <label class="check-label">
-            <input type="checkbox" id="sync-morning-data" onchange="toggleMorningSync(this.checked)">
-            <span style="font-weight:600;color:var(--accent);">🔄 ใช้ข้อมูลเจ้าหน้าที่เดียวกับช่วงเช้า</span>
-          </label>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">เมื่อเปิดใช้ ชื่อเจ้าหน้าที่ในช่วงเช้าจะถูกคัดลอกมาใช้ในช่วงบ่ายโดยอัตโนมัติ</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            <div style="font-weight:600;color:var(--accent);">👥 อาสาสมัครประจำวัน (จากช่วงเช้า)</div>
+            <button class="btn btn-ghost btn-sm" onclick="syncVolunteersToAfternoonTab()">🔄 ดึงชื่อจากช่วงเช้า</button>
+          </div>
+          <div id="afternoon-volunteer-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+            <span style="font-size:13px;color:var(--text-muted);">ℹ️ กดปุ่มเพื่อดึงชื่ออาสาจากช่วงเช้า</span>
+          </div>
         </div>
 
 <!-- Exhibition Zones - Issues Found -->
         <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">⚠️</span> ปัญหา / ข้อเสนอประจำโซน</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <div class="section-title" style="margin:0;"><span class="section-badge">⚠️</span> ปัญหา / ข้อเสนอประจำโซน</div>
+          </div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>โซน</th><th>อาสาผู้รับผิดชอบ</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+              <thead><tr><th>โซน</th><th>อาสาผู้รับผิดชอบ</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th><th></th></tr></thead>
               <tbody>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-staff" type="text" class="form-input"></td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-staff" type="text" class="form-input"></td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-staff" type="text" class="form-input"></td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-staff" type="text" class="form-input"></td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-staff" type="text" class="form-input"></td><td><input id="ex-innovation-issue" type="text" class="form-input"></td><td><input id="ex-innovation-note" type="text" class="form-input"></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab </td><td><input id="ex-inspire-staff" type="text" class="form-input"></td><td><input id="ex-inspire-issue" type="text" class="form-input"></td><td><input id="ex-inspire-note" type="text" class="form-input"></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-staff" type="text" class="form-input"></td><td><input id="ex-make-play1-issue" type="text" class="form-input"></td><td><input id="ex-make-play1-note" type="text" class="form-input"></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-staff" type="text" class="form-input"></td><td><input id="ex-make-play2-issue" type="text" class="form-input"></td><td><input id="ex-make-play2-note" type="text" class="form-input"></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-staff" type="text" class="form-input"></td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 1 ค้นพบตัวตน')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-staff" type="text" class="form-input"></td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 2 เปิดโลกทางการแพทย์')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-staff" type="text" class="form-input"></td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 3 ฐานปฏิบัติการภัยพิบัต')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-staff" type="text" class="form-input"></td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 4 การบินและอวกาศ')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-staff" type="text" class="form-input"></td><td><input id="ex-innovation-issue" type="text" class="form-input"></td><td><input id="ex-innovation-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Innovation Space')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab </td><td><input id="ex-inspire-staff" type="text" class="form-input"></td><td><input id="ex-inspire-issue" type="text" class="form-input"></td><td><input id="ex-inspire-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Inspire Lab')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-staff" type="text" class="form-input"></td><td><input id="ex-make-play1-issue" type="text" class="form-input"></td><td><input id="ex-make-play1-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Make and Play 1')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-staff" type="text" class="form-input"></td><td><input id="ex-make-play2-issue" type="text" class="form-input"></td><td><input id="ex-make-play2-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Make and Play 2')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
           
               </tbody>
             </table>
@@ -1088,16 +1092,16 @@
           <div class="section-title"><span class="section-badge">⚠️</span> ปัญหา / ข้อเสนอตอนเย็น</div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>โซน</th><th>อาสาผู้รับผิดชอบ</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+              <thead><tr><th>โซน</th><th>อาสาผู้รับผิดชอบ</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th><th></th></tr></thead>
               <tbody>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="eve-z1-staff" type="text" class="form-input"></td><td><input id="eve-z1-issue" type="text" class="form-input"></td><td><input id="eve-z1-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="eve-z2-staff" type="text" class="form-input"></td><td><input id="eve-z2-issue" type="text" class="form-input"></td><td><input id="eve-z2-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="eve-z3-staff" type="text" class="form-input"></td><td><input id="eve-z3-issue" type="text" class="form-input"></td><td><input id="eve-z3-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="eve-z4-staff" type="text" class="form-input"></td><td><input id="eve-z4-issue" type="text" class="form-input"></td><td><input id="eve-z4-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="eve-innovation-staff" type="text" class="form-input"></td><td><input id="eve-innovation-issue" type="text" class="form-input"></td><td><input id="eve-innovation-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><input id="eve-inspire-staff" type="text" class="form-input"></td><td><input id="eve-inspire-issue" type="text" class="form-input"></td><td><input id="eve-inspire-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="eve-make-play1-staff" type="text" class="form-input"></td><td><input id="eve-make-play1-issue" type="text" class="form-input"></td><td><input id="eve-make-play1-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="eve-make-play2-staff" type="text" class="form-input"></td><td><input id="eve-make-play2-issue" type="text" class="form-input"></td><td><input id="eve-make-play2-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="eve-z1-staff" type="text" class="form-input"></td><td><input id="eve-z1-issue" type="text" class="form-input"></td><td><input id="eve-z1-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 1 ค้นพบตัวตน')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="eve-z2-staff" type="text" class="form-input"></td><td><input id="eve-z2-issue" type="text" class="form-input"></td><td><input id="eve-z2-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 2 เปิดโลกทางการแพทย์')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="eve-z3-staff" type="text" class="form-input"></td><td><input id="eve-z3-issue" type="text" class="form-input"></td><td><input id="eve-z3-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 3 ฐานปฏิบัติการภัยพิบัต')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="eve-z4-staff" type="text" class="form-input"></td><td><input id="eve-z4-issue" type="text" class="form-input"></td><td><input id="eve-z4-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 4 การบินและอวกาศ')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="eve-innovation-staff" type="text" class="form-input"></td><td><input id="eve-innovation-issue" type="text" class="form-input"></td><td><input id="eve-innovation-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Innovation Space')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><input id="eve-inspire-staff" type="text" class="form-input"></td><td><input id="eve-inspire-issue" type="text" class="form-input"></td><td><input id="eve-inspire-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Inspire Lab')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="eve-make-play1-staff" type="text" class="form-input"></td><td><input id="eve-make-play1-issue" type="text" class="form-input"></td><td><input id="eve-make-play1-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Make and Play 1')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="eve-make-play2-staff" type="text" class="form-input"></td><td><input id="eve-make-play2-issue" type="text" class="form-input"></td><td><input id="eve-make-play2-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Make and Play 2')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
               </tbody>
             </table>
           </div>
@@ -1242,13 +1246,28 @@
           </div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" style="margin-bottom:16px;">
         <div style="font-size:15px;font-weight:600;margin-bottom:16px;">สรุปรายเดือน</div>
         <div class="table-wrap">
           <table class="data-table">
             <thead><tr><th>เดือน</th><th>วันที่มีข้อมูล</th><th>ผู้เข้าชม</th><th>รายได้ (บาท)</th><th>เฉลี่ย/วัน</th></tr></thead>
             <tbody id="sum-month-tbody">
               <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Officer Activity Statistics -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:15px;font-weight:600;">สถิติการปฏิบัติงานของเจ้าหน้าที่</div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>ชื่อเจ้าหน้าที่</th><th>จำนวนรอบที่ปฏิบัติงาน</th><th>%</th></tr></thead>
+            <tbody id="sum-officer-stats-tbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
             </tbody>
           </table>
         </div>
@@ -1306,10 +1325,123 @@
       </div>
     </div><!-- /page-export -->
 
+    <!-- ===== SETTINGS PAGE ===== -->
+    <div id="page-settings" class="page-content" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <div style="font-size:20px;font-weight:700;">⚙️ ตั้งค่าระบบ</div>
+        <button class="btn btn-primary btn-sm" onclick="settingsSync()">🔄 Sync ข้อมูลใหม่</button>
+      </div>
+
+      <!-- Connection Status -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px;">📊 Google Sheets Connection</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div id="settings-conn-status" style="font-size:14px;color:var(--text-muted);">กำลังตรวจสอบ...</div>
+          <div id="settings-last-sync" style="font-size:12px;color:var(--text-muted);"></div>
+        </div>
+        <div style="margin-top:12px;">
+          <label class="form-label">Google Apps Script URL</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input id="settings-sheets-url" type="url" class="form-input" style="flex:1;min-width:200px;" placeholder="https://script.google.com/...">
+            <button class="btn btn-ghost btn-sm" onclick="settingsSaveURL()">💾 บันทึก URL</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Volunteers -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-size:15px;font-weight:600;">👥 อาสาสมัคร</div>
+          <span id="settings-vol-count" style="font-size:12px;color:var(--text-muted);"></span>
+        </div>
+        <div id="settings-volunteers-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+          <span style="color:var(--text-muted);font-size:13px;">กดปุ่ม Sync เพื่อดึงข้อมูล</span>
+        </div>
+        <div style="margin-top:12px;">
+          <label class="form-label">เพิ่มรายชื่ออาสาสมัครด้วยตนเอง (1 ชื่อต่อบรรทัด)</label>
+          <textarea id="settings-volunteers-textarea" class="form-input" rows="4" placeholder="ชื่ออาสาสมัคร 1&#10;ชื่ออาสาสมัคร 2"></textarea>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="settingsSaveManual()">💾 บันทึกรายชื่อ</button>
+        </div>
+      </div>
+
+      <!-- Officers -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-size:15px;font-weight:600;">👔 เจ้าหน้าที่</div>
+          <span id="settings-off-count" style="font-size:12px;color:var(--text-muted);"></span>
+        </div>
+        <div id="settings-officers-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+          <span style="color:var(--text-muted);font-size:13px;">กดปุ่ม Sync เพื่อดึงข้อมูล</span>
+        </div>
+        <div style="margin-top:12px;">
+          <label class="form-label">เพิ่มรายชื่อเจ้าหน้าที่ด้วยตนเอง (1 ชื่อต่อบรรทัด)</label>
+          <textarea id="settings-officers-textarea" class="form-input" rows="4" placeholder="ชื่อเจ้าหน้าที่ 1&#10;ชื่อเจ้าหน้าที่ 2"></textarea>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="settingsSaveManual()">💾 บันทึกรายชื่อ</button>
+        </div>
+      </div>
+
+      <!-- Login Settings -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px;">🔐 ตั้งค่าการเข้าสู่ระบบ</div>
+        <div class="form-group">
+          <label class="form-label">ชื่อผู้ใช้</label>
+          <input id="settings-username" type="text" class="form-input" placeholder="admin">
+        </div>
+        <div class="form-group">
+          <label class="form-label">รหัสผ่านใหม่ (เว้นว่างหากไม่เปลี่ยน)</label>
+          <input id="settings-password" type="password" class="form-input" placeholder="••••••">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="settingsSaveLogin()">💾 บันทึกการเข้าสู่ระบบ</button>
+      </div>
+    </div><!-- /page-settings -->
+
   </div><!-- /main-content -->
 </div><!-- /app -->
 
 <!-- ============================================================ MODALS ============================================================ -->
+
+<!-- Issues/Feedback Modal -->
+<div id="issues-modal" class="modal-overlay" onclick="closeBD(event,'issues-modal')">
+  <div class="modal modal-md">
+    <button class="modal-close" onclick="closeModal('issues-modal')">✕</button>
+    <div class="modal-title">📝 รายงานปัญหา / ข้อเสนอ</div>
+    <div class="form-group">
+      <label class="form-label">ประเภทรายงาน</label>
+      <div style="display:flex;gap:16px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="radio" name="issue-type" value="ปัญหา" id="issue-type-problem" checked> ปัญหา
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="radio" name="issue-type" value="ข้อเสนอ" id="issue-type-suggestion"> ข้อเสนอ
+        </label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">พื้นที่ / โซน</label>
+      <input id="issue-zone" type="text" class="form-input" readonly style="background:var(--surface);">
+    </div>
+    <div class="form-group">
+      <label class="form-label">ระดับความสำคัญ</label>
+      <select id="issue-priority" class="form-input">
+        <option value="สูง">สูง</option>
+        <option value="ปานกลาง" selected>ปานกลาง</option>
+        <option value="ต่ำ">ต่ำ</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ปัญหา / ข้อเสนอ</label>
+      <textarea id="issue-description" class="form-input" rows="3" placeholder="อธิบายปัญหาหรือข้อเสนอ..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">รายละเอียดเพิ่มเติม</label>
+      <textarea id="issue-details" class="form-input" rows="2" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal('issues-modal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="submitIssueFeedback()">📩 ส่งรายงาน</button>
+    </div>
+  </div>
+</div>
 
 <!-- Settings Modal -->
 <div id="settings-modal" class="modal-overlay" onclick="closeBD(event,'settings-modal')">
