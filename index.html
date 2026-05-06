@@ -411,7 +411,8 @@
       <!-- Tab Bar -->
       <div class="tab-bar" style="margin-bottom:20px;">
         <button class="tab-btn active" id="tab-btn-0" onclick="switchDayTab(0,this)">🌅 ช่วงเช้า</button>
-        <button class="tab-btn" id="tab-btn-1" onclick="switchDayTab(1,this)">🌆 ช่วงเย็น</button>
+        <button class="tab-btn" id="tab-btn-1" onclick="switchDayTab(1,this)">🌞 ช่วงบ่าย</button>
+        <button class="tab-btn" id="tab-btn-2" onclick="switchDayTab(2,this)">🌆 ช่วงเย็น</button>
       </div>
 
       <!-- TAB 1: MORNING -->
@@ -585,7 +586,7 @@
         </div>
       </div>
 
-      <!-- TAB 2: EVENING -->
+      <!-- TAB 2: AFTERNOON -->
       <div id="day-tab-1" class="tab-content">
         <!-- Auto-sync morning data checkbox -->
         <div class="card" style="margin-bottom:16px;background:var(--accent-dim);border-color:var(--accent);">
@@ -593,9 +594,8 @@
             <input type="checkbox" id="sync-morning-data" onchange="toggleMorningSync(this.checked)">
             <span style="font-weight:600;color:var(--accent);">🔄 ใช้ข้อมูลเจ้าหน้าที่เดียวกับช่วงเช้า</span>
           </label>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">เมื่อเปิดใช้ ชื่อเจ้าหน้าที่ในช่วงเช้าจะถูกคัดลอกมาใช้ในช่วงเย็นโดยอัตโนมัติ</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">เมื่อเปิดใช้ ชื่อเจ้าหน้าที่ในช่วงเช้าจะถูกคัดลอกมาใช้ในช่วงบ่ายโดยอัตโนมัติ</div>
         </div>
-        <div class="card" style="margin-bottom:16px;">
 
 <!-- Exhibition Zones - Issues Found -->
         <div class="card" style="margin-bottom:16px;">
@@ -617,6 +617,7 @@
             </table>
           </div>
         </div>
+        <div class="card" style="margin-bottom:16px;">
         <div class="section-title"><span class="section-badge">VS</span> Visitor Service</div>
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
@@ -1050,13 +1051,91 @@
          
         <!-- Save / Clear buttons -->
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-          <button class="btn btn-success" onclick="saveAfternoonSession()">💾 บันทึกช่วงเย็น</button>
+          <button class="btn btn-success" onclick="saveAfternoonSession()">💾 บันทึกช่วงบ่าย</button>
           <button class="btn btn-primary" onclick="submitAll()">🌐 บันทึกและส่ง Google Sheets</button>
           <button class="btn btn-danger" onclick="clearAllFields()">🗑 ล้างข้อมูล</button>
           <span id="sheets-save-status" style="font-size:13px;color:var(--text-muted);align-self:center;"></span>
         </div>
         <datalist id="officers-datalist"></datalist>
         <datalist id="volunteers-datalist"></datalist>
+      </div><!-- /tab afternoon -->
+
+      <!-- TAB 3: EVENING -->
+      <div id="day-tab-2" class="tab-content">
+
+        <!-- Volunteer display (auto-populated from morning tab) -->
+        <div class="card" style="margin-bottom:16px;background:var(--accent-dim);border-color:var(--accent);">
+          <div class="section-title" style="margin-bottom:10px;">👥 อาสาสมัครประจำวัน (จากช่วงเช้า)</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>โซน</th><th>ชื่ออาสาสมัคร</th></tr></thead>
+              <tbody>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td id="eve-vol-z1" style="color:var(--accent);font-weight:600;">-</td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td id="eve-vol-z2" style="color:var(--accent);font-weight:600;">-</td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td id="eve-vol-z3" style="color:var(--accent);font-weight:600;">-</td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td id="eve-vol-z4" style="color:var(--accent);font-weight:600;">-</td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td id="eve-vol-innovation" style="color:var(--accent);font-weight:600;">-</td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td id="eve-vol-inspire" style="color:var(--accent);font-weight:600;">-</td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td id="eve-vol-make-play1" style="color:var(--accent);font-weight:600;">-</td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td id="eve-vol-make-play2" style="color:var(--accent);font-weight:600;">-</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Zone Issues - Evening -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">⚠️</span> ปัญหา / ข้อเสนอตอนเย็น</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>โซน</th><th>อาสาผู้รับผิดชอบ</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
+              <tbody>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="eve-z1-staff" type="text" class="form-input"></td><td><input id="eve-z1-issue" type="text" class="form-input"></td><td><input id="eve-z1-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="eve-z2-staff" type="text" class="form-input"></td><td><input id="eve-z2-issue" type="text" class="form-input"></td><td><input id="eve-z2-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="eve-z3-staff" type="text" class="form-input"></td><td><input id="eve-z3-issue" type="text" class="form-input"></td><td><input id="eve-z3-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="eve-z4-staff" type="text" class="form-input"></td><td><input id="eve-z4-issue" type="text" class="form-input"></td><td><input id="eve-z4-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="eve-innovation-staff" type="text" class="form-input"></td><td><input id="eve-innovation-issue" type="text" class="form-input"></td><td><input id="eve-innovation-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><input id="eve-inspire-staff" type="text" class="form-input"></td><td><input id="eve-inspire-issue" type="text" class="form-input"></td><td><input id="eve-inspire-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="eve-make-play1-staff" type="text" class="form-input"></td><td><input id="eve-make-play1-issue" type="text" class="form-input"></td><td><input id="eve-make-play1-note" type="text" class="form-input"></td></tr>
+                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="eve-make-play2-staff" type="text" class="form-input"></td><td><input id="eve-make-play2-issue" type="text" class="form-input"></td><td><input id="eve-make-play2-note" type="text" class="form-input"></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- VS Evening -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title"><span class="section-badge">VS</span> Visitor Service (ตอนเย็น)</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="eve-vs-counter1-name" type="text" class="form-input" list="officers-datalist"></div>
+              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="eve-vs-counter1-issue" type="text" class="form-input"></div>
+              <div><label class="form-label">หมายเหตุ</label><input id="eve-vs-counter1-note" type="text" class="form-input"></div>
+            </div>
+          </div>
+          <div style="margin-top:10px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 2</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="eve-vs-counter2-name" type="text" class="form-input" list="officers-datalist"></div>
+              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="eve-vs-counter2-issue" type="text" class="form-input"></div>
+              <div><label class="form-label">หมายเหตุ</label><input id="eve-vs-counter2-note" type="text" class="form-input"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evening Notes -->
+        <div class="card" style="margin-bottom:16px;">
+          <label class="form-label">📌 หมายเหตุตอนเย็น</label>
+          <textarea id="eve-notes" class="form-input" rows="3" placeholder="บันทึกเหตุการณ์พิเศษตอนเย็น ปัญหา หรือข้อมูลเพิ่มเติม..."></textarea>
+        </div>
+
+        <!-- Evening Save -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-success" onclick="saveEveningSession()">💾 บันทึกช่วงเย็น</button>
+          <span id="evening-save-status" style="font-size:13px;color:var(--text-muted);align-self:center;"></span>
+        </div>
+
       </div><!-- /tab evening -->
 
     </div><!-- /page-daily-log -->

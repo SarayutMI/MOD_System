@@ -406,13 +406,32 @@ function handleActivitySelect(selectEl) {
 
 // ============ TABS ============
 function switchDayTab(idx, btn) {
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     const tab = document.getElementById('day-tab-' + i);
     const tabBtn = document.getElementById('tab-btn-' + i);
     if (tab) tab.classList.toggle('active', i === idx);
     if (tabBtn) tabBtn.classList.toggle('active', i === idx);
   }
   if (idx === 1) { calcVis(); calcRev(); updateSummaryPreview(); }
+  if (idx === 2) { syncVolunteersToEveningTab(); }
+}
+
+function syncVolunteersToEveningTab() {
+  const zones = [
+    ['ex-z1-name', 'eve-vol-z1'],
+    ['ex-z2-name', 'eve-vol-z2'],
+    ['ex-z3-name', 'eve-vol-z3'],
+    ['ex-z4-name', 'eve-vol-z4'],
+    ['ex-innovation-name', 'eve-vol-innovation'],
+    ['ex-inspire-name', 'eve-vol-inspire'],
+    ['ex-make-play1-name', 'eve-vol-make-play1'],
+    ['ex-make-play2-name', 'eve-vol-make-play2'],
+  ];
+  zones.forEach(([src, dst]) => {
+    const val = getInputVal(src);
+    const el = document.getElementById(dst);
+    if (el) el.textContent = val || '-';
+  });
 }
 
 // ============ COLLAPSIBLE ============
@@ -2122,8 +2141,35 @@ function saveAfternoonSession() {
   const data = getFormData();
   localStorage.setItem('mod_afternoon_data_' + date, JSON.stringify(data));
   saveToLocal(false); // Also save as the main record
-  showToast('บันทึกช่วงเย็นสำเร็จ: ' + date, 'success');
+  showToast('บันทึกช่วงบ่ายสำเร็จ: ' + date, 'success');
   const statusEl = document.getElementById('sheets-save-status');
+  if (statusEl) {
+    const now = new Date();
+    statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
+  }
+}
+
+function saveEveningSession() {
+  const date = getCurrentDate();
+  if (!date || date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
+  const data = getFormData();
+  const eveZones = {};
+  ['z1','z2','z3','z4','innovation','inspire','make-play1','make-play2'].forEach(z => {
+    eveZones[z] = {
+      staff: getInputVal('eve-' + z + '-staff'),
+      issue: getInputVal('eve-' + z + '-issue'),
+      note: getInputVal('eve-' + z + '-note'),
+    };
+  });
+  data.eveZones = eveZones;
+  data.eveVS = {
+    counter1: { name: getInputVal('eve-vs-counter1-name'), issue: getInputVal('eve-vs-counter1-issue'), note: getInputVal('eve-vs-counter1-note') },
+    counter2: { name: getInputVal('eve-vs-counter2-name'), issue: getInputVal('eve-vs-counter2-issue'), note: getInputVal('eve-vs-counter2-note') },
+  };
+  data.eveNotes = getInputVal('eve-notes');
+  localStorage.setItem('mod_evening_data_' + date, JSON.stringify(data));
+  showToast('บันทึกช่วงเย็นสำเร็จ: ' + date, 'success');
+  const statusEl = document.getElementById('evening-save-status');
   if (statusEl) {
     const now = new Date();
     statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
