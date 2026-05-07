@@ -173,15 +173,100 @@ async function fetchOfficerStats(year, month) {
   throw new Error(json.message || 'fetchOfficerStats failed');
 }
 
+/**
+ * Fetch group names from Google Sheets (Group_Name sheet)
+ * @returns {Promise<string[]>} Array of group names
+ */
+async function fetchGroupNames() {
+  const url = getAPIURL();
+  const res = await fetch(`${url}?action=getGroupNames`, { mode: 'cors' });
+  const json = await res.json();
+  if (json.status === 'success') return (json.data || []).filter(Boolean);
+  throw new Error(json.message || 'fetchGroupNames failed');
+}
+
+/**
+ * Fetch activity list based on room type
+ * @param {string} roomType - 'Inno' or 'Lab'
+ * @returns {Promise<string[]>} Array of activity names
+ */
+async function fetchActivityList(roomType) {
+  const url = getAPIURL();
+  const res = await fetch(`${url}?action=getActivityList&roomType=${encodeURIComponent(roomType)}`, { mode: 'cors' });
+  const json = await res.json();
+  if (json.status === 'success') return (json.data || []).filter(Boolean);
+  throw new Error(json.message || 'fetchActivityList failed');
+}
+
+/**
+ * Fetch full daily data including MOD_Data + ActivityRoom data
+ * @param {string} date - Date in YYYY-MM-DD format
+ * @returns {Promise<Object|null>}
+ */
+async function fetchFullDailyData(date) {
+  const url = getAPIURL();
+  const res = await fetch(`${url}?action=getFullDailyData&date=${encodeURIComponent(date)}`, { mode: 'cors' });
+  const json = await res.json();
+  if (json.status === 'success') return json.data || null;
+  throw new Error(json.message || 'fetchFullDailyData failed');
+}
+
+/**
+ * Save activity room data to Google Sheets (ActivityRoom_Inno or ActivityRoom_Lab)
+ * @param {Object} data - Activity room data
+ * @returns {Promise<Object>} API response
+ */
+async function saveActivityRoomData(data) {
+  const url = getAPIURL();
+  const payload = { action: 'saveActivityRoomData', ...data };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (json.status !== 'success') throw new Error(json.message || 'saveActivityRoomData failed');
+  return json;
+}
+
+/**
+ * Save an issue/feedback report to Google Sheets (Issues_Feedback sheet)
+ * @param {Object} data - Issue data: {date, type, zone, priority, description, details, reporter, status, timestamp}
+ * @returns {Promise<Object>} API response
+ */
+async function saveIssueFeedback(data) {
+  const url = getAPIURL();
+  const payload = { action: 'saveIssueFeedback', ...data };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (json.status !== 'success') throw new Error(json.message || 'saveIssueFeedback failed');
+  return json;
+}
+
 // ============ Internal Helpers ============
 
 /** Get API URL from settings or fall back to default */
 function getAPIURL() {
   try {
     const settings = JSON.parse(localStorage.getItem('nsm_settings') || '{}');
-    return settings.sheetsURL || GOOGLE_SHEETS_API_URL;
+    return settings.sheetsUrl || settings.sheetsURL || GOOGLE_SHEETS_API_URL;
   } catch (e) {
     return GOOGLE_SHEETS_API_URL;
+  }
+}
+
+/** Update the API URL stored in settings */
+function setUrl(url) {
+  try {
+    const settings = JSON.parse(localStorage.getItem('nsm_settings') || '{}');
+    settings.sheetsUrl = url;
+    localStorage.setItem('nsm_settings', JSON.stringify(settings));
+  } catch (e) {
+    console.warn('setUrl failed:', e);
   }
 }
 
@@ -301,18 +386,12 @@ async function populateDropdowns() {
  * Apply dropdown options to all select elements in the form.
  */
 function applyDropdownOptions(volunteers, officers) {
-  // Officer dropdowns (MOD, M-Exhibition, M-Education, M-Visitor Service)
-  const officerDropdowns = [
-    'mod-morning-select',
-    'm-exhibition-select',
-    'm-education-select',
-    'm-visitor-service-select'
-  ];
-  officerDropdowns.forEach(id => {
+  // Officer select dropdowns (MOD, M-Exhibition, M-Education, M-Visitor Service)
+  const officerSelectIds = ['mod-morning', 'm-exhibition', 'm-education', 'm-visitor-service'];
+  officerSelectIds.forEach(id => {
     const sel = document.getElementById(id);
-    if (!sel) return;
+    if (!sel || sel.tagName !== 'SELECT') return;
     const currentVal = sel.value;
-    // Keep the first placeholder option
     sel.innerHTML = '<option value="">-- เลือกเจ้าหน้าที่ --</option>';
     officers.forEach(name => {
       const opt = document.createElement('option');
@@ -320,18 +399,17 @@ function applyDropdownOptions(volunteers, officers) {
       opt.textContent = name;
       sel.appendChild(opt);
     });
-    // Restore value if still valid
     if (currentVal) sel.value = currentVal;
   });
 
-  // Volunteer dropdowns (zone staff)
-  const volunteerDropdowns = [
+  // Volunteer select dropdowns (zone staff)
+  const volunteerSelectIds = [
     'ex-z1-name', 'ex-z2-name', 'ex-z3-name', 'ex-z4-name',
     'ex-innovation-name', 'ex-inspire-name', 'ex-make-play1-name', 'ex-make-play2-name'
   ];
-  volunteerDropdowns.forEach(baseId => {
-    const sel = document.getElementById(baseId + '-select');
-    if (!sel) return;
+  volunteerSelectIds.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel || sel.tagName !== 'SELECT') return;
     const currentVal = sel.value;
     sel.innerHTML = '<option value="">-- เลือกอาสาสมัคร --</option>';
     volunteers.forEach(name => {
@@ -342,6 +420,26 @@ function applyDropdownOptions(volunteers, officers) {
     });
     if (currentVal) sel.value = currentVal;
   });
+
+  // Also keep legacy datalist elements updated (using DOM methods to avoid XSS)
+  const officersList = document.getElementById('officers-datalist');
+  if (officersList) {
+    officersList.innerHTML = '';
+    officers.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      officersList.appendChild(opt);
+    });
+  }
+  const volunteersList = document.getElementById('volunteers-datalist');
+  if (volunteersList) {
+    volunteersList.innerHTML = '';
+    volunteers.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      volunteersList.appendChild(opt);
+    });
+  }
 }
 
 /**
@@ -368,9 +466,14 @@ async function checkConnection() {
 window.GoogleSheetsAPI = {
   fetchVolunteers,
   fetchOfficers,
+  fetchGroupNames,
+  fetchActivityList,
   fetchAllDropdownData,
+  fetchFullDailyData,
   saveDailyRecord,
   updateDailyRecord,
+  saveActivityRoomData,
+  saveIssueFeedback,
   fetchDailyData,
   fetchMonthlyData,
   fetchOfficerStats,
@@ -379,5 +482,6 @@ window.GoogleSheetsAPI = {
   checkConnection,
   clearDropdownCache,
   isCacheValid,
+  setUrl,
   getLastSyncTime: () => localStorage.getItem('nsm_last_sync')
 };

@@ -125,7 +125,7 @@ function checkSession() {
 
 // ============ NAVIGATION ============
 function gotoPage(pageName) {
-  const pages = ['dashboard','daily-log','history','summary','export'];
+  const pages = ['dashboard','daily-log','history','summary','export','settings'];
   pages.forEach(p => {
     const el = document.getElementById('page-' + p);
     if (el) el.style.display = (p === pageName) ? 'block' : 'none';
@@ -142,12 +142,13 @@ function gotoPage(pageName) {
   if (pageName === 'history') renderHistory(document.getElementById('history-filter-month')?.value || '');
   if (pageName === 'summary') renderSummary();
   if (pageName === 'export') renderExportPreview();
+  if (pageName === 'settings') initSettingsPage();
   // Close sidebar on mobile
   if (window.innerWidth <= 768) closeSidebar();
 }
 
 function updateBreadcrumb(page) {
-  const names = { dashboard: 'Dashboard', 'daily-log': 'บันทึกประจำวัน', history: 'ประวัติ', summary: 'สรุป', export: 'ส่งออก' };
+  const names = { dashboard: 'Dashboard', 'daily-log': 'บันทึกประจำวัน', history: 'ประวัติ', summary: 'สรุป', export: 'ส่งออก', settings: 'ตั้งค่า' };
   const el = document.getElementById('breadcrumb-page');
   if (el) el.textContent = names[page] || page;
 }
@@ -355,6 +356,7 @@ function addActivityRow(data) {
   const tbody = document.getElementById('activity-tbody');
   if (!tbody) return;
 
+  const isGroup = data?.participantType === 'group';
   const tr = document.createElement('tr');
   tr.dataset.id = activityRowCount;
   tr.innerHTML = `
@@ -364,19 +366,95 @@ function addActivityRow(data) {
         <option value="inspire" ${data?.type==='inspire'?'selected':''}>Inspire Lab</option>
         <option value="innovation" ${data?.type==='innovation'?'selected':''}>Innovation Space</option>
         <option value="walk" ${data?.type==='walk'?'selected':''}>Walk Rallies</option>
-        <option value="mini" ${data?.type==='mini'?'selected':''}>Mini Make & Play</option>
+        <option value="mini" ${data?.type==='mini'?'selected':''}>Mini Make &amp; Play</option>
         <option value="other" ${data?.type==='other'?'selected':''}>กิจกรรมอื่น</option>
       </select>
     </td>
-    <td><input type="text" class="form-input" placeholder="ชื่อกิจกรรม" value="${data?.name||''}"></td>
-    <td><input type="text" class="form-input" placeholder="ชื่อผู้ดำเนินกิจกรรม" value="${data?.operator||''}"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:80px;"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:80px;"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:80px;"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}" style="width:80px;"></td>
+    <td><input type="text" class="form-input" style="min-width:120px;" placeholder="ชื่อกิจกรรม"></td>
+    <td><select class="form-input activity-officer-sel" style="min-width:120px;"></select></td>
+    <td>
+      <select class="form-input" style="min-width:100px;" onchange="handleParticipantType(this)">
+        <option value="walk-in" ${!isGroup?'selected':''}>Walk-in</option>
+        <option value="group" ${isGroup?'selected':''}>กลุ่ม</option>
+      </select>
+    </td>
+    <td><select class="form-input group-name-col" style="min-width:120px;display:${isGroup?'':'none'};"></select></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:55px;" oninput="calcVis()"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:55px;" oninput="calcVis()"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:55px;" oninput="calcVis()"></td>
+    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}" style="width:55px;" oninput="calcVis()"></td>
+    <td><input type="number" class="num-input group-child-col" min="0" value="${data?.groupChild||0}" style="width:55px;display:${isGroup?'':'none'};"></td>
+    <td><input type="number" class="num-input group-adult-col" min="0" value="${data?.groupAdult||0}" style="width:55px;display:${isGroup?'':'none'};"></td>
     <td><button type="button" class="btn btn-ghost btn-sm" onclick="removeActivityRow(this)" style="padding:4px 8px;color:var(--danger);">✕</button></td>
   `;
   tbody.appendChild(tr);
+
+  // Set text input value safely (no innerHTML injection)
+  const nameInput = tr.querySelector('input[type="text"]');
+  if (nameInput) nameInput.value = data?.name || '';
+
+  // Populate officer select using DOM methods (XSS-safe)
+  const officerSel = tr.querySelector('.activity-officer-sel');
+  if (officerSel) {
+    const settings = typeof getSettings === 'function' ? getSettings() : {};
+    const officers = settings.customOfficers || [];
+    const phOpt = document.createElement('option');
+    phOpt.value = '';
+    phOpt.textContent = '-- เลือกเจ้าหน้าที่ --';
+    officerSel.appendChild(phOpt);
+    officers.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      opt.textContent = n;
+      if (n === data?.operator) opt.selected = true;
+      officerSel.appendChild(opt);
+    });
+  }
+
+  // Populate group name dropdown
+  const groupSel = tr.querySelector('.group-name-col');
+  if (groupSel) loadGroupNamesIntoSelect(groupSel, data?.groupName);
+}
+
+async function loadGroupNamesIntoSelect(sel, currentVal) {
+  if (!window.GoogleSheetsAPI) return;
+  try {
+    const settings = typeof getSettings === 'function' ? getSettings() : {};
+    const groups = settings.customGroups || [];
+    if (groups.length) {
+      sel.innerHTML = '<option value="">-- เลือกกลุ่ม --</option>';
+      groups.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        if (n === currentVal) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+    // Try fetching fresh from API
+    const freshGroups = await window.GoogleSheetsAPI.fetchGroupNames();
+    if (freshGroups.length) {
+      const curVal = sel.value;
+      sel.innerHTML = '<option value="">-- เลือกกลุ่ม --</option>';
+      freshGroups.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        sel.appendChild(opt);
+      });
+      if (curVal || currentVal) sel.value = curVal || currentVal;
+    }
+  } catch(e) {
+    // Silently fail - group name dropdown just stays empty
+  }
+}
+
+function handleParticipantType(sel) {
+  const row = sel.closest('tr');
+  const isGroup = sel.value === 'group';
+  row.querySelectorAll('.group-name-col').forEach(el => { el.style.display = isGroup ? '' : 'none'; });
+  row.querySelectorAll('.group-child-col').forEach(el => { el.style.display = isGroup ? '' : 'none'; });
+  row.querySelectorAll('.group-adult-col').forEach(el => { el.style.display = isGroup ? '' : 'none'; });
 }
 
 function removeActivityRow(btn) {
@@ -406,13 +484,32 @@ function handleActivitySelect(selectEl) {
 
 // ============ TABS ============
 function switchDayTab(idx, btn) {
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     const tab = document.getElementById('day-tab-' + i);
     const tabBtn = document.getElementById('tab-btn-' + i);
     if (tab) tab.classList.toggle('active', i === idx);
     if (tabBtn) tabBtn.classList.toggle('active', i === idx);
   }
-  if (idx === 1) { calcVis(); calcRev(); updateSummaryPreview(); }
+  if (idx === 1) { syncVolunteersToAfternoonTab(); calcVis(); calcRev(); updateSummaryPreview(); }
+  if (idx === 2) { syncVolunteersToEveningTab(); }
+}
+
+function syncVolunteersToEveningTab() {
+  const zones = [
+    ['ex-z1-name', 'eve-vol-z1'],
+    ['ex-z2-name', 'eve-vol-z2'],
+    ['ex-z3-name', 'eve-vol-z3'],
+    ['ex-z4-name', 'eve-vol-z4'],
+    ['ex-innovation-name', 'eve-vol-innovation'],
+    ['ex-inspire-name', 'eve-vol-inspire'],
+    ['ex-make-play1-name', 'eve-vol-make-play1'],
+    ['ex-make-play2-name', 'eve-vol-make-play2'],
+  ];
+  zones.forEach(([src, dst]) => {
+    const val = getInputVal(src);
+    const el = document.getElementById(dst);
+    if (el) el.textContent = val || '-';
+  });
 }
 
 // ============ COLLAPSIBLE ============
@@ -674,16 +771,33 @@ function getFormData() {
   const activities = [];
   document.querySelectorAll('#activity-tbody tr').forEach(tr => {
     const selects = tr.querySelectorAll('select');
-    const inputs = tr.querySelectorAll('input');
-    if (selects.length > 0 && inputs.length >= 6) {
+    const numInputs = tr.querySelectorAll('input[type="number"]');
+    const textInputs = tr.querySelectorAll('input[type="text"]');
+    if (selects.length >= 1) {
+      const officerSel = tr.querySelector('.activity-officer-sel');
+      const participantTypeSel = selects[2] || selects[1];
+      const participantType = participantTypeSel?.value !== 'inspire' && participantTypeSel?.value !== 'innovation' && participantTypeSel?.value !== 'walk' && participantTypeSel?.value !== 'mini' && participantTypeSel?.value !== 'other'
+        ? (participantTypeSel?.value || 'walk-in')
+        : 'walk-in';
+      // More reliable: find participant type select by its option values
+      let partType = 'walk-in';
+      tr.querySelectorAll('select').forEach(s => {
+        const vals = Array.from(s.options).map(o => o.value);
+        if (vals.includes('walk-in') && vals.includes('group')) partType = s.value;
+      });
+      const groupNameSel = tr.querySelector('.group-name-col');
       activities.push({
-        type: selects[0].value || '',
-        name: inputs[0].value || '',
-        operator: inputs[1].value || '',
-        thaiChild: parseInt(inputs[2].value) || 0,
-        thaiAdult: parseInt(inputs[3].value) || 0,
-        foreignChild: parseInt(inputs[4].value) || 0,
-        foreignAdult: parseInt(inputs[5].value) || 0
+        type: selects[0]?.value || '',
+        name: textInputs[0]?.value || '',
+        operator: officerSel?.value || '',
+        participantType: partType,
+        groupName: groupNameSel?.value || '',
+        thaiChild: parseInt(numInputs[0]?.value) || 0,
+        thaiAdult: parseInt(numInputs[1]?.value) || 0,
+        foreignChild: parseInt(numInputs[2]?.value) || 0,
+        foreignAdult: parseInt(numInputs[3]?.value) || 0,
+        groupChild: parseInt(numInputs[4]?.value) || 0,
+        groupAdult: parseInt(numInputs[5]?.value) || 0
       });
     }
   });
@@ -783,7 +897,18 @@ function getFormData() {
     },
     notes: getInputVal('daily-notes'),
     totalVisitors,
-    totalRevenue
+    totalRevenue,
+    // Zone volunteer assignments (morning tab)
+    exZones: [
+      { zone: 'โซน 1 ค้นพบตัวตน', name: getInputVal('ex-z1-name') },
+      { zone: 'โซน 2 เปิดโลกทางการแพทย์', name: getInputVal('ex-z2-name') },
+      { zone: 'โซน 3 ฐานปฏิบัติการภัยพิบัต', name: getInputVal('ex-z3-name') },
+      { zone: 'โซน 4 การบินและอวกาศ', name: getInputVal('ex-z4-name') },
+      { zone: 'ห้อง Innovation Space', name: getInputVal('ex-innovation-name') },
+      { zone: 'ห้อง Inspire Lab', name: getInputVal('ex-inspire-name') },
+      { zone: 'ห้อง Make and Play 1', name: getInputVal('ex-make-play1-name') },
+      { zone: 'ห้อง Make and Play 2', name: getInputVal('ex-make-play2-name') },
+    ].filter(z => z.name)
   };
 }
 
@@ -1257,6 +1382,41 @@ function renderSummary() {
   });
   const chartData = sortedMonths.map(ym => monthly[ym].visitors);
   initSummaryChart(chartLabels, chartData);
+
+  // Officer activity statistics
+  const officerStats = {};
+  records.forEach(r => {
+    const officers = [r.modMorning, r.mExhibition, r.mEducation, r.mVisitor].filter(Boolean);
+    officers.forEach(name => {
+      if (!officerStats[name]) officerStats[name] = 0;
+      officerStats[name]++;
+    });
+  });
+  const officerList = Object.entries(officerStats).sort((a,b) => b[1] - a[1]);
+  const totalRounds = officerList.reduce((s, [,c]) => s + c, 0);
+  const officerStatsTbody = document.getElementById('sum-officer-stats-tbody');
+  if (officerStatsTbody) {
+    if (!officerList.length) {
+      officerStatsTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>';
+    } else {
+      officerStatsTbody.innerHTML = officerList.map(([name, count], i) => {
+        const pct = totalRounds ? Math.round(count / totalRounds * 100) : 0;
+        return `<tr>
+          <td style="color:var(--text-muted);">${i+1}</td>
+          <td style="font-weight:600;">${escHtml(name)}</td>
+          <td style="color:var(--success);">${count} รอบ</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;min-width:60px;">
+                <div style="width:${pct}%;height:100%;background:var(--accent);border-radius:3px;"></div>
+              </div>
+              <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${pct}%</span>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+  }
 }
 
 // ============ EXPORT ============
@@ -1452,8 +1612,10 @@ async function exportDailyBriefingPDF(date) {
   // dOthTotal (other education activities) has no age/nationality breakdown, so counted as adults.
   const sumAllAdult  = sumThaiAdult + sumForAdult + cSenior + dOthTotal;
 
-  // ---- HTML-escape shorthand (all user data must be escaped before inserting into HTML) ----
-  const e = s => escHtml(String(s || ''));
+  // ---- HTML-escape shorthand (strip emojis + escape HTML for PDF safety) ----
+  // Comprehensive emoji regex covering all Unicode emoji ranges
+  const emojiRe = /[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}]/gu;
+  const e = s => escHtml(String(s || '').replace(emojiRe, '').trim());
 
   // ---- bookings HTML ----
   const bookingRows = (r.bookings||[]).map((b,i) =>
@@ -1574,6 +1736,15 @@ async function exportDailyBriefingPDF(date) {
     <div class="staff-item"><span class="staff-label">M-Education:</span><span class="staff-value">${e(r.mEducation)}</span></div>
     <div class="staff-item"><span class="staff-label">M-Visitor Service:</span><span class="staff-value">${e(r.mVisitor)}</span></div>
   </div>
+
+  ${(r.exZones || []).filter(z=>z.name).length > 0 ? `
+  <div class="sub-header">อาสาสมัครประจำโซน</div>
+  <table>
+    <thead><tr><th>โซน</th><th>ชื่ออาสาสมัคร</th></tr></thead>
+    <tbody>
+      ${(r.exZones||[]).filter(z=>z.name).map(z=>`<tr><td>${e(z.zone)}</td><td>${e(z.name)}</td></tr>`).join('')}
+    </tbody>
+  </table>` : ''}
 
   <div class="info-row">
     <div class="info-item"><span class="info-label">อังคาร–ศุกร์:</span><span class="info-value">${e(r.hoursTueFri||'เวลา 8.30 - 16.30 น.')}</span></div>
@@ -2095,7 +2266,7 @@ async function saveSettingsModal() {
 // ============ KEYBOARD SHORTCUTS ============
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    ['settings-modal','forgot-modal','request-modal','view-modal','delete-modal'].forEach(id => {
+    ['settings-modal','forgot-modal','request-modal','view-modal','delete-modal','issues-modal'].forEach(id => {
       const el = document.getElementById(id);
       if (el && el.style.display === 'flex') closeModal(id);
     });
@@ -2103,10 +2274,11 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ============ NEW SESSION & DROPDOWN FUNCTIONS ============
-function saveMorningSession() {
+async function saveMorningSession() {
   const date = getCurrentDate();
   if (!date || date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
   const data = getFormData();
+  // Always save to localStorage as backup
   localStorage.setItem('mod_morning_data_' + date, JSON.stringify(data));
   showToast('บันทึกช่วงเช้าสำเร็จ: ' + date, 'success');
   const statusEl = document.getElementById('morning-save-status');
@@ -2114,19 +2286,72 @@ function saveMorningSession() {
     const now = new Date();
     statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
   }
+  // Try to save to Google Sheets (non-blocking)
+  if (window.GoogleSheetsAPI) {
+    try {
+      await window.GoogleSheetsAPI.saveDailyRecord({ ...data, session: 'morning' });
+    } catch (e) {
+      console.warn('Google Sheets save failed (morning):', e.message);
+    }
+  }
 }
 
-function saveAfternoonSession() {
+async function saveAfternoonSession() {
   const date = getCurrentDate();
   if (!date || date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
   const data = getFormData();
+  // Always save to localStorage as backup
   localStorage.setItem('mod_afternoon_data_' + date, JSON.stringify(data));
   saveToLocal(false); // Also save as the main record
-  showToast('บันทึกช่วงเย็นสำเร็จ: ' + date, 'success');
+  showToast('บันทึกช่วงบ่ายสำเร็จ: ' + date, 'success');
   const statusEl = document.getElementById('sheets-save-status');
   if (statusEl) {
     const now = new Date();
     statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
+  }
+  // Try to save to Google Sheets (non-blocking)
+  if (window.GoogleSheetsAPI) {
+    try {
+      await window.GoogleSheetsAPI.saveDailyRecord({ ...data, session: 'afternoon' });
+    } catch (e) {
+      console.warn('Google Sheets save failed (afternoon):', e.message);
+    }
+  }
+}
+
+async function saveEveningSession() {
+  const date = getCurrentDate();
+  if (!date || date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
+  const data = getFormData();
+  const eveZones = {};
+  ['z1','z2','z3','z4','innovation','inspire','make-play1','make-play2'].forEach(z => {
+    eveZones[z] = {
+      staff: getInputVal('eve-' + z + '-staff'),
+      issue: getInputVal('eve-' + z + '-issue'),
+      note: getInputVal('eve-' + z + '-note'),
+    };
+  });
+  data.eveZones = eveZones;
+  data.eveVS = {
+    counter1: { name: getInputVal('eve-vs-counter1-name'), issue: getInputVal('eve-vs-counter1-issue'), note: getInputVal('eve-vs-counter1-note') },
+    counter2: { name: getInputVal('eve-vs-counter2-name'), issue: getInputVal('eve-vs-counter2-issue'), note: getInputVal('eve-vs-counter2-note') },
+  };
+  data.eveNotes = getInputVal('eve-notes');
+  // Always save to localStorage as backup
+  localStorage.setItem('mod_evening_data_' + date, JSON.stringify(data));
+  showToast('บันทึกช่วงเย็นสำเร็จ: ' + date, 'success');
+  const statusEl = document.getElementById('evening-save-status');
+  if (statusEl) {
+    const now = new Date();
+    statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
+  }
+  // Try to save to Google Sheets (non-blocking)
+  if (window.GoogleSheetsAPI) {
+    try {
+      await window.GoogleSheetsAPI.saveDailyRecord({ ...data, session: 'evening' });
+    } catch (e) {
+      console.warn('Google Sheets save failed (evening):', e.message);
+    }
   }
 }
 
@@ -2144,15 +2369,36 @@ function updateDropdownDatalist() {
   const officers = settings.customOfficers || [];
   const volunteers = settings.customVolunteers || [];
 
-  const officersList = document.getElementById('officers-datalist');
-  if (officersList) {
-    officersList.innerHTML = officers.map(n => `<option value="${escHtml(n)}">`).join('');
+  // Helper: populate a select or datalist using DOM methods (XSS-safe)
+  function populateSelect(sel, options, placeholder) {
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '';
+    if (sel.tagName === 'SELECT') {
+      const ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = placeholder;
+      sel.appendChild(ph);
+    }
+    options.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      if (sel.tagName === 'SELECT') opt.textContent = n;
+      sel.appendChild(opt);
+    });
+    if (cur && sel.tagName === 'SELECT') sel.value = cur;
   }
 
-  const volunteersList = document.getElementById('volunteers-datalist');
-  if (volunteersList) {
-    volunteersList.innerHTML = volunteers.map(n => `<option value="${escHtml(n)}">`).join('');
-  }
+  populateSelect(document.getElementById('officers-datalist'), officers, '');
+  populateSelect(document.getElementById('volunteers-datalist'), volunteers, '');
+
+  ['mod-morning', 'm-exhibition', 'm-education', 'm-visitor-service'].forEach(id => {
+    populateSelect(document.getElementById(id), officers, '-- เลือกเจ้าหน้าที่ --');
+  });
+
+  ['ex-z1-name','ex-z2-name','ex-z3-name','ex-z4-name','ex-innovation-name','ex-inspire-name','ex-make-play1-name','ex-make-play2-name'].forEach(id => {
+    populateSelect(document.getElementById(id), volunteers, '-- เลือกอาสาสมัคร --');
+  });
 }
 
 async function syncFromGoogleSheets() {
@@ -2181,6 +2427,225 @@ async function syncFromGoogleSheets() {
   }
 }
 
+// ============ VOLUNTEER SYNC TO AFTERNOON ============
+function syncVolunteersToAfternoonTab() {
+  const zones = [
+    ['ex-z1-name', 'โซน 1 ค้นพบตัวตน'],
+    ['ex-z2-name', 'โซน 2 เปิดโลกทางการแพทย์'],
+    ['ex-z3-name', 'โซน 3 ฐานปฏิบัติการภัยพิบัต'],
+    ['ex-z4-name', 'โซน 4 การบินและอวกาศ'],
+    ['ex-innovation-name', 'ห้อง Innovation Space'],
+    ['ex-inspire-name', 'ห้อง Inspire Lab'],
+    ['ex-make-play1-name', 'ห้อง Make and Play 1'],
+    ['ex-make-play2-name', 'ห้อง Make and Play 2'],
+  ];
+  const container = document.getElementById('afternoon-volunteer-list');
+  if (!container) return;
+  const filled = zones.filter(([src]) => getInputVal(src).trim());
+  if (!filled.length) {
+    container.innerHTML = '<span style="font-size:13px;color:var(--text-muted);">ℹ️ ยังไม่มีข้อมูลอาสาสมัครจากช่วงเช้า</span>';
+    return;
+  }
+  container.innerHTML = filled.map(([src, label]) => {
+    const name = escHtml(getInputVal(src).trim());
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:13px;"><span style="color:var(--success);">✓</span> <span style="font-weight:600;">${name}</span> <span style="color:var(--text-muted);font-size:11px;">(${label})</span></span>`;
+  }).join('');
+  showToast(`ดึงชื่ออาสา ${filled.length} คนจากช่วงเช้า`, 'info');
+}
+
+// ============ ISSUES / FEEDBACK ============
+function openIssueModal(zone) {
+  const zoneEl = document.getElementById('issue-zone');
+  if (zoneEl) zoneEl.value = zone || '';
+  const descEl = document.getElementById('issue-description');
+  if (descEl) descEl.value = '';
+  const detailsEl = document.getElementById('issue-details');
+  if (detailsEl) detailsEl.value = '';
+  const typeEl = document.getElementById('issue-type-problem');
+  if (typeEl) typeEl.checked = true;
+  const priEl = document.getElementById('issue-priority');
+  if (priEl) priEl.value = 'ปานกลาง';
+  openModal('issues-modal');
+}
+
+async function submitIssueFeedback() {
+  const typeEl = document.querySelector('input[name="issue-type"]:checked');
+  const zone = getInputVal('issue-zone');
+  const priority = getInputVal('issue-priority');
+  const description = document.getElementById('issue-description')?.value?.trim();
+  const details = document.getElementById('issue-details')?.value?.trim();
+
+  if (!description) {
+    showToast('กรุณากรอกรายละเอียดปัญหา/ข้อเสนอ', 'warning');
+    return;
+  }
+
+  const data = {
+    date: getCurrentDate(),
+    type: typeEl ? typeEl.value : 'ปัญหา',
+    zone,
+    priority,
+    description,
+    details,
+    reporter: sessionStorage.getItem('nsm_user') || 'admin',
+    status: 'รอดำเนินการ',
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    if (window.GoogleSheetsAPI && typeof window.GoogleSheetsAPI.saveIssueFeedback === 'function') {
+      await window.GoogleSheetsAPI.saveIssueFeedback(data);
+      showToast('ส่งรายงานปัญหาเรียบร้อยแล้ว', 'success');
+    } else {
+      // Fallback: save to localStorage
+      const key = 'issues_' + Date.now();
+      localStorage.setItem(key, JSON.stringify(data));
+      showToast('บันทึกรายงานปัญหา (offline mode)', 'info');
+    }
+    closeModal('issues-modal');
+  } catch(e) {
+    showToast('ไม่สามารถส่งรายงานได้: ' + e.message, 'error');
+  }
+}
+
+// ============ SETTINGS PAGE ============
+function initSettingsPage() {
+  const settings = getSettings();
+  // Load URL
+  const urlEl = document.getElementById('settings-sheets-url');
+  if (urlEl) urlEl.value = settings.sheetsUrl || '';
+  // Load username
+  const userEl = document.getElementById('settings-username');
+  if (userEl) userEl.value = settings.username || 'admin';
+  // Display current lists
+  renderSettingsLists(settings.customOfficers || [], settings.customVolunteers || []);
+  // Fill textareas
+  const volTA = document.getElementById('settings-volunteers-textarea');
+  const offTA = document.getElementById('settings-officers-textarea');
+  if (volTA) volTA.value = (settings.customVolunteers || []).join('\n');
+  if (offTA) offTA.value = (settings.customOfficers || []).join('\n');
+  // Check connection
+  checkGoogleSheetsConnection();
+}
+
+function renderSettingsLists(officers, volunteers) {
+  const volContainer = document.getElementById('settings-volunteers-list');
+  const offContainer = document.getElementById('settings-officers-list');
+  const volCount = document.getElementById('settings-vol-count');
+  const offCount = document.getElementById('settings-off-count');
+  if (volCount) volCount.textContent = `(${volunteers.length} คน)`;
+  if (offCount) offCount.textContent = `(${officers.length} คน)`;
+  if (volContainer) {
+    volContainer.innerHTML = volunteers.length
+      ? volunteers.map(n => `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:13px;">${escHtml(n)}</span>`).join('')
+      : '<span style="color:var(--text-muted);font-size:13px;">ยังไม่มีข้อมูล</span>';
+  }
+  if (offContainer) {
+    offContainer.innerHTML = officers.length
+      ? officers.map(n => `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:13px;">${escHtml(n)}</span>`).join('')
+      : '<span style="color:var(--text-muted);font-size:13px;">ยังไม่มีข้อมูล</span>';
+  }
+}
+
+async function checkGoogleSheetsConnection() {
+  const statusEl = document.getElementById('settings-conn-status');
+  const syncEl = document.getElementById('settings-last-sync');
+  if (!statusEl) return;
+  statusEl.textContent = '🔄 กำลังตรวจสอบ...';
+  statusEl.style.color = 'var(--text-muted)';
+  try {
+    const settings = getSettings();
+    if (!settings.sheetsUrl) {
+      statusEl.textContent = '⚠️ ยังไม่ได้ตั้งค่า URL';
+      statusEl.style.color = 'var(--warning)';
+      return;
+    }
+    if (window.GoogleSheetsAPI && typeof window.GoogleSheetsAPI.checkConnection === 'function') {
+      const ok = await window.GoogleSheetsAPI.checkConnection();
+      if (ok) {
+        statusEl.textContent = '✅ เชื่อมต่อสำเร็จ';
+        statusEl.style.color = 'var(--success)';
+        if (syncEl) syncEl.textContent = 'ล่าสุด: ' + new Date().toLocaleString('th-TH');
+      } else {
+        statusEl.textContent = '❌ ไม่สามารถเชื่อมต่อได้';
+        statusEl.style.color = 'var(--danger)';
+      }
+    } else {
+      statusEl.textContent = '⚠️ Google Sheets API ไม่พร้อมใช้งาน';
+      statusEl.style.color = 'var(--warning)';
+    }
+  } catch(e) {
+    statusEl.textContent = '❌ เกิดข้อผิดพลาด: ' + e.message;
+    statusEl.style.color = 'var(--danger)';
+  }
+}
+
+function settingsSaveURL() {
+  const urlEl = document.getElementById('settings-sheets-url');
+  if (!urlEl) return;
+  const url = urlEl.value.trim();
+  const settings = getSettings();
+  settings.sheetsUrl = url;
+  saveSettings(settings);
+  // Also update the GoogleSheetsAPI URL
+  if (window.GoogleSheetsAPI && typeof window.GoogleSheetsAPI.setUrl === 'function') {
+    window.GoogleSheetsAPI.setUrl(url);
+  }
+  showToast('บันทึก URL เรียบร้อยแล้ว', 'success');
+  checkGoogleSheetsConnection();
+}
+
+function settingsSaveManual() {
+  const volTA = document.getElementById('settings-volunteers-textarea');
+  const offTA = document.getElementById('settings-officers-textarea');
+  const settings = getSettings();
+  if (volTA) settings.customVolunteers = volTA.value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (offTA) settings.customOfficers = offTA.value.split('\n').map(s => s.trim()).filter(Boolean);
+  saveSettings(settings);
+  updateDropdownDatalist();
+  renderSettingsLists(settings.customOfficers || [], settings.customVolunteers || []);
+  showToast('บันทึกรายชื่อเรียบร้อยแล้ว', 'success');
+}
+
+async function settingsSaveLogin() {
+  const userEl = document.getElementById('settings-username');
+  const passEl = document.getElementById('settings-password');
+  const settings = getSettings();
+  if (userEl && userEl.value.trim()) settings.username = userEl.value.trim();
+  if (passEl && passEl.value) {
+    settings.passwordHash = await sha256hex(passEl.value);
+    passEl.value = '';
+  }
+  saveSettings(settings);
+  showToast('บันทึกข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว', 'success');
+}
+
+async function settingsSync() {
+  const statusEl = document.getElementById('settings-conn-status');
+  if (statusEl) { statusEl.textContent = '🔄 กำลัง Sync...'; statusEl.style.color = 'var(--text-muted)'; }
+  try {
+    if (!window.GoogleSheetsAPI) throw new Error('GoogleSheetsAPI ไม่พร้อมใช้งาน');
+    const result = await window.GoogleSheetsAPI.refreshDropdownData();
+    const settings = getSettings();
+    if (result.officers && result.officers.length) settings.customOfficers = result.officers;
+    if (result.volunteers && result.volunteers.length) settings.customVolunteers = result.volunteers;
+    saveSettings(settings);
+    updateDropdownDatalist();
+    renderSettingsLists(settings.customOfficers || [], settings.customVolunteers || []);
+    const volTA = document.getElementById('settings-volunteers-textarea');
+    const offTA = document.getElementById('settings-officers-textarea');
+    if (volTA) volTA.value = (settings.customVolunteers || []).join('\n');
+    if (offTA) offTA.value = (settings.customOfficers || []).join('\n');
+    if (statusEl) { statusEl.textContent = '✅ เชื่อมต่อสำเร็จ'; statusEl.style.color = 'var(--success)'; }
+    const syncEl = document.getElementById('settings-last-sync');
+    if (syncEl) syncEl.textContent = 'Sync ล่าสุด: ' + new Date().toLocaleString('th-TH');
+    showToast(`Sync สำเร็จ: ${(settings.customOfficers||[]).length} เจ้าหน้าที่, ${(settings.customVolunteers||[]).length} อาสาสมัคร`, 'success');
+  } catch(e) {
+    if (statusEl) { statusEl.textContent = '❌ ' + e.message; statusEl.style.color = 'var(--danger)'; }
+    showToast('ไม่สามารถ Sync ได้: ' + e.message, 'error');
+  }
+}
+
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', function() {
   checkSession();
@@ -2192,5 +2657,11 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add default activity row
   if (document.getElementById('activity-tbody')) {
     addActivityRow();
+  }
+  // Populate dropdowns from settings cache
+  updateDropdownDatalist();
+  // Try to populate from Google Sheets
+  if (window.GoogleSheetsAPI) {
+    window.GoogleSheetsAPI.populateDropdowns().catch(() => {});
   }
 });
