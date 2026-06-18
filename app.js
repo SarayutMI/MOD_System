@@ -12,7 +12,7 @@ const AppState = {
     pos: null,
     summary: null
   },
-  lookups: { officers: [], volunteers: [] }
+  lookups: { officers: [], volunteers: [], lab_ac_names: [], inno_ac_names: [] }
 };
 
 const SETTINGS_KEY = 'mod_settings_v2';
@@ -46,7 +46,8 @@ async function bootstrapApp() {
   byId('app-shell').classList.remove('hidden');
   byId('sidebar-username').textContent = loadSettings().username || 'ผู้ดูแลระบบ';
   gotoPage(AppState.currentPage);
-  await Promise.allSettled([loadLookups(), loadAllSections(AppState.currentDate)]);
+  await loadLookups();
+  await loadAllSections(AppState.currentDate);
 }
 
 async function setDate(dateStr) {
@@ -69,10 +70,12 @@ async function loadAllSections(date) {
       const results = await Promise.all(sections.map(async (section) => ({ section, data: await loadSection(section, date, false) })));
       payload = results.reduce((acc, item) => ((acc[item.section] = item.data), acc), {});
     }
+    const hasExistingData = payload && (payload.assignments !== null || payload.walkin !== null || payload.summary !== null);
     AppState.data = normalizeFullDay(payload || {});
     populateAllForms();
     recalculateAll();
-    showToast('โหลดข้อมูลประจำวันเรียบร้อยแล้ว', 'success');
+    const dateLabel = formatDate(date);
+    showToast(hasExistingData ? `พบข้อมูลวันที่ ${dateLabel}` : `เริ่มบันทึกข้อมูลใหม่ — ${dateLabel}`, 'success');
   } catch (error) {
     console.error(error);
     AppState.data = normalizeFullDay({});
@@ -159,6 +162,8 @@ function populateForm(section, data) {
       setValue('mex-officer', source.mex_officer || '');
       setValue('med-officer', source.med_officer || '');
       setValue('mvi-officer', source.mvi_officer || '');
+      setValue('z1f-volunteer', source.z1f_volunteer || '');
+      setValue('zino-volunteer', source.zino_volunteer || '');
       setValue('z2f-volunteer', source.z2f_volunteer || '');
       setValue('zmp-volunteer', source.zmp_volunteer || '');
       setValue('zinl-volunteer', source.zinl_volunteer || '');
@@ -208,7 +213,7 @@ function populateForm(section, data) {
 
 function getFormData(section) {
   switch (section) {
-    case 'assignments': return { mo_officer: valueOf('mo-officer'), mex_officer: valueOf('mex-officer'), med_officer: valueOf('med-officer'), mvi_officer: valueOf('mvi-officer'), z2f_volunteer: valueOf('z2f-volunteer'), zmp_volunteer: valueOf('zmp-volunteer'), zinl_volunteer: valueOf('zinl-volunteer'), other_activity_note: valueOf('other-activity-note') };
+    case 'assignments': return { mo_officer: valueOf('mo-officer'), mex_officer: valueOf('mex-officer'), med_officer: valueOf('med-officer'), mvi_officer: valueOf('mvi-officer'), z1f_volunteer: valueOf('z1f-volunteer'), zino_volunteer: valueOf('zino-volunteer'), z2f_volunteer: valueOf('z2f-volunteer'), zmp_volunteer: valueOf('zmp-volunteer'), zinl_volunteer: valueOf('zinl-volunteer'), other_activity_note: valueOf('other-activity-note') };
     case 'walkin': return { mor_th_kids: numVal('mor-th-kids'), mor_th_adults: numVal('mor-th-adults'), mor_fr_kids: numVal('mor-fr-kids'), mor_fr_adults: numVal('mor-fr-adults'), eve_th_kids: numVal('eve-th-kids'), eve_th_adults: numVal('eve-th-adults'), eve_fr_kids: numVal('eve-fr-kids'), eve_fr_adults: numVal('eve-fr-adults') };
     case 'groups': return Array.from({ length: 10 }, (_, index) => ({ group_index: index + 1, group_name: valueOf(`group-name-${index + 1}`), g_kids: numVal(`g-kids-${index + 1}`), g_adults: numVal(`g-adults-${index + 1}`) }));
     case 'additional': return { ac_walk_r_kids: numVal('ac-walk-r-kids'), ac_walk_r_adults: numVal('ac-walk-r-adults'), ac_mmap_kids: numVal('ac-mmap-kids'), ac_mmap_adults: numVal('ac-mmap-adults'), ac_etcac_kids: numVal('ac-etcac-kids'), ac_etcac_adults: numVal('ac-etcac-adults'), activity_notes: valueOf('activity-notes') };
@@ -428,10 +433,15 @@ function setupEventListeners() {
 async function loadLookups(force = false) {
   try {
     const lookups = await window.ModAPI.getLookups(force);
-    AppState.lookups = { officers: Array.isArray(lookups.officers) ? lookups.officers : [], volunteers: Array.isArray(lookups.volunteers) ? lookups.volunteers : [] };
+    AppState.lookups = {
+      officers: Array.isArray(lookups.officers) ? lookups.officers : [],
+      volunteers: Array.isArray(lookups.volunteers) ? lookups.volunteers : [],
+      lab_ac_names: Array.isArray(lookups.lab_ac_names) ? lookups.lab_ac_names : [],
+      inno_ac_names: Array.isArray(lookups.inno_ac_names) ? lookups.inno_ac_names : []
+    };
     populateLookupFields();
   } catch (error) {
-    AppState.lookups = { officers: [], volunteers: [] };
+    AppState.lookups = { officers: [], volunteers: [], lab_ac_names: [], inno_ac_names: [] };
     populateLookupFields();
     showToast('ไม่สามารถโหลดรายการ Lookups ได้', 'warning');
     throw error;
@@ -441,6 +451,8 @@ async function loadLookups(force = false) {
 function populateLookupFields() {
   qsa('.officer-select').forEach((select) => refreshSelectOptions(select, AppState.lookups.officers));
   qsa('.volunteer-select').forEach((select) => refreshSelectOptions(select, AppState.lookups.volunteers));
+  qsa('.lab-ac-select').forEach((select) => refreshSelectOptions(select, AppState.lookups.lab_ac_names));
+  qsa('.inno-ac-select').forEach((select) => refreshSelectOptions(select, AppState.lookups.inno_ac_names));
   byId('officer-list').innerHTML = buildOptionsHtml(AppState.lookups.officers);
   byId('volunteer-list').innerHTML = buildOptionsHtml(AppState.lookups.volunteers);
 }
@@ -449,7 +461,7 @@ function recalculateAll() { calcPOSSummary(); }
 
 function renderAssignmentsSummary() {
   const assignments = getFormData('assignments');
-  const mapping = { 'summary-mo-officer': assignments.mo_officer, 'summary-mex-officer': assignments.mex_officer, 'summary-med-officer': assignments.med_officer, 'summary-mvi-officer': assignments.mvi_officer, 'summary-z2f-volunteer': assignments.z2f_volunteer, 'summary-zmp-volunteer': assignments.zmp_volunteer, 'summary-zinl-volunteer': assignments.zinl_volunteer, 'summary-other-activity': assignments.other_activity_note };
+  const mapping = { 'summary-mo-officer': assignments.mo_officer, 'summary-mex-officer': assignments.mex_officer, 'summary-med-officer': assignments.med_officer, 'summary-mvi-officer': assignments.mvi_officer, 'summary-z1f-volunteer': assignments.z1f_volunteer, 'summary-zino-volunteer': assignments.zino_volunteer, 'summary-z2f-volunteer': assignments.z2f_volunteer, 'summary-zmp-volunteer': assignments.zmp_volunteer, 'summary-zinl-volunteer': assignments.zinl_volunteer, 'summary-other-activity': assignments.other_activity_note };
   Object.entries(mapping).forEach(([id, value]) => setText(id, value || '-'));
   AppState.data.assignments = assignments;
 }
@@ -508,7 +520,7 @@ function numVal(id) { return safeNum(byId(id)?.value); }
 function safeNum(value) { const number = Number(value); return Number.isFinite(number) ? number : 0; }
 function debounce(fn, delay) { let timer; return (...args) => { clearTimeout(timer); timer = window.setTimeout(() => fn(...args), delay); }; }
 function sumLabLanguage(prefix, lang) { let total = 0; for (let i = 1; i <= 6; i += 1) total += numVal(`${prefix}-${lang}-kids-${i}`) + numVal(`${prefix}-${lang}-adults-${i}`); return total; }
-function defaultAssignments() { return { mo_officer: '', mex_officer: '', med_officer: '', mvi_officer: '', z2f_volunteer: '', zmp_volunteer: '', zinl_volunteer: '', other_activity_note: '' }; }
+function defaultAssignments() { return { mo_officer: '', mex_officer: '', med_officer: '', mvi_officer: '', z1f_volunteer: '', zino_volunteer: '', z2f_volunteer: '', zmp_volunteer: '', zinl_volunteer: '', other_activity_note: '' }; }
 function defaultWalkin() { return { mor_th_kids: 0, mor_th_adults: 0, mor_fr_kids: 0, mor_fr_adults: 0, eve_th_kids: 0, eve_th_adults: 0, eve_fr_kids: 0, eve_fr_adults: 0 }; }
 function defaultAdditional() { return { ac_walk_r_kids: 0, ac_walk_r_adults: 0, ac_mmap_kids: 0, ac_mmap_adults: 0, ac_etcac_kids: 0, ac_etcac_adults: 0, activity_notes: '' }; }
 function defaultPOS() { return { sum_w_th_kids: 0, sum_w_a_th_adult: 0, sum_w_fr_kids: 0, sum_w_a_fr_adult: 0, sum_activity: 0, sum_ac_vi_all: 0 }; }
