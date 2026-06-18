@@ -11,6 +11,7 @@ const SPREADSHEET_ID = 'PUT_SPREADSHEET_ID_HERE';
 
 const SHEET_NAMES = {
   MASTER_LOOKUPS: 'Master_Lookups',
+  ACTIVITY: 'Activity',
   DAILY_ASSIGNMENTS: 'Daily_Assignments',
   DAILY_WALKIN: 'Daily_WalkIn',
   DAILY_GROUPS: 'Daily_Groups',
@@ -23,7 +24,8 @@ const SHEET_NAMES = {
 
 const COLUMN_HEADERS = {
   Master_Lookups: ['type', 'name', 'sort_order'],
-  Daily_Assignments: ['date_key', 'mo_officer', 'mex_officer', 'med_officer', 'mvi_officer', 'z2f_volunteer', 'zmp_volunteer', 'zinl_volunteer', 'other_activity_note'],
+  Activity: ['type', 'name', 'sort_order'],
+  Daily_Assignments: ['date_key', 'mo_officer', 'mex_officer', 'med_officer', 'mvi_officer', 'z1f_volunteer', 'zino_volunteer', 'z2f_volunteer', 'zmp_volunteer', 'zinl_volunteer', 'other_activity_note'],
   Daily_WalkIn: ['date_key', 'mor_th_kids', 'mor_th_adults', 'mor_fr_kids', 'mor_fr_adults', 'eve_th_kids', 'eve_th_adults', 'eve_fr_kids', 'eve_fr_adults'],
   Daily_Groups: ['date_key', 'group_index', 'group_name', 'g_kids', 'g_adults'],
   Daily_Additional_Activities: ['date_key', 'ac_walk_r_kids', 'ac_walk_r_adults', 'ac_mmap_kids', 'ac_mmap_adults', 'ac_etcac_kids', 'ac_etcac_adults', 'activity_notes'],
@@ -51,7 +53,8 @@ const NUMERIC_FIELDS = {
   Daily_Lab_Inspire: ['row_index', 'th_kids', 'th_adults', 'fr_kids', 'fr_adults'],
   Daily_Lab_Innovation: ['row_index', 'th_kids', 'th_adults', 'fr_kids', 'fr_adults'],
   Daily_POS: ['sum_w_th_kids', 'sum_w_a_th_adult', 'sum_w_fr_kids', 'sum_w_a_fr_adult', 'sum_activity', 'sum_ac_vi_all'],
-  Master_Lookups: ['sort_order']
+  Master_Lookups: ['sort_order'],
+  Activity: ['sort_order']
 };
 
 function doGet(e) {
@@ -258,17 +261,31 @@ function buildComputedPosFromPayload_(record, payloadData) {
 }
 
 function getLookups_() {
-  const sheet = getOrCreateSheet(SHEET_NAMES.MASTER_LOOKUPS, COLUMN_HEADERS.Master_Lookups, getSpreadsheet_());
-  const rows = getAllDataObjects_(sheet);
+  const ss = getSpreadsheet_();
+  const masterSheet = getOrCreateSheet(SHEET_NAMES.MASTER_LOOKUPS, COLUMN_HEADERS.Master_Lookups, ss);
+  const masterRows = getAllDataObjects_(masterSheet);
   const officers = [];
   const volunteers = [];
 
-  rows.forEach(function(row) {
+  masterRows.forEach(function(row) {
     const item = { name: safeStr(row.name), sort_order: safeNum(row.sort_order) };
     const type = safeStr(row.type).toLowerCase();
     if (!item.name) return;
     if (type === 'officer') officers.push(item);
     if (type === 'volunteer') volunteers.push(item);
+  });
+
+  const activitySheet = getOrCreateSheet(SHEET_NAMES.ACTIVITY, COLUMN_HEADERS.Activity, ss);
+  const activityRows = getAllDataObjects_(activitySheet);
+  const labAcNames = [];
+  const innoAcNames = [];
+
+  activityRows.forEach(function(row) {
+    const item = { name: safeStr(row.name), sort_order: safeNum(row.sort_order) };
+    const type = safeStr(row.type).toLowerCase();
+    if (!item.name) return;
+    if (type === 'lab_ac_name') labAcNames.push(item);
+    if (type === 'inno_ac_name') innoAcNames.push(item);
   });
 
   const sorter = function(a, b) {
@@ -278,10 +295,14 @@ function getLookups_() {
 
   officers.sort(sorter);
   volunteers.sort(sorter);
+  labAcNames.sort(sorter);
+  innoAcNames.sort(sorter);
 
   return {
     officers: officers.map(function(item) { return item.name; }),
-    volunteers: volunteers.map(function(item) { return item.name; })
+    volunteers: volunteers.map(function(item) { return item.name; }),
+    lab_ac_names: labAcNames.map(function(item) { return item.name; }),
+    inno_ac_names: innoAcNames.map(function(item) { return item.name; })
   };
 }
 
