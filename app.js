@@ -60,6 +60,7 @@ async function setDate(dateStr) {
 }
 
 async function loadAllSections(date) {
+  const sections = ['assignments', 'walkin', 'groups', 'additional', 'inspire', 'innovation', 'pos', 'summary'];
   showProgress('กำลังโหลดข้อมูลประจำวัน...');
   setLoading(true);
   updateDataModeIndicator(null);
@@ -68,11 +69,10 @@ async function loadAllSections(date) {
     try {
       payload = await window.ModAPI.getFullDay(date);
     } catch (error) {
-      const sections = ['assignments', 'walkin', 'groups', 'additional', 'inspire', 'innovation', 'pos', 'summary'];
       const results = await Promise.all(sections.map(async (section) => ({ section, data: await loadSection(section, date, false) })));
       payload = results.reduce((acc, item) => ((acc[item.section] = item.data), acc), {});
     }
-    const hasExistingData = payload && ['assignments', 'walkin', 'groups', 'additional', 'inspire', 'innovation', 'pos', 'summary'].some((key) => {
+    const hasExistingData = payload && sections.some((key) => {
       const val = payload[key];
       if (Array.isArray(val)) return val.length > 0;
       return val !== null && val !== undefined;
