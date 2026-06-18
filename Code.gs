@@ -133,7 +133,6 @@ function getFullDayData_(dateKey) {
   };
 
   data.computed_pos = buildComputedPos_(data);
-  if (!data.pos) data.pos = data.computed_pos;
   return data;
 }
 
