@@ -2,1597 +2,225 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NSM MOD System</title>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MOD System Redesign</title>
   <style>
     :root {
-      --bg: #111113;
-      --surface: #1a1a1f;
-      --surface2: #222228;
-      --border: #2a2a35;
-      --accent: #0055FF;
-      --accent-hover: #0044cc;
-      --accent-dim: rgba(0,85,255,0.15);
-      --text: #e8e8f0;
-      --text-muted: #888899;
-      --success: #00b894;
-      --warning: #fdcb6e;
-      --danger: #e17055;
-      --info: #74b9ff;
+      --bg: #f5f5f7;
+      --surface: rgba(255,255,255,0.85);
+      --surface-glass: rgba(255,255,255,0.7);
+      --border: rgba(0,0,0,0.08);
+      --text: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --accent: #007AFF;
+      --accent-hover: #0051D5;
+      --success: #30d158;
+      --warning: #ff9f0a;
+      --danger: #ff453a;
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 20px rgba(0,0,0,0.1);
+      --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-    /* Layout */
-    #app { display: flex; min-height: 100vh; }
-    #sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; transition: transform 0.3s; overflow-y: auto; }
-    #main-content { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-    #topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
-    .page-content { padding: 24px; }
-    /* Table */
-    
-    /* Cards */
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; }
-    .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-    /* Buttons */
-    .btn { padding: 8px 20px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
-    .btn-sm { padding: 5px 12px; font-size: 13px; }
-    .btn-primary { background: var(--accent); color: white; }
-    .btn-primary:hover { background: var(--accent-hover); }
-    .btn-success { background: var(--success); color: white; }
-    .btn-success:hover { background: #00a381; }
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-danger:hover { background: #c0604a; }
-    .btn-warning { background: var(--warning); color: #1a1a1f; }
-    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
-    .btn-ghost:hover { background: var(--surface2); color: var(--text); }
-    /* Forms */
-    .form-group { margin-bottom: 16px; }
-    .form-label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
-    .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 14px; transition: border-color 0.2s; }
-    .form-input:focus { outline: none; border-color: var(--accent); }
-    .form-input[type=number] { appearance: textfield; -moz-appearance: textfield; }
-    .form-input[type=number]::-webkit-outer-spin-button,
-    .form-input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-    select.form-input { cursor: pointer; }
-    textarea.form-input { resize: vertical; min-height: 80px; }
-    /* Tables */
-    .data-table { width: 100%; border-collapse: collapse; }
-    .data-table th { background: var(--surface2); color: var(--text-muted); font-weight: 500; text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; white-space: nowrap; }
-    .data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
-    .data-table tr:last-child td { border-bottom: none; }
-    .data-table tr:hover td { background: var(--surface2); }
-    .data-table .total-row td { background: var(--surface2); font-weight: 600; color: var(--accent); }
-    .num-input { width: 80px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 5px 8px; border-radius: 6px; font-family: inherit; font-size: 13px; text-align: center; }
-    .num-input:focus { outline: none; border-color: var(--accent); }
-    
-    
-    /* Sidebar nav */
-    .sidebar-logo { padding: 20px; border-bottom: 1px solid var(--border); }
-    .sidebar-logo-title { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-    .sidebar-logo-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-    .nav-link { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: var(--text-muted); text-decoration: none; cursor: pointer; border-radius: 8px; margin: 2px 8px; transition: all 0.2s; font-size: 14px; user-select: none; }
-    .nav-link:hover { background: var(--surface2); color: var(--text); }
-    .nav-link.active { background: var(--accent-dim); color: var(--accent); }
-    .nav-icon { width: 18px; text-align: center; }
-    .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid var(--border); }
-    /* Tabs */
-    .tab-bar { display: flex; gap: 4px; background: var(--surface2); padding: 4px; border-radius: 10px; }
-    .tab-btn { flex: 1; padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-size: 13px; background: transparent; color: var(--text-muted); transition: all 0.2s; white-space: nowrap; }
-    .tab-btn.active { background: var(--accent); color: white; font-weight: 500; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    /* Toast */
-    #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9000; display: flex; flex-direction: column-reverse; gap: 8px; pointer-events: none; }
-    .toast { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 16px; border-radius: 10px; animation: slideIn 0.3s ease; display: flex; align-items: center; gap: 10px; min-width: 260px; max-width: 360px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); pointer-events: all; font-size: 14px; }
-    .toast.success { border-left: 3px solid var(--success); }
-    .toast.error { border-left: 3px solid var(--danger); }
-    .toast.warning { border-left: 3px solid var(--warning); }
-    .toast.info { border-left: 3px solid var(--info); }
-    @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(110%); opacity: 0; } }
-    .toast.removing { animation: slideOut 0.3s ease forwards; }
-    /* Modal */
-    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; }
-    .modal-sm { max-width: 400px; }
-    .modal-md { max-width: 520px; }
-    .modal-lg { max-width: 800px; }
-    .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--text); }
-    .modal-close { position: absolute; top: 16px; right: 16px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
-    .modal-close:hover { color: var(--text); background: var(--border); }
-    /* Login */
-    #page-login { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); background-image: radial-gradient(ellipse at 50% 0%, rgba(0,85,255,0.08) 0%, transparent 70%); }
-    .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 40px 36px; width: 380px; }
-    .login-logo { width: 56px; height: 56px; background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 24px; }
-    .login-title { text-align: center; font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-    .login-sub { text-align: center; font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
-    .pass-wrap { position: relative; }
-    .pass-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; }
-    /* Grand total */
-    .grand-total-box { background: linear-gradient(135deg, rgba(0,85,255,0.18), rgba(0,85,255,0.05)); border: 2px solid var(--accent); border-radius: 14px; padding: 28px; text-align: center; }
-    .grand-total-number { font-size: 52px; font-weight: 700; color: var(--accent); line-height: 1; }
-    .grand-total-label { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
-    /* Collapsible */
-    .section-header { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
-    .section-body { overflow: hidden; transition: max-height 0.35s ease; }
-    .section-body.collapsed { max-height: 0 !important; }
-    .chevron { transition: transform 0.3s; }
-    .collapsed-parent .chevron { transform: rotate(-90deg); }
-    /* Progress overlay */
-    #progress-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(4px); }
-    .progress-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px 40px; text-align: center; }
-    .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; font-family: var(--font); background: linear-gradient(180deg, #fafafc 0%, #edf1f7 100%); color: var(--text); }
+    body { overflow-x: hidden; }
+    body.loading .glass-card, body.loading .accordion-card, body.loading .metric-card { position: relative; overflow: hidden; }
+    body.loading .glass-card::after, body.loading .accordion-card::after, body.loading .metric-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent); transform: translateX(-100%); animation: shimmer 1.2s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .hidden { display: none !important; }
+    .login-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at top, rgba(0,122,255,0.12), transparent 36%), linear-gradient(180deg, #f8f9fb 0%, #edf2f8 100%); }
+    .login-card { width: min(420px, 100%); padding: 32px; border-radius: 28px; background: var(--surface); backdrop-filter: blur(24px); box-shadow: var(--shadow-lg); border: 1px solid rgba(255,255,255,0.6); animation: fadeUp 0.5s ease; }
+    .login-logo { width: 76px; height: 76px; border-radius: 22px; object-fit: cover; box-shadow: var(--shadow-md); margin-bottom: 18px; }
+    .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .headline { font-size: clamp(28px, 4vw, 38px); margin: 8px 0 6px; font-weight: 700; }
+    .subhead { color: var(--text-secondary); margin: 0 0 24px; line-height: 1.6; }
+    .form-stack { display: grid; gap: 16px; }
+    .field-group { display: grid; gap: 8px; }
+    .field-row { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+    label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+    input, select, textarea, button { font: inherit; }
+    input, select, textarea { width: 100%; border: 1px solid var(--border); background: rgba(255,255,255,0.88); color: var(--text); border-radius: 14px; padding: 12px 14px; transition: var(--transition); box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); }
+    textarea { min-height: 108px; resize: vertical; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(0,122,255,0.4); box-shadow: 0 0 0 4px rgba(0,122,255,0.12); background: #fff; }
+    button { border: none; border-radius: 14px; padding: 12px 18px; cursor: pointer; transition: var(--transition); font-weight: 600; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+    .btn-primary { background: var(--accent); color: #fff; box-shadow: var(--shadow-sm); }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-secondary { background: rgba(0,0,0,0.05); color: var(--text); }
+    .btn-secondary:hover { background: rgba(0,0,0,0.08); }
+    .btn-danger { background: rgba(255,69,58,0.12); color: var(--danger); }
+    .app-shell { display: grid; grid-template-columns: 290px 1fr; min-height: 100vh; }
+    .sidebar { position: sticky; top: 0; height: 100vh; padding: 24px 18px; border-right: 1px solid rgba(0,0,0,0.06); background: rgba(255,255,255,0.56); backdrop-filter: blur(24px); display: flex; flex-direction: column; gap: 18px; transition: var(--transition); }
+    .brand { display: flex; align-items: center; gap: 14px; padding: 12px; background: rgba(255,255,255,0.56); border-radius: 20px; box-shadow: var(--shadow-sm); }
+    .brand img { width: 54px; height: 54px; object-fit: cover; border-radius: 16px; }
+    .brand-title { font-size: 20px; font-weight: 700; margin: 0; }
+    .brand-subtitle { margin: 3px 0 0; color: var(--text-secondary); font-size: 12px; }
+    .sidebar-toggle { width: 42px; height: 42px; align-self: flex-end; border-radius: 14px; padding: 0; }
+    .nav-list, .mobile-nav-list { display: grid; gap: 8px; }
+    .nav-button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 16px; background: transparent; color: var(--text-secondary); border-radius: 16px; text-align: left; }
+    .nav-button.active, .nav-button:hover { background: rgba(0,122,255,0.1); color: var(--accent); transform: translateX(2px); }
+    .nav-icon { width: 22px; text-align: center; font-size: 18px; }
+    .sidebar-footer { margin-top: auto; padding: 14px; border-radius: 18px; background: rgba(255,255,255,0.56); box-shadow: var(--shadow-sm); }
+    .user-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .user-meta strong { display: block; font-size: 14px; }
+    .user-meta span { color: var(--text-secondary); font-size: 12px; }
+    .main-shell { padding: 24px; display: grid; gap: 20px; }
+    .topbar { position: sticky; top: 16px; z-index: 10; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; border-radius: 22px; background: rgba(255,255,255,0.68); backdrop-filter: blur(22px); box-shadow: var(--shadow-md); border: 1px solid rgba(255,255,255,0.65); }
+    .topbar-left, .topbar-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .page-title-wrap h1 { margin: 0; font-size: clamp(24px, 3.4vw, 34px); }
+    .page-title-wrap p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
+    .chip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.74); border: 1px solid rgba(0,0,0,0.06); box-shadow: var(--shadow-sm); }
+    .chip.success { color: var(--success); } .chip.warning { color: var(--warning); } .chip.danger { color: var(--danger); }
+    .content-stack { display: grid; gap: 20px; }
+    .page { display: none; animation: fadeUp 0.35s ease; }
+    .page.active { display: block; }
+    .glass-card, .accordion-card, .metric-card { background: var(--surface); backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,0.7); border-radius: 24px; box-shadow: var(--shadow-md); }
+    .glass-card { padding: 22px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+    .section-title { display: flex; align-items: center; gap: 12px; } .section-title h2, .section-title h3 { margin: 0; } .section-title p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
+    .icon-badge { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 16px; background: rgba(0,122,255,0.12); color: var(--accent); font-size: 21px; }
+    .card-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .compact-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .accordion-card { padding: 0; overflow: hidden; }
+    details summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; font-weight: 700; }
+    details summary::-webkit-details-marker { display: none; }
+    .accordion-body { padding: 0 22px 22px; border-top: 1px solid rgba(0,0,0,0.04); }
+    .stepper { display: grid; grid-template-columns: 42px 1fr 42px; gap: 8px; align-items: center; }
+    .stepper button { padding: 0; height: 44px; border-radius: 14px; background: rgba(0,0,0,0.06); color: var(--text); }
+    .stepper input { text-align: center; padding-inline: 0; }
+    table { width: 100%; border-collapse: collapse; overflow: hidden; background: rgba(255,255,255,0.68); border-radius: 18px; }
+    th, td { padding: 12px 10px; border-bottom: 1px solid rgba(0,0,0,0.06); text-align: left; vertical-align: middle; font-size: 14px; }
+    th { color: var(--text-secondary); font-weight: 700; background: rgba(255,255,255,0.76); }
+    tr:last-child td { border-bottom: none; }
+    .summary-value, .metric-number { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.04em; }
+    .metric-card { padding: 20px; display: grid; gap: 8px; }
+    .metric-label { color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+    .metric-footnote { color: var(--text-secondary); font-size: 12px; }
+    .read-only-box { min-height: 48px; padding: 12px 14px; background: rgba(255,255,255,0.74); border: 1px solid rgba(0,0,0,0.05); border-radius: 14px; font-weight: 600; display: flex; align-items: center; }
+    .stat-strip { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .stat-pill { padding: 14px; border-radius: 18px; background: rgba(255,255,255,0.76); border: 1px solid rgba(0,0,0,0.05); box-shadow: var(--shadow-sm); }
+    .stat-pill strong { display: block; font-size: 24px; margin-top: 8px; }
+    .inline-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .page-footer-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 12px; }
+    .progress-overlay { position: fixed; inset: 0; background: rgba(245,245,247,0.72); backdrop-filter: blur(12px); display: none; place-items: center; z-index: 1000; }
+    .progress-overlay.visible { display: grid; }
+    .progress-card { width: min(320px, calc(100vw - 32px)); padding: 28px; text-align: center; border-radius: 26px; background: rgba(255,255,255,0.92); box-shadow: var(--shadow-lg); }
+    .spinner { width: 44px; height: 44px; border: 4px solid rgba(0,122,255,0.14); border-top-color: var(--accent); border-radius: 50%; margin: 0 auto 16px; animation: spin 0.9s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    /* Month grid */
-    .month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .month-cell { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; font-size: 13px; cursor: pointer; transition: all 0.2s; }
-    .month-cell:hover { border-color: var(--accent); }
-    .month-cell.has-data { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
-    .month-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin: 4px auto 0; }
-    /* Quick actions */
-    .quick-action { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
-    .quick-action:hover { border-color: var(--accent); background: var(--accent-dim); }
-    .quick-action-icon { font-size: 24px; margin-bottom: 8px; }
-    .quick-action-label { font-size: 13px; color: var(--text-muted); }
-    /* Summary preview */
-    .preview-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-    .preview-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
-    .preview-row:last-child { border-bottom: none; }
-    .preview-label { color: var(--text-muted); }
-    .preview-value { font-weight: 600; }
-    /* Badge */
-    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 12px; font-weight: 500; }
-    .badge-success { background: rgba(0,184,148,0.15); color: var(--success); }
-    .badge-warning { background: rgba(253,203,110,0.15); color: var(--warning); }
-    .badge-danger { background: rgba(225,112,85,0.15); color: var(--danger); }
-    .badge-info { background: rgba(116,185,255,0.15); color: var(--info); }
-    /* Divider */
-    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
-    /* Section headings */
-    .section-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-    .section-badge { background: var(--accent); color: white; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
-    /* Pagination */
-    .pagination { display: flex; gap: 4px; align-items: center; }
-    .page-btn { min-width: 32px; height: 32px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-    .page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-    /* Booking table row */
-    .booking-row td { padding: 6px 8px; }
-    /* Info box */
-    .info-box { background: rgba(116,185,255,0.08); border: 1px solid rgba(116,185,255,0.2); border-radius: 10px; padding: 14px; font-size: 13px; color: var(--text-muted); }
-    .info-box ul { padding-left: 16px; }
-    .info-box li { margin-bottom: 4px; }
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-    /* Mobile */
-    @media (max-width: 768px) {
-      #sidebar { transform: translateX(-100%); }
-      #sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
-      #main-content { margin-left: 0; }
-      .page-content { padding: 12px; }
-      .login-card { width: 95vw; padding: 28px 20px; }
-      .grand-total-number { font-size: 36px; }
-      .tab-btn { font-size: 12px; padding: 7px 8px; }
-      /* Responsive grids on mobile */
-      .resp-2col { grid-template-columns: 1fr !important; }
-      .resp-3col { grid-template-columns: 1fr !important; }
-      .card { padding: 14px; }
-      .stat-card { padding: 14px; }
-      .btn { font-size: 13px; padding: 7px 14px; }
-      /* Stack action buttons */
-      .action-row { flex-direction: column; }
-      /* Ensure num-input is large enough for touch */
-      .num-input { min-height: 36px; }
-    }
-    @media (max-width: 480px) {
-      .tab-btn { font-size: 11px; padding: 6px 6px; }
-      .grand-total-number { font-size: 28px; }
-    }
-    /* Overlay for mobile sidebar */
-    #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
-    #sidebar-overlay.visible { display: block; }
-    /* Highlight computed fields */
-    .computed { color: var(--accent); font-weight: 600; }
-    /* Export card */
-    .export-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
-    .export-card-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-    .export-card-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
-    /* Topbar breadcrumb */
-    .breadcrumb { font-size: 13px; color: var(--text-muted); }
-    .breadcrumb span { color: var(--text); font-weight: 500; }
-    /* Input group */
-    .input-group { display: flex; align-items: center; gap: 8px; }
-    .input-label { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
-    /* Toggle */
-    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 22px; cursor: pointer; transition: 0.2s; }
-    .toggle-slider:before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: var(--text-muted); border-radius: 50%; transition: 0.2s; }
-    .toggle input:checked + .toggle-slider { background: var(--accent); }
-    .toggle input:checked + .toggle-slider:before { transform: translateX(18px); background: white; }
-    /* Checkbox */
-    .check-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
-    .check-label input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
-    /* Table container scrollable */
-    .table-wrap { overflow-x: auto; }
-    /* Grid table for educational activities */
-    .grid-table { display: grid; grid-template-columns: 140px repeat(4, 1fr) 100px; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .g-row { display: contents; }
-    .g-row .cell { background: var(--surface); padding: 10px 12px; font-size: 13px; display: flex; align-items: center; }
-    .g-head-1 .cell, .g-head-2 .cell { background: var(--surface2); color: var(--text-muted); font-weight: 600; justify-content: center; }
-    .g-row:not(.g-head-1):not(.g-head-2):not(.total):hover .cell { background: var(--surface2); }
-    .g-row .cell.label { color: var(--text); font-weight: 500; }
-    .g-row .cell.computed { color: var(--accent); font-weight: 600; justify-content: center; }
-    .g-row .cell.muted { color: var(--text-muted); justify-content: center; }
-    .g-row.total .cell { background: var(--surface2); font-weight: 600; }
-    .g-row .cell input { width: 100%; }
+    .toast-container { position: fixed; top: 20px; right: 20px; display: grid; gap: 10px; z-index: 1100; max-width: min(360px, calc(100vw - 32px)); }
+    .toast { padding: 14px 16px; border-radius: 16px; color: #fff; box-shadow: var(--shadow-lg); animation: fadeUp 0.25s ease; }
+    .toast.success { background: linear-gradient(135deg, #34c759, #2db14f); } .toast.error { background: linear-gradient(135deg, #ff453a, #dd2f24); } .toast.warning { background: linear-gradient(135deg, #ff9f0a, #f58700); }
+    .mobile-nav { display: none; position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 12; padding: 10px; border-radius: 22px; background: rgba(255,255,255,0.82); backdrop-filter: blur(20px); box-shadow: var(--shadow-lg); border: 1px solid rgba(255,255,255,0.7); }
+    .mobile-nav-list { grid-template-columns: repeat(5, 1fr); }
+    .mobile-nav .nav-button { justify-content: center; padding: 12px 8px; flex-direction: column; gap: 6px; font-size: 11px; }
+    @media (max-width: 1080px) { .app-shell { grid-template-columns: 1fr; } .sidebar { position: fixed; left: 16px; top: 16px; bottom: 90px; width: min(320px, calc(100vw - 32px)); height: auto; transform: translateX(-120%); z-index: 20; } .sidebar.open { transform: translateX(0); } .main-shell { padding-bottom: 100px; } .mobile-nav { display: block; } }
+    @media (max-width: 720px) { .topbar { padding: 16px; } .topbar, .topbar-left, .topbar-right { align-items: flex-start; flex-direction: column; } .main-shell { padding: 16px; } .glass-card { padding: 18px; } table { display: block; overflow-x: auto; } }
   </style>
 </head>
 <body>
-
-<!-- ============================================================ LOGIN PAGE ============================================================ -->
-<div id="page-login">
-  <div class="login-card">
-    <div class="login-logo">🔬</div>
-    <div class="login-title">NSM MOD System</div>
-    <div class="login-sub">ระบบบริหารจัดการ MOD</div>
-    <form id="login-form" onsubmit="handleLogin(event)">
-      <div class="form-group">
-        <label class="form-label">ชื่อผู้ใช้</label>
-        <input id="login-user" type="text" class="form-input" placeholder="Username" autocomplete="username" required>
+  <div id="login-screen" class="login-shell">
+    <form id="login-form" class="login-card" autocomplete="off">
+      <!-- Place LOGO.png in the project root if you want the branded login/sidebar artwork to render. -->
+      <img src="LOGO.png" alt="MOD System Logo" class="login-logo">
+      <div class="eyebrow">MOD System</div>
+      <h1 class="headline">ระบบจัดการงานประจำวัน</h1>
+      <p class="subhead">ออกแบบใหม่สำหรับการบันทึกงานรายวันแบบ Morning / Exhibition / POS / Summary พร้อมเชื่อม Google Sheets ตามวันที่</p>
+      <div class="form-stack">
+        <div class="field-group"><label for="login-username">ชื่อผู้ใช้</label><input id="login-username" type="text" placeholder="กรอกชื่อผู้ใช้" required></div>
+        <div class="field-group"><label for="login-password">รหัสผ่าน</label><input id="login-password" type="password" placeholder="กรอกรหัสผ่าน" required></div>
+        <button type="submit" class="btn-primary">เข้าสู่ระบบ</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">รหัสผ่าน</label>
-        <div class="pass-wrap">
-          <input id="login-pass" type="password" class="form-input" placeholder="Password" autocomplete="current-password" required>
-          <button type="button" class="pass-toggle" onclick="toggleLoginPass()" id="pass-toggle-btn">👁</button>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <label class="check-label" style="font-size:13px;color:var(--text-muted);">
-          <input type="checkbox" id="remember-me"> จดจำฉัน
-        </label>
-        <a href="#" onclick="openModal('forgot-modal');return false;" style="font-size:13px;color:var(--accent);text-decoration:none;">ลืมรหัสผ่าน?</a>
-      </div>
-      <div id="login-error" style="display:none;background:rgba(225,112,85,0.1);border:1px solid rgba(225,112,85,0.3);color:var(--danger);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;"></div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;">เข้าสู่ระบบ</button>
     </form>
-    <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-muted);">
-      ไม่มีบัญชี? <a href="#" onclick="openModal('request-modal');return false;" style="color:var(--accent);text-decoration:none;">ขอสิทธิ์เข้าใช้งาน</a>
-    </div>
   </div>
-</div>
-
-<!-- ============================================================ MAIN APP ============================================================ -->
-<div id="app" style="display:none">
-  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
-
-  <!-- SIDEBAR -->
-  <aside id="sidebar">
-    <div class="sidebar-logo">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <img src="./LOGO.png" alt="NSM Logo" style="width:150%;height:150%;object-fit:contain;margin-right:10px;">
+  <div id="app-shell" class="app-shell hidden">
+    <aside id="sidebar" class="sidebar">
+      <button id="sidebar-toggle" class="sidebar-toggle btn-secondary" type="button">☰</button>
+      <div class="brand"><img src="LOGO.png" alt="MOD Logo"><div><p class="brand-title">MOD System</p><p class="brand-subtitle">Daily Management Redesign</p></div></div>
+      <nav class="nav-list" aria-label="Main navigation">
+        <button class="nav-button active" data-page="assignments" type="button"><span class="nav-icon">🌤️</span><span>Morning</span></button>
+        <button class="nav-button" data-page="exhibition" type="button"><span class="nav-icon">🧮</span><span>Exhibition</span></button>
+        <button class="nav-button" data-page="pos" type="button"><span class="nav-icon">💳</span><span>POS</span></button>
+        <button class="nav-button" data-page="summary" type="button"><span class="nav-icon">🌙</span><span>Summary</span></button>
+        <button class="nav-button" data-page="settings" type="button"><span class="nav-icon">⚙️</span><span>Settings</span></button>
+      </nav>
+      <div class="sidebar-footer"><div class="user-chip"><div class="user-meta"><strong id="sidebar-username">ผู้ดูแลระบบ</strong><span>พร้อมใช้งาน</span></div><button id="logout-btn" type="button" class="btn-danger">ออก</button></div></div>
+    </aside>
+    <main class="main-shell">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="page-title-wrap"><h1 id="page-title">Daily Management (Morning)</h1><p id="page-subtitle">จัดการข้อมูลตามวันที่และบันทึกสู่ Google Sheets แบบหลายชีต</p></div>
+          <span id="offline-indicator" class="chip success">● ออนไลน์</span>
+          <span id="autosave-indicator" class="chip">พร้อมบันทึก</span>
         </div>
-        <div>
-          <div class="sidebar-logo-title">NSM MOD</div>
-          <div class="sidebar-logo-sub">Management System</div>
+        <div class="topbar-right">
+          <div class="field-group"><label for="global-date">วันที่ทำงาน</label><input id="global-date" type="date"></div>
+          <button id="top-save-btn" type="button" class="btn-primary">บันทึกหน้าปัจจุบัน</button>
         </div>
-      </div>
-    </div>
-    <nav style="padding:12px 0;flex:1;">
-      <div class="nav-link active" id="nav-dashboard" onclick="gotoPage('dashboard')">
-        <span class="nav-icon">📊</span> Dashboard
-      </div>
-      <div class="nav-link" id="nav-daily-log" onclick="gotoPage('daily-log')">
-        <span class="nav-icon">📝</span> บันทึกประจำวัน
-      </div>
-      <div class="nav-link" id="nav-history" onclick="gotoPage('history')">
-        <span class="nav-icon">📋</span> ประวัติ
-      </div>
-      <div class="nav-link" id="nav-summary" onclick="gotoPage('summary')">
-        <span class="nav-icon">📈</span> สรุป
-      </div>
-      <div class="nav-link" id="nav-export" onclick="gotoPage('export')">
-        <span class="nav-icon">📤</span> ส่งออก
-      </div>
-      <div class="nav-link" id="nav-settings" onclick="gotoPage('settings')">
-        <span class="nav-icon">⚙️</span> ตั้งค่า
-      </div>
-    </nav>
-    <div class="sidebar-footer">
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">เข้าสู่ระบบในฐานะ</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:14px;font-weight:500;" id="sidebar-username">admin</div>
-        <button class="btn btn-ghost btn-sm" onclick="doLogout()">ออก</button>
-      </div>
-    </div>
-  </aside>
-
-  <!-- MAIN CONTENT -->
-  <div id="main-content">
-    <!-- TOPBAR -->
-    <header id="topbar">
-      <div style="display:flex;align-items:center;gap:16px;">
-        <button id="menu-toggle" class="btn btn-ghost btn-sm" onclick="toggleSidebar()" style="display:none;padding:6px 10px;">☰</button>
-        <div class="breadcrumb">NSM MOD System &rsaquo; <span id="breadcrumb-page">Dashboard</span></div>
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="font-size:13px;color:var(--text-muted);">👤 <span id="topbar-username">admin</span></div>
-        <button class="btn btn-ghost btn-sm" onclick="doLogout()">ออกจากระบบ</button>
-      </div>
-    </header>
-
-    <!-- ===== DASHBOARD PAGE ===== -->
-    <div id="page-dashboard" class="page-content">
-      <div style="margin-bottom:24px;">
-        <div style="font-size:22px;font-weight:700;" id="dash-greeting">สวัสดี!</div>
-        <div style="font-size:14px;color:var(--text-muted);margin-top:4px;" id="dash-date"></div>
-      </div>
-      <!-- Stat Cards -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
-        <div class="stat-card">
-          <div class="stat-icon" style="background:rgba(0,85,255,0.15);">📁</div>
-          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">บันทึกทั้งหมด</div><div style="font-size:24px;font-weight:700;" id="stat-total-records">0</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:rgba(0,184,148,0.15);">👥</div>
-          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">ผู้เข้าชมทั้งหมด</div><div style="font-size:24px;font-weight:700;" id="stat-total-visitors">0</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:rgba(253,203,110,0.15);">💰</div>
-          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รายได้รวม (บาท)</div><div style="font-size:24px;font-weight:700;" id="stat-total-revenue">0</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:rgba(225,112,85,0.15);">📅</div>
-          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">วันที่มีข้อมูล</div><div style="font-size:24px;font-weight:700;" id="stat-active-days">0</div></div>
-        </div>
-      </div>
-      <!-- Chart + Recent Activity -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:24px;">
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div style="font-size:15px;font-weight:600;">แนวโน้มผู้เข้าชม (7 วัน)</div>
-          </div>
-          <canvas id="activity-chart" height="180"></canvas>
-        </div>
-        <div class="card">
-          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">กิจกรรมล่าสุด</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>วันที่</th><th>MOD</th><th>ผู้เข้าชม</th><th>รายได้</th></tr></thead>
-              <tbody id="recent-activity-tbody">
-                <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <!-- Month Grid + Quick Actions -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
-        <div class="card">
-          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">ภาพรวมรายเดือน <span id="dash-year-label" style="font-size:13px;color:var(--text-muted);"></span></div>
-          <div class="month-grid" id="month-grid"></div>
-        </div>
-        <div class="card">
-          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">Quick Actions</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <div class="quick-action" onclick="gotoPage('daily-log')"><div class="quick-action-icon">&#x1F4DD;</div><div class="quick-action-label">บันทึกใหม่</div></div>
-            <div class="quick-action" onclick="gotoPage('history')"><div class="quick-action-icon">&#x1F4CB;</div><div class="quick-action-label">ประวัติ</div></div>
-            <div class="quick-action" onclick="gotoPage('export')"><div class="quick-action-icon">&#x1F4E4;</div><div class="quick-action-label">ส่งออก</div></div>
-            <div class="quick-action" onclick="openModal('settings-modal')"><div class="quick-action-icon">&#x2699;&#xFE0F;</div><div class="quick-action-label">ตั้งค่า</div></div>
-          </div>
-        </div>
-      </div>
-    </div><!-- /page-dashboard -->
-
-    <!-- ===== DAILY LOG PAGE ===== -->
-
-    <div id="page-daily-log" class="page-content" style="display:none">
-      <!-- Date Selector -->
-      <div class="card" style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;">
-          <div style="font-size:15px;font-weight:600;margin-right:8px;">📅 วันที่บันทึก:</div>
-          <select id="date-year" class="form-input" style="width:110px;" onchange="onYearMonthChange()"></select>
-          <select id="date-month" class="form-input" style="width:130px;" onchange="onYearMonthChange()"></select>
-          <select id="date-day" class="form-input" style="width:90px;" onchange="onDateChange()"></select>
-          <span style="color:var(--text-muted);font-size:13px;" id="date-display"></span>
-          <button class="btn btn-ghost btn-sm" onclick="loadToday()">วันนี้</button>
-        </div>
-      </div>
-      <!-- Tab Bar -->
-      <div class="tab-bar" style="margin-bottom:20px;">
-        <button class="tab-btn active" id="tab-btn-0" onclick="switchDayTab(0,this)">🌅 ช่วงเช้า</button>
-        <button class="tab-btn" id="tab-btn-1" onclick="switchDayTab(1,this)">🌞 ช่วงบ่าย</button>
-        <button class="tab-btn" id="tab-btn-2" onclick="switchDayTab(2,this)">🌆 ช่วงเย็น</button>
-      </div>
-
-      <!-- TAB 1: MORNING -->
-      <div id="day-tab-0" class="tab-content active">
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">เจ้าหน้าที่ประจำวัน</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">MOD ประจำวัน</label>
-              <select id="mod-morning" class="form-input">
-                <option value="">-- กำลังโหลด... --</option>
-              </select>
+      </header>
+      <section class="content-stack">
+        <div id="page-assignments" class="page active">
+          <div class="glass-card">
+            <div class="section-header"><div class="section-title"><div class="icon-badge">🗂️</div><div><h2>Daily Management (Morning)</h2><p>กำหนดเจ้าหน้าที่เวรประจำวัน อาสาสมัครประจำโซน และบันทึกกิจกรรมเพิ่มเติม</p></div></div><span class="chip">วันที่ <span id="assignment-date-label">-</span></span></div>
+            <div class="card-grid">
+              <div class="glass-card"><div class="section-title"><div class="icon-badge">👤</div><div><h3>เจ้าหน้าที่ประจำจุด</h3><p>โหลดจาก Master_Lookups ประเภท officer</p></div></div><div class="form-stack"><div class="field-group"><label for="mo-officer">MO Officer</label><select id="mo-officer" class="officer-select"></select></div><div class="field-group"><label for="mex-officer">M-Exhibition Officer</label><select id="mex-officer" class="officer-select"></select></div><div class="field-group"><label for="med-officer">MED Officer</label><select id="med-officer" class="officer-select"></select></div><div class="field-group"><label for="mvi-officer">MVI Officer</label><select id="mvi-officer" class="officer-select"></select></div></div></div>
+              <div class="glass-card"><div class="section-title"><div class="icon-badge">🙌</div><div><h3>อาสาสมัครประจำโซน</h3><p>โหลดจาก Master_Lookups ประเภท volunteer</p></div></div><div class="form-stack"><div class="field-group"><label for="z2f-volunteer">Zone 2F Volunteer</label><select id="z2f-volunteer" class="volunteer-select"></select></div><div class="field-group"><label for="zmp-volunteer">Zone M-P Volunteer</label><select id="zmp-volunteer" class="volunteer-select"></select></div><div class="field-group"><label for="zinl-volunteer">Zone INL Volunteer</label><select id="zinl-volunteer" class="volunteer-select"></select></div></div></div>
             </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">M-Exhibition</label>
-              <select id="m-exhibition" class="form-input">
-                <option value="">-- กำลังโหลด... --</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">M-Education</label>
-              <select id="m-education" class="form-input">
-                <option value="">-- กำลังโหลด... --</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">M-Visitor Service</label>
-              <select id="m-visitor-service" class="form-input">
-                <option value="">-- กำลังโหลด... --</option>
-              </select>
-            </div>
+            <div class="field-group" style="margin-top:18px;"><label for="other-activity-note">บันทึกกิจกรรมหรือหมายเหตุเพิ่มเติม</label><textarea id="other-activity-note" placeholder="เช่น กิจกรรมพิเศษ หน่วยงานเยี่ยมชม หรือคำสั่งปฏิบัติงานเพิ่มเติม"></textarea></div>
+            <div class="page-footer-actions"><button type="button" class="btn-primary" data-save="assignments">บันทึกข้อมูลช่วงเช้า</button></div>
           </div>
         </div>
-
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">⏰ เวลาเปิดทำการประจำวัน</div>
-          <div style="display:grid;gap:12px;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">1. อังคาร-ศุกร์ เวลา 8.30 - 16.30 น.</label>
-              <label class="form-label">2. เสาร์-อาทิตย์ และหยุดนักขัตฤกษ์ เวลา 9.30 - 16.30 น.</label>
-              <label class="form-label">3. หยุดทุกวันจันทร์</label>
+        <div id="page-exhibition" class="page">
+          <div class="glass-card">
+            <div class="section-header"><div class="section-title"><div class="icon-badge">🧮</div><div><h2>M-Exhibition Cal</h2><p>คำนวณผู้เข้าชม Walk-in, กลุ่ม, กิจกรรมเสริม และห้องกิจกรรมแบบเรียลไทม์</p></div></div><div class="inline-actions"><span class="chip">POS auto-sync</span><button type="button" class="btn-primary" data-save="exhibition">บันทึกข้อมูล Exhibition</button></div></div>
+            <details class="accordion-card" open><summary><span>A. Walk-in Individuals</span><span>⌄</span></summary><div class="accordion-body"><table><thead><tr><th>ช่วงเวลา</th><th>TH Kids</th><th>TH Adults</th><th>FR Kids</th><th>FR Adults</th></tr></thead><tbody><tr><td>Morning</td><td><div class="stepper"><button type="button" data-step-target="mor-th-kids" data-step="-1">−</button><input id="mor-th-kids" type="number" min="0" value="0"><button type="button" data-step-target="mor-th-kids" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="mor-th-adults" data-step="-1">−</button><input id="mor-th-adults" type="number" min="0" value="0"><button type="button" data-step-target="mor-th-adults" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="mor-fr-kids" data-step="-1">−</button><input id="mor-fr-kids" type="number" min="0" value="0"><button type="button" data-step-target="mor-fr-kids" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="mor-fr-adults" data-step="-1">−</button><input id="mor-fr-adults" type="number" min="0" value="0"><button type="button" data-step-target="mor-fr-adults" data-step="1">+</button></div></td></tr><tr><td>Evening</td><td><div class="stepper"><button type="button" data-step-target="eve-th-kids" data-step="-1">−</button><input id="eve-th-kids" type="number" min="0" value="0"><button type="button" data-step-target="eve-th-kids" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="eve-th-adults" data-step="-1">−</button><input id="eve-th-adults" type="number" min="0" value="0"><button type="button" data-step-target="eve-th-adults" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="eve-fr-kids" data-step="-1">−</button><input id="eve-fr-kids" type="number" min="0" value="0"><button type="button" data-step-target="eve-fr-kids" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="eve-fr-adults" data-step="-1">−</button><input id="eve-fr-adults" type="number" min="0" value="0"><button type="button" data-step-target="eve-fr-adults" data-step="1">+</button></div></td></tr></tbody></table><div class="stat-strip" style="margin-top:16px;"><div class="stat-pill">Sum-TH-Kids<strong id="sum-th-kids">0</strong></div><div class="stat-pill">Sum-TH-Adults<strong id="sum-th-adults">0</strong></div><div class="stat-pill">Sum-FR-Kids<strong id="sum-fr-kids">0</strong></div><div class="stat-pill">Sum-FR-Adults<strong id="sum-fr-adults">0</strong></div><div class="stat-pill">SUM-Walk-Kids<strong id="sum-walk-kids">0</strong></div><div class="stat-pill">SUM-Walk-Adults<strong id="sum-walk-adults">0</strong></div></div></div></details>
+            <details class="accordion-card" open style="margin-top:18px;"><summary><span>B. Group Visitors</span><span>⌄</span></summary><div class="accordion-body"><table><thead><tr><th>#</th><th>Group Name</th><th>Kids</th><th>Adults</th></tr></thead><tbody>
+<tr><td>1</td><td><input id="group-name-1" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-1" data-step="-1">−</button><input id="g-kids-1" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-1" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-1" data-step="-1">−</button><input id="g-adults-1" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-1" data-step="1">+</button></div></td></tr>
+<tr><td>2</td><td><input id="group-name-2" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-2" data-step="-1">−</button><input id="g-kids-2" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-2" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-2" data-step="-1">−</button><input id="g-adults-2" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-2" data-step="1">+</button></div></td></tr>
+<tr><td>3</td><td><input id="group-name-3" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-3" data-step="-1">−</button><input id="g-kids-3" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-3" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-3" data-step="-1">−</button><input id="g-adults-3" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-3" data-step="1">+</button></div></td></tr>
+<tr><td>4</td><td><input id="group-name-4" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-4" data-step="-1">−</button><input id="g-kids-4" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-4" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-4" data-step="-1">−</button><input id="g-adults-4" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-4" data-step="1">+</button></div></td></tr>
+<tr><td>5</td><td><input id="group-name-5" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-5" data-step="-1">−</button><input id="g-kids-5" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-5" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-5" data-step="-1">−</button><input id="g-adults-5" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-5" data-step="1">+</button></div></td></tr>
+<tr><td>6</td><td><input id="group-name-6" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-6" data-step="-1">−</button><input id="g-kids-6" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-6" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-6" data-step="-1">−</button><input id="g-adults-6" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-6" data-step="1">+</button></div></td></tr>
+<tr><td>7</td><td><input id="group-name-7" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-7" data-step="-1">−</button><input id="g-kids-7" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-7" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-7" data-step="-1">−</button><input id="g-adults-7" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-7" data-step="1">+</button></div></td></tr>
+<tr><td>8</td><td><input id="group-name-8" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-8" data-step="-1">−</button><input id="g-kids-8" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-8" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-8" data-step="-1">−</button><input id="g-adults-8" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-8" data-step="1">+</button></div></td></tr>
+<tr><td>9</td><td><input id="group-name-9" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-9" data-step="-1">−</button><input id="g-kids-9" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-9" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-9" data-step="-1">−</button><input id="g-adults-9" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-9" data-step="1">+</button></div></td></tr>
+<tr><td>10</td><td><input id="group-name-10" type="text" list="group-name-list" placeholder="ชื่อกลุ่ม/โรงเรียน/หน่วยงาน"></td><td><div class="stepper"><button type="button" data-step-target="g-kids-10" data-step="-1">−</button><input id="g-kids-10" type="number" min="0" value="0"><button type="button" data-step-target="g-kids-10" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="g-adults-10" data-step="-1">−</button><input id="g-adults-10" type="number" min="0" value="0"><button type="button" data-step-target="g-adults-10" data-step="1">+</button></div></td></tr>
+</tbody></table><div class="stat-strip" style="margin-top:16px;"><div class="stat-pill">Number-of-Group-Name<strong id="number-of-groups">0</strong></div><div class="stat-pill">Sum-Kids-(n)<strong id="sum-group-kids">0</strong></div><div class="stat-pill">Sum-Adult-(n)<strong id="sum-group-adults">0</strong></div></div></div></details>
+            <details class="accordion-card" open style="margin-top:18px;"><summary><span>C. Additional Activities</span><span>⌄</span></summary><div class="accordion-body"><div class="card-grid"><div class="glass-card"><h3>Walk Rally</h3><div class="field-row"><div class="field-group"><label for="ac-walk-r-kids">Kids</label><div class="stepper"><button type="button" data-step-target="ac-walk-r-kids" data-step="-1">−</button><input id="ac-walk-r-kids" type="number" min="0" value="0"><button type="button" data-step-target="ac-walk-r-kids" data-step="1">+</button></div></div><div class="field-group"><label for="ac-walk-r-adults">Adults</label><div class="stepper"><button type="button" data-step-target="ac-walk-r-adults" data-step="-1">−</button><input id="ac-walk-r-adults" type="number" min="0" value="0"><button type="button" data-step-target="ac-walk-r-adults" data-step="1">+</button></div></div></div></div><div class="glass-card"><h3>Mini Make and Play</h3><div class="field-row"><div class="field-group"><label for="ac-mmap-kids">Kids</label><div class="stepper"><button type="button" data-step-target="ac-mmap-kids" data-step="-1">−</button><input id="ac-mmap-kids" type="number" min="0" value="0"><button type="button" data-step-target="ac-mmap-kids" data-step="1">+</button></div></div><div class="field-group"><label for="ac-mmap-adults">Adults</label><div class="stepper"><button type="button" data-step-target="ac-mmap-adults" data-step="-1">−</button><input id="ac-mmap-adults" type="number" min="0" value="0"><button type="button" data-step-target="ac-mmap-adults" data-step="1">+</button></div></div></div></div><div class="glass-card"><h3>Other Extra Activity</h3><div class="field-row"><div class="field-group"><label for="ac-etcac-kids">Kids</label><div class="stepper"><button type="button" data-step-target="ac-etcac-kids" data-step="-1">−</button><input id="ac-etcac-kids" type="number" min="0" value="0"><button type="button" data-step-target="ac-etcac-kids" data-step="1">+</button></div></div><div class="field-group"><label for="ac-etcac-adults">Adults</label><div class="stepper"><button type="button" data-step-target="ac-etcac-adults" data-step="-1">−</button><input id="ac-etcac-adults" type="number" min="0" value="0"><button type="button" data-step-target="ac-etcac-adults" data-step="1">+</button></div></div></div></div></div><div class="field-group" style="margin-top:16px;"><label for="activity-notes">Notes</label><textarea id="activity-notes" placeholder="รายละเอียดกิจกรรมเพิ่มเติมหรือเงื่อนไขพิเศษของกิจกรรม"></textarea></div><div class="stat-strip" style="margin-top:16px;"><div class="stat-pill">Additional Activity Total<strong id="additional-total-visitors">0</strong></div><div class="stat-pill">Notes Status<strong id="additional-notes-status">พร้อมบันทึก</strong></div></div></div></details>
+            <details class="accordion-card" open style="margin-top:18px;"><summary><span>D. Inspire Lab Activities (6 rows)</span><span>⌄</span></summary><div class="accordion-body"><table><thead><tr><th>#</th><th>กิจกรรม</th><th>เจ้าหน้าที่</th><th>TH Kids</th><th>TH Adults</th><th>FR Kids</th><th>FR Adults</th></tr></thead><tbody>
+<tr><td>1</td><td><input id="insl-name-1" type="text" placeholder="ชื่อกิจกรรม Inspire Lab"></td><td><select id="insl-officer-1" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="insl-th-kids-1" data-step="-1">−</button><input id="insl-th-kids-1" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-kids-1" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-th-adults-1" data-step="-1">−</button><input id="insl-th-adults-1" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-adults-1" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-kids-1" data-step="-1">−</button><input id="insl-fr-kids-1" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-kids-1" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-adults-1" data-step="-1">−</button><input id="insl-fr-adults-1" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-adults-1" data-step="1">+</button></div></td></tr>
+<tr><td>2</td><td><input id="insl-name-2" type="text" placeholder="ชื่อกิจกรรม Inspire Lab"></td><td><select id="insl-officer-2" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="insl-th-kids-2" data-step="-1">−</button><input id="insl-th-kids-2" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-kids-2" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-th-adults-2" data-step="-1">−</button><input id="insl-th-adults-2" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-adults-2" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-kids-2" data-step="-1">−</button><input id="insl-fr-kids-2" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-kids-2" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-adults-2" data-step="-1">−</button><input id="insl-fr-adults-2" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-adults-2" data-step="1">+</button></div></td></tr>
+<tr><td>3</td><td><input id="insl-name-3" type="text" placeholder="ชื่อกิจกรรม Inspire Lab"></td><td><select id="insl-officer-3" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="insl-th-kids-3" data-step="-1">−</button><input id="insl-th-kids-3" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-kids-3" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-th-adults-3" data-step="-1">−</button><input id="insl-th-adults-3" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-adults-3" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-kids-3" data-step="-1">−</button><input id="insl-fr-kids-3" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-kids-3" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-adults-3" data-step="-1">−</button><input id="insl-fr-adults-3" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-adults-3" data-step="1">+</button></div></td></tr>
+<tr><td>4</td><td><input id="insl-name-4" type="text" placeholder="ชื่อกิจกรรม Inspire Lab"></td><td><select id="insl-officer-4" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="insl-th-kids-4" data-step="-1">−</button><input id="insl-th-kids-4" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-kids-4" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-th-adults-4" data-step="-1">−</button><input id="insl-th-adults-4" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-adults-4" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-kids-4" data-step="-1">−</button><input id="insl-fr-kids-4" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-kids-4" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-adults-4" data-step="-1">−</button><input id="insl-fr-adults-4" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-adults-4" data-step="1">+</button></div></td></tr>
+<tr><td>5</td><td><input id="insl-name-5" type="text" placeholder="ชื่อกิจกรรม Inspire Lab"></td><td><select id="insl-officer-5" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="insl-th-kids-5" data-step="-1">−</button><input id="insl-th-kids-5" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-kids-5" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-th-adults-5" data-step="-1">−</button><input id="insl-th-adults-5" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-adults-5" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-kids-5" data-step="-1">−</button><input id="insl-fr-kids-5" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-kids-5" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-adults-5" data-step="-1">−</button><input id="insl-fr-adults-5" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-adults-5" data-step="1">+</button></div></td></tr>
+<tr><td>6</td><td><input id="insl-name-6" type="text" placeholder="ชื่อกิจกรรม Inspire Lab"></td><td><select id="insl-officer-6" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="insl-th-kids-6" data-step="-1">−</button><input id="insl-th-kids-6" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-kids-6" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-th-adults-6" data-step="-1">−</button><input id="insl-th-adults-6" type="number" min="0" value="0"><button type="button" data-step-target="insl-th-adults-6" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-kids-6" data-step="-1">−</button><input id="insl-fr-kids-6" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-kids-6" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="insl-fr-adults-6" data-step="-1">−</button><input id="insl-fr-adults-6" type="number" min="0" value="0"><button type="button" data-step-target="insl-fr-adults-6" data-step="1">+</button></div></td></tr>
+</tbody></table><div class="stat-strip" style="margin-top:16px;"><div class="stat-pill">INSL-Ac-SUM-Kids<strong id="insl-sum-kids">0</strong></div><div class="stat-pill">INSL-Ac-SUM-Adults<strong id="insl-sum-adults">0</strong></div><div class="stat-pill">INSL-Ac-SUM-Adult_Kids<strong id="insl-sum-total">0</strong></div></div></div></details>
+            <details class="accordion-card" open style="margin-top:18px;"><summary><span>E. Innovation Space Activities (6 rows)</span><span>⌄</span></summary><div class="accordion-body"><table><thead><tr><th>#</th><th>กิจกรรม</th><th>เจ้าหน้าที่</th><th>TH Kids</th><th>TH Adults</th><th>FR Kids</th><th>FR Adults</th></tr></thead><tbody>
+<tr><td>1</td><td><input id="inns-name-1" type="text" placeholder="ชื่อกิจกรรม Innovation Space"></td><td><select id="inns-officer-1" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="inns-th-kids-1" data-step="-1">−</button><input id="inns-th-kids-1" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-kids-1" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-th-adults-1" data-step="-1">−</button><input id="inns-th-adults-1" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-adults-1" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-kids-1" data-step="-1">−</button><input id="inns-fr-kids-1" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-kids-1" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-adults-1" data-step="-1">−</button><input id="inns-fr-adults-1" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-adults-1" data-step="1">+</button></div></td></tr>
+<tr><td>2</td><td><input id="inns-name-2" type="text" placeholder="ชื่อกิจกรรม Innovation Space"></td><td><select id="inns-officer-2" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="inns-th-kids-2" data-step="-1">−</button><input id="inns-th-kids-2" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-kids-2" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-th-adults-2" data-step="-1">−</button><input id="inns-th-adults-2" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-adults-2" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-kids-2" data-step="-1">−</button><input id="inns-fr-kids-2" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-kids-2" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-adults-2" data-step="-1">−</button><input id="inns-fr-adults-2" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-adults-2" data-step="1">+</button></div></td></tr>
+<tr><td>3</td><td><input id="inns-name-3" type="text" placeholder="ชื่อกิจกรรม Innovation Space"></td><td><select id="inns-officer-3" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="inns-th-kids-3" data-step="-1">−</button><input id="inns-th-kids-3" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-kids-3" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-th-adults-3" data-step="-1">−</button><input id="inns-th-adults-3" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-adults-3" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-kids-3" data-step="-1">−</button><input id="inns-fr-kids-3" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-kids-3" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-adults-3" data-step="-1">−</button><input id="inns-fr-adults-3" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-adults-3" data-step="1">+</button></div></td></tr>
+<tr><td>4</td><td><input id="inns-name-4" type="text" placeholder="ชื่อกิจกรรม Innovation Space"></td><td><select id="inns-officer-4" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="inns-th-kids-4" data-step="-1">−</button><input id="inns-th-kids-4" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-kids-4" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-th-adults-4" data-step="-1">−</button><input id="inns-th-adults-4" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-adults-4" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-kids-4" data-step="-1">−</button><input id="inns-fr-kids-4" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-kids-4" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-adults-4" data-step="-1">−</button><input id="inns-fr-adults-4" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-adults-4" data-step="1">+</button></div></td></tr>
+<tr><td>5</td><td><input id="inns-name-5" type="text" placeholder="ชื่อกิจกรรม Innovation Space"></td><td><select id="inns-officer-5" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="inns-th-kids-5" data-step="-1">−</button><input id="inns-th-kids-5" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-kids-5" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-th-adults-5" data-step="-1">−</button><input id="inns-th-adults-5" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-adults-5" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-kids-5" data-step="-1">−</button><input id="inns-fr-kids-5" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-kids-5" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-adults-5" data-step="-1">−</button><input id="inns-fr-adults-5" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-adults-5" data-step="1">+</button></div></td></tr>
+<tr><td>6</td><td><input id="inns-name-6" type="text" placeholder="ชื่อกิจกรรม Innovation Space"></td><td><select id="inns-officer-6" class="officer-select"></select></td><td><div class="stepper"><button type="button" data-step-target="inns-th-kids-6" data-step="-1">−</button><input id="inns-th-kids-6" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-kids-6" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-th-adults-6" data-step="-1">−</button><input id="inns-th-adults-6" type="number" min="0" value="0"><button type="button" data-step-target="inns-th-adults-6" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-kids-6" data-step="-1">−</button><input id="inns-fr-kids-6" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-kids-6" data-step="1">+</button></div></td><td><div class="stepper"><button type="button" data-step-target="inns-fr-adults-6" data-step="-1">−</button><input id="inns-fr-adults-6" type="number" min="0" value="0"><button type="button" data-step-target="inns-fr-adults-6" data-step="1">+</button></div></td></tr>
+</tbody></table><div class="stat-strip" style="margin-top:16px;"><div class="stat-pill">INNS-Ac-SUM-Kids<strong id="inns-sum-kids">0</strong></div><div class="stat-pill">INNS-Ac-SUM-Adults<strong id="inns-sum-adults">0</strong></div><div class="stat-pill">INNS-Ac-SUM-Adult_Kids<strong id="inns-sum-total">0</strong></div></div></div></details>
+            <details class="accordion-card" open style="margin-top:18px;"><summary><span>F. Combined Room Totals</span><span>⌄</span></summary><div class="accordion-body"><div class="compact-grid"><div class="metric-card"><span class="metric-label">Adults-TH-Activity-room-SUM</span><span id="combined-th-sum" class="summary-value">0</span></div><div class="metric-card"><span class="metric-label">Adults-FR-Activity-room-SUM</span><span id="combined-fr-sum" class="summary-value">0</span></div></div></div></details>
           </div>
         </div>
-        </div>
-
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div class="section-title">📅 ตารางจองเวลากิจกรรม</div>
-          <button class="btn btn-primary btn-sm" onclick="addBookingRow()">+ เพิ่มแถว</button>
-        </div>
-
-        <div class="table-wrap">
-          <table class="data-table" id="booking-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>ชื่อโรงเรียน</th>
-                <th>ชื่อกิจกรรม</th>
-                <th>จำนวน (คน)</th>
-                <th>เวลา</th>
-                <th>เจ้าหน้าที่ผู้รับผิดชอบ</th>
-                <th style="width:50px;"></th>
-              </tr>
-            </thead>
-
-            <tbody id="booking-tbody">
-              <tr>
-                <td>1</td>
-                <td><input type="text" class="form-input"></td>
-                <td><input type="text" class="form-input"></td>
-                <td><input type="number" class="form-input" min="0"></td>
-                <td><input type="time" class="form-input"></td>
-                <td><input type="text" class="form-input"></td>
-                <td>
-                  <button class="btn btn-danger btn-sm" onclick="deleteBookingRow(this)">✕</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-
-
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">🎓 กิจกรรมพิเศษอื่นๆ</div>
-          <div class="form-group" style="margin:0;">
-            <label class="form-label">เช็ค M-Education (ใช้พื้นที่กิจกรรมส่งเสริมการเรียนรู้) เป็นผู้ชี้แจงเกี่ยวกับ Inspire Lab, Innovation Space, Walk Rally ซึ่งจะระบุรายละเอียดกิจกรรม และรอบเวลา</label>
-            <textarea id="m-education-activities" class="form-input" rows="2" placeholder="รายละเอียดกิจกรรม..."></textarea>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">⭐ กิจกรรมพิเศษ</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">กิจกรรมพิเศษ 1</label>
-              <input id="special1" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">กิจกรรมพิเศษ 2</label>
-              <input id="special2" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">กิจกรรมพิเศษ 3</label>
-              <input id="special3" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">กิจกรรมพิเศษ 4</label>
-              <input id="special4" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">กิจกรรมพิเศษ 5</label>
-              <input id="special5" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">กิจกรรมพิเศษ 6</label>
-              <input id="special6" type="text" class="form-input" placeholder="ชื่อกิจกรรม">
-            </div>
-          </div>
-        </div>
-
-        <!-- Collapsible info -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-header" onclick="toggleSec(this)">
-            <div style="font-size:14px;font-weight:600;">ℹ️ ข้อมูล / ข้อปฏิบัติ</div>
-            <span class="chevron">▼</span>
-          </div>
-          <div class="section-body" style="max-height:300px;margin-top:12px;">
-            <div class="info-box">
-              <ul>
-                <li>เวลาทำการ: 08:30 - 16:30 น. (วันอังคาร - ศุกร์)</li>
-                <li>เวลาทำการ: 09:30 - 17:30 น. (วันเสาร์ - วันอาทิตย์และวันหยุดนักขัตฤกษ์)</li>
-                <li>MOD ต้องรายงาน Briefing เช้าทุกวัน</li>
-                <li>บันทึกข้อมูลผู้เข้าชมให้ครบถ้วนในแต่ละวัน</li>
-                <li>กรณีเกิดเหตุฉุกเฉิน ติดต่อหัวหน้าทันที</li>
-                <li>ตรวจสอบอุปกรณ์ประจำโซนก่อนเปิดให้บริการ</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">📋 ระเบียบข้อควรปฏิบัติ</div>
-          <div style="display:grid;gap:12px;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">1. ดูแลเรื่องการแต่งกายให้เรียบร้อยเหมาะสม และกิริยามารยาท</label>
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">2. เน้นหมายของการบริการ คือ ความปลอดภัยของผู้เข้าชม ความปลอดภัยของทีมงาน และความพึงพอใจของผู้เข้าชม</label>
-            </div>
-          </div>
-        </div>
-
-        <!-- Exhibition Zones - Staff Assignment -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">EX</span> Exhibition Zones - เจ้าหน้าที่ประจำโซน</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>โซน</th><th>ชื่ออาสาประจำจุด</th></tr></thead>
-              <tbody>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><select id="ex-z1-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><select id="ex-z2-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><select id="ex-z3-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><select id="ex-z4-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><select id="ex-innovation-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><select id="ex-inspire-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><select id="ex-make-play1-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
-          <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><select id="ex-make-play2-name" class="form-input"><option value="">-- เลือกอาสาสมัคร --</option></select></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Morning save -->
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;">
-          <button class="btn btn-success" onclick="saveMorningSession()">💾 บันทึกช่วงเช้า</button>
-          <span id="morning-save-status" style="font-size:13px;color:var(--text-muted);align-self:center;"></span>
-        </div>
-      </div>
-
-      <!-- TAB 2: AFTERNOON -->
-      <div id="day-tab-1" class="tab-content">
-        <!-- Volunteer display (auto-populated from morning tab) -->
-        <div class="card" style="margin-bottom:16px;background:var(--accent-dim);border-color:var(--accent);">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-            <div style="font-weight:600;color:var(--accent);">👥 อาสาสมัครประจำวัน (จากช่วงเช้า)</div>
-            <button class="btn btn-ghost btn-sm" onclick="syncVolunteersToAfternoonTab()">🔄 ดึงชื่อจากช่วงเช้า</button>
-          </div>
-          <div id="afternoon-volunteer-list" style="display:flex;flex-wrap:wrap;gap:8px;">
-            <span style="font-size:13px;color:var(--text-muted);">ℹ️ กดปุ่มเพื่อดึงชื่ออาสาจากช่วงเช้า</span>
-          </div>
-        </div>
-
-<!-- Exhibition Zones - Issues Found -->
-        <div class="card" style="margin-bottom:16px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-            <div class="section-title" style="margin:0;"><span class="section-badge">⚠️</span> ปัญหา / ข้อเสนอประจำโซน</div>
-          </div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>โซน</th><th>อาสาผู้รับผิดชอบ</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th><th></th></tr></thead>
-              <tbody>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="ex-z1-staff" type="text" class="form-input"></td><td><input id="ex-z1-issue" type="text" class="form-input"></td><td><input id="ex-z1-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 1 ค้นพบตัวตน')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="ex-z2-staff" type="text" class="form-input"></td><td><input id="ex-z2-issue" type="text" class="form-input"></td><td><input id="ex-z2-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 2 เปิดโลกทางการแพทย์')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="ex-z3-staff" type="text" class="form-input"></td><td><input id="ex-z3-issue" type="text" class="form-input"></td><td><input id="ex-z3-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 3 ฐานปฏิบัติการภัยพิบัต')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="ex-z4-staff" type="text" class="form-input"></td><td><input id="ex-z4-issue" type="text" class="form-input"></td><td><input id="ex-z4-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 4 การบินและอวกาศ')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="ex-innovation-staff" type="text" class="form-input"></td><td><input id="ex-innovation-issue" type="text" class="form-input"></td><td><input id="ex-innovation-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Innovation Space')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab </td><td><input id="ex-inspire-staff" type="text" class="form-input"></td><td><input id="ex-inspire-issue" type="text" class="form-input"></td><td><input id="ex-inspire-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Inspire Lab')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="ex-make-play1-staff" type="text" class="form-input"></td><td><input id="ex-make-play1-issue" type="text" class="form-input"></td><td><input id="ex-make-play1-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Make and Play 1')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-            <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="ex-make-play2-staff" type="text" class="form-input"></td><td><input id="ex-make-play2-issue" type="text" class="form-input"></td><td><input id="ex-make-play2-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Make and Play 2')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-          
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div class="card" style="margin-bottom:16px;">
-        <div class="section-title"><span class="section-badge">VS</span> Visitor Service</div>
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
-              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter1-name" type="text" class="form-input" list="officers-datalist"></div>
-              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="vs-counter1-issue" type="text" class="form-input"></div>
-              <div><label class="form-label">หมายเหตุ</label><input id="vs-counter1-note" type="text" class="form-input"></div>
-            </div>
-          </div>
-          <div style="margin-top:10px;">
-            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 2</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
-              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="vs-counter2-name" type="text" class="form-input" list="officers-datalist"></div>
-              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="vs-counter2-issue" type="text" class="form-input"></div>
-              <div><label class="form-label">หมายเหตุ</label><input id="vs-counter2-note" type="text" class="form-input"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ED Education Programs -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">ED</span> Education Programs</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>โปรแกรม</th><th>ชื่ออาสา</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
-              <tbody>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">Inspire Lab</td><td><input id="ed-inspire-name" type="text" class="form-input"></td><td><input id="ed-inspire-issue" type="text" class="form-input"></td><td><input id="ed-inspire-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">Innovation Space</td><td><input id="ed-innovation-name" type="text" class="form-input"></td><td><input id="ed-innovation-issue" type="text" class="form-input"></td><td><input id="ed-innovation-note" type="text" class="form-input"></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">Mini Make &amp; Play</td><td><input id="ed-mini-name" type="text" class="form-input"></td><td><input id="ed-mini-issue" type="text" class="form-input"></td><td><input id="ed-mini-note" type="text" class="form-input"></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom:16px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <div class="section-title" style="margin:0;"><span class="section-badge">OP</span> ผู้เข้าร่วมกิจกรรม Activity Room</div>
-            <button class="btn btn-primary btn-sm" onclick="addActivityRow()">+ เพิ่มแถว</button>
-          </div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th style="width:160px;">กิจกรรม</th>
-                  <th>ชื่อกิจกรรม</th>
-                  <th>เจ้าหน้าที่</th>
-                  <th>ประเภทผู้เข้าร่วม</th>
-                  <th>ชื่อกลุ่ม</th>
-                  <th colspan="2" style="text-align:center;">ชาวไทย</th>
-                  <th colspan="2" style="text-align:center;">ชาวต่างชาติ</th>
-                  <th colspan="2" style="text-align:center;">หมู่คณะ</th>
-                  <th style="width:40px;"></th>
-                </tr>
-                <tr>
-                  <th></th><th></th><th></th><th></th><th></th>
-                  <th style="font-size:12px;text-align:center;width:60px;">เด็ก</th>
-                  <th style="font-size:12px;text-align:center;width:60px;">ผู้ใหญ่</th>
-                  <th style="font-size:12px;text-align:center;width:60px;">เด็ก</th>
-                  <th style="font-size:12px;text-align:center;width:60px;">ผู้ใหญ่</th>
-                  <th style="font-size:12px;text-align:center;width:60px;">เด็ก</th>
-                  <th style="font-size:12px;text-align:center;width:60px;">ผู้ใหญ่</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="activity-tbody">
-                <!-- Dynamic rows will be added here -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Section A Walk-in -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">A</span> ผู้เข้าชมทั่วไป (Walk-in)</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>ประเภท</th>
-                  <th>เด็ก</th>
-                  <th>ผู้ใหญ่</th>
-                  <th>รวม</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>ผู้เข้าชมไทย</td>
-                  <td><input type="number" id="vis-a-thai-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-a-thai-adult" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-a-thai-total">0</td>
-                </tr>
-                <tr>
-                  <td>ผู้เข้าชมต่างชาติ</td>
-                  <td><input type="number" id="vis-a-for-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-a-for-adult" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-a-for-total">0</td>
-                </tr>
-                <tr>
-                  <td>
-                    <div>สมาชิก</div>
-                    <div style="font-size:11px;color:var(--text-muted);">(เด็ก / ผู้ใหญ่ / FC / FA)</div>
-                  </td>
-                  <td>
-                    <div style="display:flex;flex-direction:column;gap:3px;">
-                      <input type="number" id="vis-a-mem-child" class="num-input" min="0" value="0" oninput="calcVis()" placeholder="เด็ก">
-                      <input type="number" id="vis-a-mem-fc" class="num-input" min="0" value="0" oninput="calcVis()" placeholder="FC">
-                    </div>
-                  </td>
-                  <td>
-                    <div style="display:flex;flex-direction:column;gap:3px;">
-                      <input type="number" id="vis-a-mem-adult" class="num-input" min="0" value="0" oninput="calcVis()" placeholder="ผู้ใหญ่">
-                      <input type="number" id="vis-a-mem-fa" class="num-input" min="0" value="0" oninput="calcVis()" placeholder="FA">
-                    </div>
-                  </td>
-                  <td class="computed" id="vis-a-mem-total">0</td>
-                </tr>
-                <tr class="total-row">
-                  <td colspan="3"><strong>รวม Walk-in</strong></td>
-                  <td class="computed" id="vis-a-total">0</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Section B Group -->
-        <div class="card" style="margin-bottom:16px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-            <div class="section-title" style="margin:0;"><span class="section-badge">B</span> ผู้เข้าชมนิทรรศกาลแบบกลุ่ม (Group) — <span style="font-size:13px;color:var(--text-muted);">จำนวนกลุ่ม: <input type="number" id="vis-b-group-count" class="num-input" min="0" value="0" style="width:70px;display:inline-block;margin:0 4px;" oninput="calcVis()"> กลุ่ม</span></div>
-            <button class="btn btn-primary btn-sm" onclick="addGroupRow()">+ เพิ่มกลุ่ม</button>
-          </div>
-          <div class="table-wrap">
-            <table class="data-table" id="group-table">
-              <thead>
-          <tr>
-            <th>#</th>
-            <th>ชื่อกลุ่ม</th>
-            <th colspan="2" style="text-align:center;">ชาวไทย</th>
-            <th colspan="2" style="text-align:center;">ชาวต่างชาติ</th>
-            <th>รวม</th>
-            <th></th>
-          </tr>
-          <tr>
-            <th></th>
-            <th></th>
-            <th style="font-size:12px;text-align:center;">เด็ก</th>
-            <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
-            <th style="font-size:12px;text-align:center;">เด็ก</th>
-            <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
-            <th></th>
-            <th></th>
-          </tr>
-              </thead>
-              <tbody id="group-tbody" oninput="calcVis()"></tbody>
-              <tfoot>
-          <tr class="total-row">
-            <td colspan="2"><strong>รวมทั้งหมด</strong></td>
-            <td class="computed" id="vis-b-thai-child-total">0</td>
-            <td class="computed" id="vis-b-thai-adult-total">0</td>
-            <td class="computed" id="vis-b-for-child-total">0</td>
-            <td class="computed" id="vis-b-for-adult-total">0</td>
-            <td class="computed" id="vis-b-total">0</td>
-            <td></td>
-          </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div style="display:flex;align-items:center;gap:16px;margin-top:10px;flex-wrap:wrap;">
-            <span style="font-size:13px;color:var(--text-muted);">สมาชิกกลุ่ม —</span>
-            <label for="vis-b-ic" class="form-label" style="margin:0;font-size:13px;color:var(--text-muted);">IC:</label>
-            <input type="number" id="vis-b-ic" class="num-input" min="0" value="0" oninput="calcVis()" style="width:80px;" placeholder="0">
-            <label for="vis-b-ia" class="form-label" style="margin:0;font-size:13px;color:var(--text-muted);">IA:</label>
-            <input type="number" id="vis-b-ia" class="num-input" min="0" value="0" oninput="calcVis()" style="width:80px;" placeholder="0">
-          </div>
-        </div>
-
-        <!-- Section C Senior -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">C</span> ผู้สูงอายุ (Senior)</div>
-          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-            <span style="font-size:14px;color:var(--text-muted);">จำนวนผู้สูงอายุ (60 ปีขึ้นไป):</span>
-            <input type="number" id="vis-c-senior" class="num-input" min="0" value="0" oninput="calcVis()" style="width:100px;">
-            <span style="font-size:14px;color:var(--text-muted);">คน</span>
-          </div>
-        </div>
-
-        <!-- Section D Educational Activities -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">D</span> กิจกรรมการศึกษา</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th rowspan="2">กิจกรรม</th>
-                  <th colspan="2" style="text-align:center;">ชาวไทย</th>
-                  <th colspan="2" style="text-align:center;">ชาวต่างชาติ</th>
-                  <th rowspan="2">รวม</th>
-                </tr>
-                <tr>
-                  <th style="font-size:12px;text-align:center;">เด็ก</th>
-                  <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
-                  <th style="font-size:12px;text-align:center;">เด็ก</th>
-                  <th style="font-size:12px;text-align:center;">ผู้ใหญ่</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Inspire Lab</td>
-                  <td><input type="number" id="vis-d-ins-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-ins-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-ins-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-ins-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-d-ins-total">0</td>
-                </tr>
-                <tr>
-                  <td>Innovation Space</td>
-                  <td><input type="number" id="vis-d-inv-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-inv-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-inv-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-inv-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-d-inv-total">0</td>
-                </tr>
-                <tr>
-                  <td>Walk Rallies</td>
-                  <td><input type="number" id="vis-d-wr-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-wr-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-wr-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-wr-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-d-wr-total">0</td>
-                </tr>
-                <tr>
-                  <td>Mini Make &amp; Play 1</td>
-                  <td><input type="number" id="vis-d-mm1-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td colspan="3" style="color:var(--text-muted);font-size:12px;text-align:center;">เด็กเท่านั้น</td>
-                  <td class="computed" id="vis-d-mm1-total">0</td>
-                </tr>
-                                <tr>
-                  <td>Mini Make &amp; Play 2</td>
-                  <td><input type="number" id="vis-d-mm2-child" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td colspan="3" style="color:var(--text-muted);font-size:12px;text-align:center;">เด็กเท่านั้น</td>
-                  <td class="computed" id="vis-d-mm2-total">0</td>
-                </tr>
-                <tr>
-                  <td>Special Event</td>
-                  <td><input type="number" id="vis-d-sp-tc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-sp-ta" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-sp-fc" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td><input type="number" id="vis-d-sp-fa" class="num-input" min="0" value="0" oninput="calcVis()"></td>
-                  <td class="computed" id="vis-d-sp-total">0</td>
-                </tr>
-                <tr>
-                  <td>
-                    <div>อื่น ๆ</div>
-                    <input type="text" id="vis-d-oth-name" class="form-input" style="margin-top:4px;font-size:12px;" placeholder="ระบุชื่อกิจกรรม">
-                  </td>
-                  <td colspan="4">
-                    <input type="number" id="vis-d-oth-count" class="num-input" min="0" value="0" oninput="calcVis()" style="width:100px;">
-                  </td>
-                  <td class="computed" id="vis-d-oth-total">0</td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr class="total-row">
-                  <td colspan="5"><strong>รวมจำนวนผู้เข้าร่วมกิจกรรม</strong></td>
-                  <td class="computed" id="vis-d-total">0</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-
-        <!-- Grand Total -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">ยอดรวมทั้งหมด</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
-            <div class="card" style="background:var(--surface2);text-align:center;">
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รวมนิทรรศการ (Walk-in)</div>
-              <div style="font-size:24px;font-weight:700;color:var(--success);" id="grand-walkin">0</div>
-              <div style="display:flex;justify-content:space-evenly;margin-top:6px;font-size:12px;">
-                <span style="color:var(--text-muted);">ไทย: <strong id="grand-walkin-thai">0</strong></span>
-                <span style="color:var(--text-muted);">ต่างชาติ: <strong id="grand-walkin-foreign">0</strong></span>
-              </div>
-            </div>
-            <div class="card" style="background:var(--surface2);text-align:center;">
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รวมกลุ่ม (Group)</div>
-              <div style="font-size:24px;font-weight:700;color:var(--info);" id="grand-group">0</div>
-              <div style="display:flex;justify-content:space-evenly;margin-top:6px;font-size:12px;">
-                <span style="color:var(--text-muted);">ไทย: <strong id="grand-group-thai">0</strong></span>
-                <span style="color:var(--text-muted);">ต่างชาติ: <strong id="grand-group-foreign">0</strong></span>
-              </div>
-            </div>
-            <div class="card" style="background:var(--surface2);text-align:center;">
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รวมกิจกรรมการศึกษา</div>
-              <div style="font-size:24px;font-weight:700;color:var(--warning);" id="grand-education">0</div>
-              <div style="display:flex;justify-content:space-evenly;margin-top:6px;font-size:12px;">
-                <span style="color:var(--text-muted);">ไทย: <strong id="grand-edu-thai">0</strong></span>
-                <span style="color:var(--text-muted);">ต่างชาติ: <strong id="grand-edu-foreign">0</strong></span>
-              </div>
-            </div>
-          </div>
-          <div class="grand-total-box">
-            <div class="grand-total-label">รวมผู้เข้าชมทั้งหมด</div>
-            <div class="grand-total-number" id="grand-total">0</div>
-            <div class="grand-total-label">คน</div>
-          </div>
-
-          <!-- Summary by Nationality and Age -->
-          <div style="margin-top:16px;">
-            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:8px;">สรุปตามสัญชาติและวัย</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
-              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-                <div style="font-size:11px;color:var(--text-muted);">เด็กไทย</div>
-                <div style="font-size:20px;font-weight:700;color:var(--success);" id="sum-thai-child">0</div>
-              </div>
-              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-                <div style="font-size:11px;color:var(--text-muted);">ผู้ใหญ่ไทย</div>
-                <div style="font-size:20px;font-weight:700;color:var(--success);" id="sum-thai-adult">0</div>
-              </div>
-              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-                <div style="font-size:11px;color:var(--text-muted);">เด็กต่างชาติ</div>
-                <div style="font-size:20px;font-weight:700;color:var(--info);" id="sum-for-child">0</div>
-              </div>
-              <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-                <div style="font-size:11px;color:var(--text-muted);">ผู้ใหญ่ต่างชาติ</div>
-                <div style="font-size:20px;font-weight:700;color:var(--info);" id="sum-for-adult">0</div>
-              </div>
-                <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-                <div style="font-size:11px;color:var(--text-muted);">เด็กทั้งหมด</div>
-                <div style="font-size:20px;font-weight:700;color:white;" id="sum-all-child">0</div>
-                </div>
-                <div style="border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-                <div style="font-size:11px;color:var(--text-muted);">ผู้ใหญ่ทั้งหมด</div>
-                <div style="font-size:20px;font-weight:700;color:white;" id="sum-all-adult">0</div>
-                </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Revenue -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">💰 รายได้</div>
-          <div class="table-wrap">
-            <table class="data-table" id="rev-table">
-              <thead>
-                <tr>
-                  <th>ประเภท</th>
-                  <th>Exhibition</th>
-                  <th>Inspire Lab</th>
-                  <th>Innovation Space</th>
-                  <th>Walk Rallies</th>
-                  <th>Mini Make &amp; Play</th>
-                  <th>Special Event</th>
-                  <th>สมาชิก / วารสาร</th>
-                  <th>อื่น ๆ</th>
-                  <th>รวมทั้งหมด</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style="color:var(--text-muted);white-space:nowrap;">รายได้ (บาท)</td>
-                  <td><input type="number" id="rev-ex" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="rev-ins" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="rev-inv" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="rev-wr" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="rev-mm" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="rev-sp" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="rev-mem" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="rev-oth" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td class="computed" id="rev-row-total">0</td>
-                </tr>
-                <tr>
-                  <td style="color:var(--text-muted);white-space:nowrap;">ออนไลน์ (บาท)</td>
-                  <td><input type="number" id="online-ex" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="online-ins" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="online-inv" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="online-wr" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="online-mm" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="online-sp" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="online-mem" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td><input type="number" id="online-oth" class="num-input" min="0" value="0" oninput="calcRev()"></td>
-                  <td class="computed" id="online-row-total">0</td>
-                </tr>
-                <tr class="total-row">
-                  <td><strong>รวม</strong></td>
-                  <td class="computed" id="col-ex-total">0</td>
-                  <td class="computed" id="col-ins-total">0</td>
-                  <td class="computed" id="col-inv-total">0</td>
-                  <td class="computed" id="col-wr-total">0</td>
-                  <td class="computed" id="col-mm-total">0</td>
-                  <td class="computed" id="col-sp-total">0</td>
-                  <td class="computed" id="col-mem-total">0</td>
-                  <td class="computed" id="col-oth-total">0</td>
-                  <td class="computed" id="rev-grand-total" style="font-size:16px;">0</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Notes -->
-        <div class="card" style="margin-bottom:16px;">
-          <label class="form-label">📌 หมายเหตุประจำวัน</label>
-          <textarea id="daily-notes" class="form-input" rows="3" placeholder="บันทึกเหตุการณ์พิเศษ ปัญหา หรือข้อมูลเพิ่มเติม..."></textarea>
-        </div>
-
-        <!-- Summary Preview -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title">📋 สรุปข้อมูลวันนี้</div>
-          <div class="preview-box">
-            <div class="preview-row"><span class="preview-label">วันที่</span><span class="preview-value" id="prev-date">-</span></div>
-            <div class="preview-row"><span class="preview-label">MOD ผู้จดบันทึก</span><span class="preview-value" id="prev-mod">-</span></div>
-            <div class="preview-row"><span class="preview-label">ผู้เข้าชมทั้งหมด</span><span class="preview-value" id="prev-visitors">0 คน</span></div>
-            <div class="preview-row"><span class="preview-label">รายได้รวม</span><span class="preview-value" id="prev-revenue">0 บาท</span></div>
-          </div>
-        </div>
-
-        <!-- MOD Signature -->
-        <div class="card" style="margin-bottom:16px;">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end;">
-            <div>
-              <label class="form-label">ลายเซ็น MOD</label>
-              <input id="mod-sign" type="text" class="form-input" placeholder="ชื่อ - นามสกุล">
-            </div>
-            <div>
-              <label class="form-label">วันที่</label>
-                <input id="sign-date" type="date" class="form-input" value="">
-                <script>document.getElementById('sign-date').valueAsDate = new Date();</script>
-            </div>
-          </div>
-        </div>
- 
-        
-    
-         
-        <!-- Save / Clear buttons -->
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-          <button class="btn btn-success" onclick="saveAfternoonSession()">💾 บันทึกช่วงบ่าย</button>
-          <button class="btn btn-primary" onclick="submitAll()">🌐 บันทึกและส่ง Google Sheets</button>
-          <button class="btn btn-danger" onclick="clearAllFields()">🗑 ล้างข้อมูล</button>
-          <span id="sheets-save-status" style="font-size:13px;color:var(--text-muted);align-self:center;"></span>
-        </div>
-        <datalist id="officers-datalist"></datalist>
-        <datalist id="volunteers-datalist"></datalist>
-      </div><!-- /tab afternoon -->
-
-      <!-- TAB 3: EVENING -->
-      <div id="day-tab-2" class="tab-content">
-
-        <!-- Volunteer display (auto-populated from morning tab) -->
-        <div class="card" style="margin-bottom:16px;background:var(--accent-dim);border-color:var(--accent);">
-          <div class="section-title" style="margin-bottom:10px;">👥 อาสาสมัครประจำวัน (จากช่วงเช้า)</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>โซน</th><th>ชื่ออาสาสมัคร</th></tr></thead>
-              <tbody>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td id="eve-vol-z1" style="color:var(--accent);font-weight:600;">-</td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td id="eve-vol-z2" style="color:var(--accent);font-weight:600;">-</td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td id="eve-vol-z3" style="color:var(--accent);font-weight:600;">-</td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td id="eve-vol-z4" style="color:var(--accent);font-weight:600;">-</td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td id="eve-vol-innovation" style="color:var(--accent);font-weight:600;">-</td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td id="eve-vol-inspire" style="color:var(--accent);font-weight:600;">-</td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td id="eve-vol-make-play1" style="color:var(--accent);font-weight:600;">-</td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td id="eve-vol-make-play2" style="color:var(--accent);font-weight:600;">-</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Zone Issues - Evening -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">⚠️</span> ปัญหา / ข้อเสนอตอนเย็น</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>โซน</th><th>อาสาผู้รับผิดชอบ</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th><th></th></tr></thead>
-              <tbody>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 1 ค้นพบตัวตน</td><td><input id="eve-z1-staff" type="text" class="form-input"></td><td><input id="eve-z1-issue" type="text" class="form-input"></td><td><input id="eve-z1-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 1 ค้นพบตัวตน')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 2 เปิดโลกทางการแพทย์</td><td><input id="eve-z2-staff" type="text" class="form-input"></td><td><input id="eve-z2-issue" type="text" class="form-input"></td><td><input id="eve-z2-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 2 เปิดโลกทางการแพทย์')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td><input id="eve-z3-staff" type="text" class="form-input"></td><td><input id="eve-z3-issue" type="text" class="form-input"></td><td><input id="eve-z3-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 3 ฐานปฏิบัติการภัยพิบัต')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">โซน 4 การบินและอวกาศ</td><td><input id="eve-z4-staff" type="text" class="form-input"></td><td><input id="eve-z4-issue" type="text" class="form-input"></td><td><input id="eve-z4-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('โซน 4 การบินและอวกาศ')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Innovation Space</td><td><input id="eve-innovation-staff" type="text" class="form-input"></td><td><input id="eve-innovation-issue" type="text" class="form-input"></td><td><input id="eve-innovation-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Innovation Space')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Inspire Lab</td><td><input id="eve-inspire-staff" type="text" class="form-input"></td><td><input id="eve-inspire-issue" type="text" class="form-input"></td><td><input id="eve-inspire-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Inspire Lab')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 1</td><td><input id="eve-make-play1-staff" type="text" class="form-input"></td><td><input id="eve-make-play1-issue" type="text" class="form-input"></td><td><input id="eve-make-play1-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Make and Play 1')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-                <tr><td style="color:var(--text-muted);white-space:nowrap;">ห้อง Make and Play 2</td><td><input id="eve-make-play2-staff" type="text" class="form-input"></td><td><input id="eve-make-play2-issue" type="text" class="form-input"></td><td><input id="eve-make-play2-note" type="text" class="form-input"></td><td><button class="btn btn-ghost btn-sm" onclick="openIssueModal('ห้อง Make and Play 2')" style="white-space:nowrap;">📝 รายงาน</button></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- VS Evening -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="section-title"><span class="section-badge">VS</span> Visitor Service (ตอนเย็น)</div>
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 1</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
-              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="eve-vs-counter1-name" type="text" class="form-input" list="officers-datalist"></div>
-              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="eve-vs-counter1-issue" type="text" class="form-input"></div>
-              <div><label class="form-label">หมายเหตุ</label><input id="eve-vs-counter1-note" type="text" class="form-input"></div>
-            </div>
-          </div>
-          <div style="margin-top:10px;">
-            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">เคาน์เตอร์ชั้น 2</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
-              <div><label class="form-label">ชื่อเจ้าหน้าที่</label><input id="eve-vs-counter2-name" type="text" class="form-input" list="officers-datalist"></div>
-              <div><label class="form-label">ปัญหา / ข้อเสนอ</label><input id="eve-vs-counter2-issue" type="text" class="form-input"></div>
-              <div><label class="form-label">หมายเหตุ</label><input id="eve-vs-counter2-note" type="text" class="form-input"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Evening Notes -->
-        <div class="card" style="margin-bottom:16px;">
-          <label class="form-label">📌 หมายเหตุตอนเย็น</label>
-          <textarea id="eve-notes" class="form-input" rows="3" placeholder="บันทึกเหตุการณ์พิเศษตอนเย็น ปัญหา หรือข้อมูลเพิ่มเติม..."></textarea>
-        </div>
-
-        <!-- Evening Save -->
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-          <button class="btn btn-success" onclick="saveEveningSession()">💾 บันทึกช่วงเย็น</button>
-          <span id="evening-save-status" style="font-size:13px;color:var(--text-muted);align-self:center;"></span>
-        </div>
-
-      </div><!-- /tab evening -->
-
-    </div><!-- /page-daily-log -->
-
-    <!-- ===== HISTORY PAGE ===== -->
-    <div id="page-history" class="page-content" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
-        <div style="font-size:20px;font-weight:700;">📋 ประวัติการบันทึก</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <label class="form-label" style="margin:0;">กรองเดือน:</label>
-          <select id="history-filter-month" class="form-input" style="width:180px;" onchange="renderHistory(this.value)">
-            <option value="">ทั้งหมด</option>
-          </select>
-          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📥 Export CSV</button>
-        </div>
-      </div>
-      <!-- Stats row -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
-        <div class="card" style="text-align:center;">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">ทั้งหมด</div>
-          <div style="font-size:22px;font-weight:700;" id="history-stat-total">0</div>
-        </div>
-        <div class="card" style="text-align:center;">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">ผู้เข้าชม</div>
-          <div style="font-size:22px;font-weight:700;color:var(--success);" id="history-stat-visitors">0</div>
-        </div>
-        <div class="card" style="text-align:center;">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">รายได้ (บาท)</div>
-          <div style="font-size:22px;font-weight:700;color:var(--warning);" id="history-stat-revenue">0</div>
-        </div>
-        <div class="card" style="text-align:center;">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">เดือน</div>
-          <div style="font-size:22px;font-weight:700;color:var(--info);" id="history-stat-months">0</div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>วันที่</th>
-                <th>MOD</th>
-                <th>Walk-in</th>
-                <th>กลุ่ม</th>
-                <th>การศึกษา</th>
-                <th>รวม</th>
-                <th>รายได้ (บาท)</th>
-                <th>การดำเนินการ</th>
-              </tr>
-            </thead>
-            <tbody id="history-tbody">
-              <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px;">ยังไม่มีข้อมูล</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:10px;">
-          <div style="font-size:13px;color:var(--text-muted);" id="history-info">แสดง 0 รายการ</div>
-          <div class="pagination" id="history-pagination"></div>
-        </div>
-      </div>
-    </div><!-- /page-history -->
-
-    <!-- ===== SUMMARY PAGE ===== -->
-    <div id="page-summary" class="page-content" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-        <div style="font-size:20px;font-weight:700;">📈 สรุปภาพรวม</div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost btn-sm" onclick="renderSummary()">🔄 รีเฟรช</button>
-          <button class="btn btn-primary btn-sm" onclick="exportPDF()">📄 Export PDF</button>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
-        <div class="stat-card">
-          <div class="stat-icon" style="background:rgba(0,85,255,0.15);">📁</div>
-          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">บันทึกทั้งหมด</div><div style="font-size:24px;font-weight:700;" id="sum-stat-records">0</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:rgba(0,184,148,0.15);">👥</div>
-          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">ผู้เข้าชมทั้งหมด</div><div style="font-size:24px;font-weight:700;" id="sum-stat-visitors">0</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:rgba(253,203,110,0.15);">💰</div>
-          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">รายได้รวม (บาท)</div><div style="font-size:24px;font-weight:700;" id="sum-stat-revenue">0</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:rgba(116,185,255,0.15);">📊</div>
-          <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">เฉลี่ย/วัน</div><div style="font-size:24px;font-weight:700;" id="sum-stat-avg">0</div></div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:24px;">
-        <div class="card">
-          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">แนวโน้มผู้เข้าชมรายเดือน</div>
-          <canvas id="summary-chart" height="220"></canvas>
-        </div>
-        <div class="card">
-          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">Top MOD Performance</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>#</th><th>MOD</th><th>วัน</th><th>ผู้เข้าชม</th></tr></thead>
-              <tbody id="sum-mod-tbody">
-                <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:16px;">
-        <div style="font-size:15px;font-weight:600;margin-bottom:16px;">สรุปรายเดือน</div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>เดือน</th><th>วันที่มีข้อมูล</th><th>ผู้เข้าชม</th><th>รายได้ (บาท)</th><th>เฉลี่ย/วัน</th></tr></thead>
-            <tbody id="sum-month-tbody">
-              <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Officer Activity Statistics -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-          <div style="font-size:15px;font-weight:600;">สถิติการปฏิบัติงานของเจ้าหน้าที่</div>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>#</th><th>ชื่อเจ้าหน้าที่</th><th>จำนวนรอบที่ปฏิบัติงาน</th><th>%</th></tr></thead>
-            <tbody id="sum-officer-stats-tbody">
-              <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div><!-- /page-summary -->
-
-    <!-- ===== EXPORT PAGE ===== -->
-    <div id="page-export" class="page-content" style="display:none">
-      <div style="font-size:20px;font-weight:700;margin-bottom:20px;">📤 ส่งออกข้อมูล</div>
-      <div class="export-card">
-        <div class="export-card-title">📥 Export CSV</div>
-        <div class="export-card-desc">ส่งออกข้อมูลในรูปแบบ CSV สำหรับ Excel หรือ Google Sheets</div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div class="input-group"><span class="input-label">จาก:</span><input type="date" id="csv-start" class="form-input" style="width:160px;"></div>
-          <div class="input-group"><span class="input-label">ถึง:</span><input type="date" id="csv-end" class="form-input" style="width:160px;"></div>
-          <button class="btn btn-primary" onclick="exportCSV(document.getElementById('csv-start').value, document.getElementById('csv-end').value)">📥 ดาวน์โหลด CSV</button>
-        </div>
-      </div>
-      <div class="export-card">
-        <div class="export-card-title">📄 Export PDF สรุปข้อมูล</div>
-        <div class="export-card-desc">สร้างรายงาน PDF สรุปข้อมูลผู้เข้าชมและรายได้ในช่วงวันที่กำหนด</div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div class="input-group"><span class="input-label">จาก:</span><input type="date" id="pdf-start" class="form-input" style="width:160px;"></div>
-          <div class="input-group"><span class="input-label">ถึง:</span><input type="date" id="pdf-end" class="form-input" style="width:160px;"></div>
-          <button class="btn btn-danger" onclick="exportPDF(document.getElementById('pdf-start').value, document.getElementById('pdf-end').value)">📄 ดาวน์โหลด PDF</button>
-        </div>
-      </div>
-      <div class="export-card" style="border-color:var(--accent);background:var(--accent-dim);">
-        <div class="export-card-title" style="color:var(--accent);">📋 Export Daily Briefing PDF <span style="font-size:12px;background:var(--accent);color:white;padding:2px 8px;border-radius:12px;font-weight:600;">ใหม่!</span></div>
-        <div class="export-card-desc">สร้างรายงาน Briefing ประจำวัน (2 หน้า) พร้อมโลโก้ ฟอนต์ TH Sarabun รูปแบบมาตรฐาน MOD</div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div class="input-group"><span class="input-label">วันที่:</span><input type="date" id="briefing-date" class="form-input" style="width:160px;"></div>
-          <button class="btn btn-primary" onclick="exportBriefingFromDate()">📋 Export Briefing PDF</button>
-        </div>
-      </div>
-      <div class="export-card">
-        <div class="export-card-title">📊 ส่งไป Google Sheets</div>
-        <div class="export-card-desc">ส่งข้อมูลทั้งหมดไปยัง Google Sheets ผ่าน Apps Script URL</div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <button class="btn btn-success" onclick="submitAll()">📊 ส่งข้อมูลทั้งหมด</button>
-          <button class="btn btn-ghost" onclick="openModal('settings-modal')">⚙️ ตั้งค่า URL</button>
-        </div>
-      </div>
-      <div class="card">
-        <div style="font-size:15px;font-weight:600;margin-bottom:12px;">Preview ข้อมูล</div>
-        <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;" id="export-preview-info">พบข้อมูลทั้งหมด <strong id="export-count" style="color:var(--text);">0</strong> รายการ</div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>วันที่</th><th>MOD</th><th>ผู้เข้าชม</th><th>รายได้ (บาท)</th></tr></thead>
-            <tbody id="export-preview-tbody">
-              <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div><!-- /page-export -->
-
-    <!-- ===== SETTINGS PAGE ===== -->
-    <div id="page-settings" class="page-content" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
-        <div style="font-size:20px;font-weight:700;">⚙️ ตั้งค่าระบบ</div>
-        <button class="btn btn-primary btn-sm" onclick="settingsSync()">🔄 Sync ข้อมูลใหม่</button>
-      </div>
-
-      <!-- Connection Status -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="font-size:15px;font-weight:600;margin-bottom:12px;">📊 Google Sheets Connection</div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div id="settings-conn-status" style="font-size:14px;color:var(--text-muted);">กำลังตรวจสอบ...</div>
-          <div id="settings-last-sync" style="font-size:12px;color:var(--text-muted);"></div>
-        </div>
-        <div style="margin-top:12px;">
-          <label class="form-label">Google Apps Script URL</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <input id="settings-sheets-url" type="url" class="form-input" style="flex:1;min-width:200px;" placeholder="https://script.google.com/...">
-            <button class="btn btn-ghost btn-sm" onclick="settingsSaveURL()">💾 บันทึก URL</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Volunteers -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <div style="font-size:15px;font-weight:600;">👥 อาสาสมัคร</div>
-          <span id="settings-vol-count" style="font-size:12px;color:var(--text-muted);"></span>
-        </div>
-        <div id="settings-volunteers-list" style="display:flex;flex-wrap:wrap;gap:8px;">
-          <span style="color:var(--text-muted);font-size:13px;">กดปุ่ม Sync เพื่อดึงข้อมูล</span>
-        </div>
-        <div style="margin-top:12px;">
-          <label class="form-label">เพิ่มรายชื่ออาสาสมัครด้วยตนเอง (1 ชื่อต่อบรรทัด)</label>
-          <textarea id="settings-volunteers-textarea" class="form-input" rows="4" placeholder="ชื่ออาสาสมัคร 1&#10;ชื่ออาสาสมัคร 2"></textarea>
-          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="settingsSaveManual()">💾 บันทึกรายชื่อ</button>
-        </div>
-      </div>
-
-      <!-- Officers -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <div style="font-size:15px;font-weight:600;">👔 เจ้าหน้าที่</div>
-          <span id="settings-off-count" style="font-size:12px;color:var(--text-muted);"></span>
-        </div>
-        <div id="settings-officers-list" style="display:flex;flex-wrap:wrap;gap:8px;">
-          <span style="color:var(--text-muted);font-size:13px;">กดปุ่ม Sync เพื่อดึงข้อมูล</span>
-        </div>
-        <div style="margin-top:12px;">
-          <label class="form-label">เพิ่มรายชื่อเจ้าหน้าที่ด้วยตนเอง (1 ชื่อต่อบรรทัด)</label>
-          <textarea id="settings-officers-textarea" class="form-input" rows="4" placeholder="ชื่อเจ้าหน้าที่ 1&#10;ชื่อเจ้าหน้าที่ 2"></textarea>
-          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="settingsSaveManual()">💾 บันทึกรายชื่อ</button>
-        </div>
-      </div>
-
-      <!-- Login Settings -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="font-size:15px;font-weight:600;margin-bottom:12px;">🔐 ตั้งค่าการเข้าสู่ระบบ</div>
-        <div class="form-group">
-          <label class="form-label">ชื่อผู้ใช้</label>
-          <input id="settings-username" type="text" class="form-input" placeholder="admin">
-        </div>
-        <div class="form-group">
-          <label class="form-label">รหัสผ่านใหม่ (เว้นว่างหากไม่เปลี่ยน)</label>
-          <input id="settings-password" type="password" class="form-input" placeholder="••••••">
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="settingsSaveLogin()">💾 บันทึกการเข้าสู่ระบบ</button>
-      </div>
-    </div><!-- /page-settings -->
-
-  </div><!-- /main-content -->
-</div><!-- /app -->
-
-<!-- ============================================================ MODALS ============================================================ -->
-
-<!-- Issues/Feedback Modal -->
-<div id="issues-modal" class="modal-overlay" onclick="closeBD(event,'issues-modal')">
-  <div class="modal modal-md">
-    <button class="modal-close" onclick="closeModal('issues-modal')">✕</button>
-    <div class="modal-title">📝 รายงานปัญหา / ข้อเสนอ</div>
-    <div class="form-group">
-      <label class="form-label">ประเภทรายงาน</label>
-      <div style="display:flex;gap:16px;">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-          <input type="radio" name="issue-type" value="ปัญหา" id="issue-type-problem" checked> ปัญหา
-        </label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-          <input type="radio" name="issue-type" value="ข้อเสนอ" id="issue-type-suggestion"> ข้อเสนอ
-        </label>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">พื้นที่ / โซน</label>
-      <input id="issue-zone" type="text" class="form-input" readonly style="background:var(--surface);">
-    </div>
-    <div class="form-group">
-      <label class="form-label">ระดับความสำคัญ</label>
-      <select id="issue-priority" class="form-input">
-        <option value="สูง">สูง</option>
-        <option value="ปานกลาง" selected>ปานกลาง</option>
-        <option value="ต่ำ">ต่ำ</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">ปัญหา / ข้อเสนอ</label>
-      <textarea id="issue-description" class="form-input" rows="3" placeholder="อธิบายปัญหาหรือข้อเสนอ..."></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">รายละเอียดเพิ่มเติม</label>
-      <textarea id="issue-details" class="form-input" rows="2" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-ghost" onclick="closeModal('issues-modal')">ยกเลิก</button>
-      <button class="btn btn-primary" onclick="submitIssueFeedback()">📩 ส่งรายงาน</button>
-    </div>
+        <div id="page-pos" class="page"><div class="glass-card"><div class="section-header"><div class="section-title"><div class="icon-badge">💳</div><div><h2>POS Data Management</h2><p>แสดงผลรวมที่คำนวณจากหน้า M-Exhibition Cal เพื่อใช้บันทึกและตรวจสอบก่อนส่งออก</p></div></div><span id="pos-date-indicator" class="chip">ข้อมูลวันที่ -</span></div><div class="card-grid"><div class="metric-card"><span class="metric-label">SUM-W-TH-Kids</span><span id="pos-sum-w-th-kids" class="metric-number">0</span><span class="metric-footnote">รวมเด็กไทย Walk-in</span></div><div class="metric-card"><span class="metric-label">SUM-W-A-TH-Adult</span><span id="pos-sum-w-a-th-adult" class="metric-number">0</span><span class="metric-footnote">รวมผู้ใหญ่ไทย Walk-in</span></div><div class="metric-card"><span class="metric-label">SUM-W-FR-Kids</span><span id="pos-sum-w-fr-kids" class="metric-number">0</span><span class="metric-footnote">รวมเด็กต่างชาติ Walk-in</span></div><div class="metric-card"><span class="metric-label">SUM-W-A-FR-Adult</span><span id="pos-sum-w-a-fr-adult" class="metric-number">0</span><span class="metric-footnote">รวมผู้ใหญ่ต่างชาติ Walk-in</span></div><div class="metric-card"><span class="metric-label">SUM-Activity</span><span id="pos-sum-activity" class="metric-number">0</span><span class="metric-footnote">รวมผู้เข้าร่วมกิจกรรม</span></div><div class="metric-card"><span class="metric-label">SUM-Ac-Vi-all</span><span id="pos-sum-ac-vi-all" class="metric-number">0</span><span class="metric-footnote">รวมผู้เข้าชมทุกประเภท</span></div></div><div class="page-footer-actions"><button type="button" class="btn-primary" data-save="pos">บันทึก POS Summary</button></div></div></div>
+        <div id="page-summary" class="page"><div class="glass-card"><div class="section-header"><div class="section-title"><div class="icon-badge">🌙</div><div><h2>Summary Day (Evening)</h2><p>สรุปเจ้าหน้าที่ ปัญหาประจำวัน และผลรวมกิจกรรมทั้งหมดของวันเดียวกัน</p></div></div><span id="summary-date-label" class="chip">วันที่ -</span></div><div class="glass-card"><h3>Morning Assignment Overview</h3><div class="field-row"><div class="field-group"><label>MO Officer</label><div id="summary-mo-officer" class="read-only-box">-</div></div><div class="field-group"><label>MEX Officer</label><div id="summary-mex-officer" class="read-only-box">-</div></div><div class="field-group"><label>MED Officer</label><div id="summary-med-officer" class="read-only-box">-</div></div><div class="field-group"><label>MVI Officer</label><div id="summary-mvi-officer" class="read-only-box">-</div></div></div><div class="field-row" style="margin-top:12px;"><div class="field-group"><label>Z2F Volunteer</label><div id="summary-z2f-volunteer" class="read-only-box">-</div></div><div class="field-group"><label>ZMP Volunteer</label><div id="summary-zmp-volunteer" class="read-only-box">-</div></div><div class="field-group"><label>ZINL Volunteer</label><div id="summary-zinl-volunteer" class="read-only-box">-</div></div><div class="field-group"><label>Other Activity</label><div id="summary-other-activity" class="read-only-box">-</div></div></div></div><div class="field-row" style="margin-top:18px;"><div class="field-group"><label for="issue-mo">Issue: MO</label><textarea id="issue-mo" placeholder="ปัญหาหรือข้อสังเกตของจุด MO"></textarea></div><div class="field-group"><label for="issue-mex">Issue: M-Exhibition</label><textarea id="issue-mex" placeholder="ปัญหาหรือข้อสังเกตของ M-Exhibition"></textarea></div><div class="field-group"><label for="issue-med">Issue: MED</label><textarea id="issue-med" placeholder="ปัญหาหรือข้อสังเกตของ MED"></textarea></div><div class="field-group"><label for="issue-mvi">Issue: MVI</label><textarea id="issue-mvi" placeholder="ปัญหาหรือข้อสังเกตของ MVI"></textarea></div></div><div class="card-grid" style="margin-top:18px;"><div class="glass-card"><h3>Inspire Lab Summary</h3><table><thead><tr><th>กิจกรรม</th><th>เจ้าหน้าที่</th><th>รวมคน</th></tr></thead><tbody id="summary-insl-body"></tbody></table></div><div class="glass-card"><h3>Innovation Space Summary</h3><table><thead><tr><th>กิจกรรม</th><th>เจ้าหน้าที่</th><th>รวมคน</th></tr></thead><tbody id="summary-inns-body"></tbody></table></div></div><div class="card-grid" style="margin-top:18px;"><div class="glass-card"><h3>Walk-in Summary</h3><div class="stat-strip"><div class="stat-pill">TH Kids<strong id="summary-walk-th-kids">0</strong></div><div class="stat-pill">TH Adults<strong id="summary-walk-th-adults">0</strong></div><div class="stat-pill">FR Kids<strong id="summary-walk-fr-kids">0</strong></div><div class="stat-pill">FR Adults<strong id="summary-walk-fr-adults">0</strong></div></div></div><div class="glass-card"><h3>Group Summary</h3><div class="stat-strip"><div class="stat-pill">จำนวนกลุ่ม<strong id="summary-number-of-groups">0</strong></div><div class="stat-pill">เด็กทั้งหมด<strong id="summary-group-kids">0</strong></div><div class="stat-pill">ผู้ใหญ่ทั้งหมด<strong id="summary-group-adults">0</strong></div></div></div></div><div class="card-grid" style="margin-top:18px;"><div class="glass-card"><h3>Additional Activities Summary</h3><div class="stat-strip"><div class="stat-pill">Additional Total<strong id="summary-additional-total">0</strong></div><div class="stat-pill">SUM-Activity<strong id="summary-sum-activity">0</strong></div><div class="stat-pill">SUM-Ac-Vi-all<strong id="summary-sum-ac-vi-all">0</strong></div></div><div class="field-group" style="margin-top:14px;"><label>Activity Notes</label><div id="summary-additional-notes" class="read-only-box">-</div></div></div><div class="glass-card"><h3>Issue Notes & Final Summary</h3><div class="field-group"><label for="issue-insl">Issue: Inspire Lab</label><textarea id="issue-insl" placeholder="ปัญหาหรือข้อสังเกตของ Inspire Lab"></textarea></div><div class="field-group"><label for="issue-inns">Issue: Innovation Space</label><textarea id="issue-inns" placeholder="ปัญหาหรือข้อสังเกตของ Innovation Space"></textarea></div><div class="field-group"><label for="summary-notes">Summary Notes</label><textarea id="summary-notes" placeholder="สรุปภาพรวมประจำวัน / จุดที่ต้องติดตามต่อ"></textarea></div></div></div><div class="page-footer-actions"><button type="button" class="btn-primary" data-save="summary">บันทึก Summary Day</button></div></div></div>
+        <div id="page-settings" class="page"><div class="glass-card"><div class="section-header"><div class="section-title"><div class="icon-badge">⚙️</div><div><h2>Settings</h2><p>ตั้งค่า Google Apps Script URL, Spreadsheet ID และบัญชีสำหรับเข้าสู่ระบบในเครื่องนี้</p></div></div></div><form id="settings-form" class="form-stack"><div class="field-group"><label for="settings-api-url">Google Apps Script URL</label><input id="settings-api-url" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div><div class="field-group"><label for="settings-spreadsheet-id">Spreadsheet ID</label><input id="settings-spreadsheet-id" type="text" placeholder="ใส่ Spreadsheet ID สำหรับอ้างอิง/ตั้งค่า backend"></div><div class="field-row"><div class="field-group"><label for="settings-username">ชื่อผู้ใช้ใหม่</label><input id="settings-username" type="text" placeholder="ค่าเริ่มต้น admin"></div><div class="field-group"><label for="settings-password">รหัสผ่านใหม่</label><input id="settings-password" type="password" placeholder="กรอกใหม่หากต้องการเปลี่ยนรหัสผ่าน"></div></div><div class="inline-actions"><button type="submit" class="btn-primary">บันทึกการตั้งค่า</button><button id="test-connection-btn" type="button" class="btn-secondary">ทดสอบการเชื่อมต่อ</button><button id="refresh-lookups-btn" type="button" class="btn-secondary">รีเฟรช Lookups</button><button id="init-sheets-btn" type="button" class="btn-secondary">สร้างชีตทั้งหมด</button></div></form></div></div>
+      </section>
+    </main>
   </div>
-</div>
-
-<!-- Settings Modal -->
-<div id="settings-modal" class="modal-overlay" onclick="closeBD(event,'settings-modal')">
-  <div class="modal modal-md">
-    <button class="modal-close" onclick="closeModal('settings-modal')">✕</button>
-    <div class="modal-title">⚙️ ตั้งค่าระบบ</div>
-    <div class="form-group">
-      <label class="form-label">Google Apps Script URL</label>
-      <input id="set-sheets-url" type="url" class="form-input" placeholder="https://script.google.com/macros/s/AKfycbx5zoxbI52HqXcc2M0UwzDlIfAp3wsMe8QNLhaddScZfGVzBVSG0IyY-xfDWK5JlI7kkQ/exec">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Sheet Name</label>
-      <input id="set-sheet-name" type="text" class="form-input" placeholder="Sheet1" value="Sheet1">
-    </div>
-    <hr class="divider">
-    <div class="form-group">
-      <label class="form-label">ชื่อผู้ใช้ Login</label>
-      <input id="set-username" type="text" class="form-input" placeholder="admin">
-    </div>
-    <div class="form-group">
-      <label class="form-label">รหัสผ่าน Login</label>
-      <input id="set-password" type="password" class="form-input" placeholder="••••••">
-    </div>
-    <div style="margin-bottom:16px;">
-      <!-- Collapsible instructions -->
-      <div class="section-header" onclick="toggleSec(this)" style="padding:10px;background:var(--surface2);border-radius:8px;">
-        <span style="font-size:13px;color:var(--text-muted);">📌 วิธีตั้งค่า Google Sheets</span>
-        <span class="chevron" style="font-size:12px;">▼</span>
-      </div>
-      <div class="section-body" style="max-height:300px;">
-        <div class="info-box" style="margin-top:8px;">
-          <ul>
-            <li>เปิด Google Sheets แล้วไปที่ Extensions → Apps Script</li>
-            <li>วางโค้ด Apps Script ที่รับ POST request</li>
-            <li>Deploy เป็น Web App (Anyone can access)</li>
-            <li>คัดลอก URL ที่ได้มาใส่ในช่องด้านบน</li>
-            <li>ข้อมูลจะถูกส่งเป็น JSON array</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-    <hr class="divider">
-    <div style="font-size:14px;font-weight:600;margin-bottom:8px;">📋 รายชื่อเจ้าหน้าที่ / อาสาสมัคร</div>
-    <div class="form-group">
-      <label class="form-label">รายชื่อเจ้าหน้าที่ (1 ชื่อต่อบรรทัด)</label>
-      <textarea id="set-officers-list" class="form-input" rows="4" placeholder="ชื่อเจ้าหน้าที่ 1&#10;ชื่อเจ้าหน้าที่ 2&#10;..."></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">รายชื่ออาสาสมัคร (1 ชื่อต่อบรรทัด)</label>
-      <textarea id="set-volunteers-list" class="form-input" rows="4" placeholder="ชื่ออาสาสมัคร 1&#10;ชื่ออาสาสมัคร 2&#10;..."></textarea>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-      <button class="btn btn-ghost btn-sm" onclick="syncFromGoogleSheets()">🔄 ดึงข้อมูลจาก Google Sheets</button>
-      <span id="sync-status-label" style="font-size:12px;color:var(--text-muted);align-self:center;"></span>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-ghost" onclick="closeModal('settings-modal')">ยกเลิก</button>
-      <button class="btn btn-primary" onclick="saveSettingsModal()">💾 บันทึกการตั้งค่า</button>
-    </div>
-  </div>
-</div>
-
-<!-- Forgot Password Modal -->
-<div id="forgot-modal" class="modal-overlay" onclick="closeBD(event,'forgot-modal')">
-  <div class="modal modal-sm">
-    <button class="modal-close" onclick="closeModal('forgot-modal')">✕</button>
-    <div class="modal-title">🔑 ลืมรหัสผ่าน</div>
-    <div style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">รหัสผ่านเริ่มต้นคือ <strong style="color:var(--text);">admin</strong> สามารถเปลี่ยนได้ในเมนูตั้งค่า</div>
-    <div class="info-box">
-      <p>หากลืมรหัสผ่านที่กำหนดเอง ให้ติดต่อผู้ดูแลระบบ หรือล้าง localStorage ของเบราว์เซอร์เพื่อรีเซ็ต</p>
-    </div>
-    <div style="margin-top:16px;text-align:right;">
-      <button class="btn btn-primary" onclick="closeModal('forgot-modal')">เข้าใจแล้ว</button>
-    </div>
-  </div>
-</div>
-
-<!-- Request Access Modal -->
-<div id="request-modal" class="modal-overlay" onclick="closeBD(event,'request-modal')">
-  <div class="modal modal-sm">
-    <button class="modal-close" onclick="closeModal('request-modal')">✕</button>
-    <div class="modal-title">📩 ขอสิทธิ์เข้าใช้งาน</div>
-    <div style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">กรุณาติดต่อผู้ดูแลระบบเพื่อขอบัญชีผู้ใช้</div>
-    <div class="form-group">
-      <label class="form-label">ชื่อ - นามสกุล</label>
-      <input type="text" class="form-input" placeholder="ชื่อของคุณ">
-    </div>
-    <div class="form-group">
-      <label class="form-label">อีเมล</label>
-      <input type="email" class="form-input" placeholder="email@nsm.or.th">
-    </div>
-    <div class="form-group">
-      <label class="form-label">ตำแหน่ง / หน่วยงาน</label>
-      <input type="text" class="form-input" placeholder="เช่น MOD, Education">
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-ghost" onclick="closeModal('request-modal')">ยกเลิก</button>
-      <button class="btn btn-primary" onclick="showToast('ส่งคำขอเรียบร้อยแล้ว','success');closeModal('request-modal')">📩 ส่งคำขอ</button>
-    </div>
-  </div>
-</div>
-
-<!-- View Record Modal -->
-<div id="view-modal" class="modal-overlay" onclick="closeBD(event,'view-modal')">
-  <div class="modal modal-lg">
-    <button class="modal-close" onclick="closeModal('view-modal')">✕</button>
-    <div class="modal-title">📋 รายละเอียดบันทึก</div>
-    <div id="view-modal-content" style="font-size:14px;"></div>
-    <div style="margin-top:20px;text-align:right;">
-      <button class="btn btn-ghost" onclick="closeModal('view-modal')">ปิด</button>
-    </div>
-  </div>
-</div>
-
-<!-- Confirm Delete Modal -->
-<div id="delete-modal" class="modal-overlay" onclick="closeBD(event,'delete-modal')">
-  <div class="modal modal-sm">
-    <button class="modal-close" onclick="closeModal('delete-modal')">✕</button>
-    <div class="modal-title">🗑 ยืนยันการลบ</div>
-    <div style="font-size:14px;color:var(--text-muted);margin-bottom:20px;">คุณต้องการลบบันทึกวันที่ <strong id="delete-date-label" style="color:var(--danger);">-</strong> ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้</div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-ghost" onclick="closeModal('delete-modal')">ยกเลิก</button>
-      <button class="btn btn-danger" onclick="doDelete()">🗑 ลบ</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================================ TOAST ============================================================ -->
-<div id="toast-container"></div>
-
-<!-- ============================================================ PROGRESS ============================================================ -->
-<div id="progress-overlay">
-  <div class="progress-box">
-    <div class="spinner"></div>
-    <div style="font-size:15px;font-weight:600;margin-bottom:6px;" id="progress-title">กำลังส่งข้อมูล...</div>
-    <div style="font-size:13px;color:var(--text-muted);" id="progress-sub">กรุณารอสักครู่</div>
-  </div>
-</div>
-
-<script src="js/googleSheetsAPI.js"></script>
-<script src="app.js"></script>
+  <div class="mobile-nav" aria-label="Bottom navigation"><nav class="mobile-nav-list"><button class="nav-button active" data-page="assignments" type="button"><span class="nav-icon">🌤️</span><span>Morning</span></button><button class="nav-button" data-page="exhibition" type="button"><span class="nav-icon">🧮</span><span>Calc</span></button><button class="nav-button" data-page="pos" type="button"><span class="nav-icon">💳</span><span>POS</span></button><button class="nav-button" data-page="summary" type="button"><span class="nav-icon">🌙</span><span>Summary</span></button><button class="nav-button" data-page="settings" type="button"><span class="nav-icon">⚙️</span><span>Settings</span></button></nav></div>
+  <datalist id="officer-list"></datalist><datalist id="volunteer-list"></datalist><datalist id="group-name-list"></datalist>
+  <div id="progress-overlay" class="progress-overlay" aria-live="polite" aria-busy="true"><div class="progress-card"><div class="spinner"></div><h3 style="margin:0 0 8px;">กำลังประมวลผล</h3><p id="progress-text" style="margin:0;color:var(--text-secondary);">กำลังโหลดข้อมูล...</p></div></div>
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+  <script src="js/googleSheetsAPI.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

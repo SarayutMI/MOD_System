@@ -1,2667 +1,518 @@
-// ============================================================
-// NSM MOD Management System - app.js
-// ============================================================
+const AppState = {
+  currentPage: 'assignments',
+  currentDate: todayISO(),
+  isLoading: false,
+  data: {
+    assignments: null,
+    walkin: null,
+    groups: [],
+    additional: null,
+    inspire: [],
+    innovation: [],
+    pos: null,
+    summary: null
+  },
+  lookups: { officers: [], volunteers: [] }
+};
 
-// ============ STATE ============
-let currentPage = 'dashboard';
-let currentRecord = null;
-let activityChart = null;
-let summaryChart = null;
-let pendingDeleteDate = null;
-let historyPage = 1;
-const ITEMS_PER_PAGE = 15;
+const SETTINGS_KEY = 'mod_settings_v2';
+const AUTH_KEY = 'mod_auth_session_v2';
+const PAGE_META = {
+  assignments: { title: 'Daily Management (Morning)', subtitle: 'กำหนดเจ้าหน้าที่และอาสาสมัครประจำวันตามวันที่เลือก' },
+  exhibition: { title: 'M-Exhibition Cal', subtitle: 'คำนวณผู้เข้าชมและกิจกรรมแบบเรียลไทม์' },
+  pos: { title: 'POS Data Management', subtitle: 'แสดงค่า POS Summary ที่คำนวณจากข้อมูลรายวัน' },
+  summary: { title: 'Summary Day (Evening)', subtitle: 'สรุปผลทั้งวัน ปัญหา และตัวเลขสำคัญ' },
+  settings: { title: 'Settings', subtitle: 'จัดการการเชื่อมต่อ Google Apps Script และข้อมูลผู้ใช้' }
+};
+const DEFAULT_SETTINGS = { apiUrl: '', spreadsheetId: '', username: 'admin', passwordHash: '' };
 
-const MONTH_NAMES = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
-  'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
-
-// ============ SETTINGS ============
-async function sha256hex(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function getSettings() {
-  try { return JSON.parse(localStorage.getItem('nsm_settings') || '{}'); } catch(e) { return {}; }
-}
-function saveSettings(s) {
-  localStorage.setItem('nsm_settings', JSON.stringify(s));
-}
-
-// ============ AUTH ============
-async function handleLogin(event) {
-  event.preventDefault();
-  const username = document.getElementById('login-user').value.trim();
-  const password = document.getElementById('login-pass').value;
-  const settings = getSettings();
-  const validUser = settings.username || 'admin';
-  let valid = false;
-  if (settings.passwordHash) {
-    const enteredHash = await sha256hex(password);
-    valid = username === validUser && enteredHash === settings.passwordHash;
-  } else {
-    // Default credentials (no hash stored yet)
-    valid = username === validUser && password === 'admin';
-  }
-  if (valid) {
-    const rememberMe = document.getElementById('remember-me').checked;
-    sessionStorage.setItem('nsm_logged_in', '1');
-    sessionStorage.setItem('nsm_user', username);
-    if (rememberMe) { localStorage.setItem('nsm_remember', username); }
-    else { localStorage.removeItem('nsm_remember'); }
-    showApp(username);
-  } else {
-    showLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-    const form = document.getElementById('login-form');
-    form.classList.add('shake');
-    setTimeout(() => form.classList.remove('shake'), 500);
-  }
+function init() {
+  fillSettingsForm(loadSettings());
+  setupEventListeners();
+  updateConnectionBadge();
+  byId('global-date').value = AppState.currentDate;
+  updateDateLabels();
+  updateAuthUI();
+  if (isLoggedIn()) bootstrapApp();
 }
 
-function doLogout() {
-  sessionStorage.removeItem('nsm_logged_in');
-  sessionStorage.removeItem('nsm_user');
-  showLogin();
+async function bootstrapApp() {
+  byId('login-screen').classList.add('hidden');
+  byId('app-shell').classList.remove('hidden');
+  byId('sidebar-username').textContent = loadSettings().username || 'ผู้ดูแลระบบ';
+  gotoPage(AppState.currentPage);
+  await Promise.allSettled([loadLookups(), loadAllSections(AppState.currentDate)]);
 }
 
-function toggleLoginPass() {
-  const inp = document.getElementById('login-pass');
-  const btn = document.getElementById('pass-toggle-btn');
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
-  else { inp.type = 'password'; btn.textContent = '👁'; }
+async function setDate(dateStr) {
+  if (!dateStr) return;
+  AppState.currentDate = dateStr;
+  byId('global-date').value = dateStr;
+  updateDateLabels();
+  await loadAllSections(dateStr);
 }
 
-function showLoginError(msg) {
-  const el = document.getElementById('login-error');
-  el.textContent = msg;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 4000);
-}
-
-function showApp(username) {
-  document.getElementById('page-login').style.display = 'none';
-  const app = document.getElementById('app');
-  app.style.display = 'flex';
-  const uname = username || sessionStorage.getItem('nsm_user') || 'admin';
-  const el1 = document.getElementById('sidebar-username');
-  const el2 = document.getElementById('topbar-username');
-  if (el1) el1.textContent = uname;
-  if (el2) el2.textContent = uname;
-  initDateSelectors();
-  loadToday();
-  updateDropdownDatalist();
-  // Try to load from Google Sheets in background
-  if (window.GoogleSheetsAPI) {
-    window.GoogleSheetsAPI.populateDropdowns().then(result => {
-      const settings = getSettings();
-      if (result.officers && result.officers.length) settings.customOfficers = result.officers;
-      if (result.volunteers && result.volunteers.length) settings.customVolunteers = result.volunteers;
-      saveSettings(settings);
-      updateDropdownDatalist();
-    }).catch(() => {/* silent fail */});
-  }
-  gotoPage('dashboard');
-  checkMenuToggleVisibility();
-}
-
-function showLogin() {
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('page-login').style.display = 'flex';
-  document.getElementById('login-pass').value = '';
-  const errEl = document.getElementById('login-error');
-  if (errEl) errEl.style.display = 'none';
-}
-
-function checkSession() {
-  if (sessionStorage.getItem('nsm_logged_in') === '1') {
-    showApp();
-  } else {
-    const remembered = localStorage.getItem('nsm_remember');
-    if (remembered) {
-      const el = document.getElementById('login-user');
-      if (el) { el.value = remembered; document.getElementById('remember-me').checked = true; }
-    }
-  }
-}
-
-// ============ NAVIGATION ============
-function gotoPage(pageName) {
-  const pages = ['dashboard','daily-log','history','summary','export','settings'];
-  pages.forEach(p => {
-    const el = document.getElementById('page-' + p);
-    if (el) el.style.display = (p === pageName) ? 'block' : 'none';
-  });
-  // Update nav active
-  pages.forEach(p => {
-    const nav = document.getElementById('nav-' + p);
-    if (nav) nav.classList.toggle('active', p === pageName);
-  });
-  currentPage = pageName;
-  updateBreadcrumb(pageName);
-  // Init page-specific content
-  if (pageName === 'dashboard') updateDashboard();
-  if (pageName === 'history') renderHistory(document.getElementById('history-filter-month')?.value || '');
-  if (pageName === 'summary') renderSummary();
-  if (pageName === 'export') renderExportPreview();
-  if (pageName === 'settings') initSettingsPage();
-  // Close sidebar on mobile
-  if (window.innerWidth <= 768) closeSidebar();
-}
-
-function updateBreadcrumb(page) {
-  const names = { dashboard: 'Dashboard', 'daily-log': 'บันทึกประจำวัน', history: 'ประวัติ', summary: 'สรุป', export: 'ส่งออก', settings: 'ตั้งค่า' };
-  const el = document.getElementById('breadcrumb-page');
-  if (el) el.textContent = names[page] || page;
-}
-
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const ov = document.getElementById('sidebar-overlay');
-  sb.classList.toggle('open');
-  ov.classList.toggle('visible');
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebar-overlay').classList.remove('visible');
-}
-function checkMenuToggleVisibility() {
-  const btn = document.getElementById('menu-toggle');
-  if (btn) btn.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
-}
-window.addEventListener('resize', checkMenuToggleVisibility);
-
-// ============ DATE SELECTORS ============
-function initDateSelectors() {
-  const yearSel = document.getElementById('date-year');
-  const monthSel = document.getElementById('date-month');
-  if (!yearSel || !monthSel) return;
-  const now = new Date();
-  const curYear = now.getFullYear();
-  yearSel.innerHTML = '';
-  for (let y = curYear + 1; y >= curYear - 3; y--) {
-    const opt = document.createElement('option');
-    opt.value = y; opt.textContent = y + 543; // Buddhist era
-    if (y === curYear) opt.selected = true;
-    yearSel.appendChild(opt);
-  }
-  monthSel.innerHTML = '';
-  MONTH_NAMES.forEach((m, i) => {
-    const opt = document.createElement('option');
-    opt.value = String(i + 1).padStart(2, '0');
-    opt.textContent = m;
-    if (i + 1 === now.getMonth() + 1) opt.selected = true;
-    monthSel.appendChild(opt);
-  });
-  onYearMonthChange();
-}
-
-function loadToday() {
-  const now = new Date();
-  const yearSel = document.getElementById('date-year');
-  const monthSel = document.getElementById('date-month');
-  if (!yearSel || !monthSel) return;
-  yearSel.value = now.getFullYear();
-  monthSel.value = String(now.getMonth() + 1).padStart(2, '0');
-  onYearMonthChange();
-  const daySel = document.getElementById('date-day');
-  if (daySel) {
-    daySel.value = String(now.getDate()).padStart(2, '0');
-    onDateChange();
-  }
-}
-
-function onYearMonthChange() {
-  const year = parseInt(document.getElementById('date-year')?.value);
-  const month = parseInt(document.getElementById('date-month')?.value);
-  if (!year || !month) return;
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const daySel = document.getElementById('date-day');
-  if (!daySel) return;
-  const prevDay = parseInt(daySel.value) || 1;
-  daySel.innerHTML = '';
-  for (let d = 1; d <= daysInMonth; d++) {
-    const opt = document.createElement('option');
-    opt.value = String(d).padStart(2, '0');
-    opt.textContent = String(d).padStart(2, '0');
-    daySel.appendChild(opt);
-  }
-  daySel.value = String(Math.min(prevDay, daysInMonth)).padStart(2, '0');
-  onDateChange();
-}
-
-function onDateChange() {
-  const year = document.getElementById('date-year')?.value;
-  const month = document.getElementById('date-month')?.value;
-  const day = document.getElementById('date-day')?.value;
-  if (!year || !month || !day) return;
-  const date = `${year}-${month}-${day}`;
-  // Show Thai date
-  const d = new Date(year, parseInt(month) - 1, parseInt(day));
-  const thaiDays = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
-  const disp = document.getElementById('date-display');
-  if (disp) disp.textContent = `วัน${thaiDays[d.getDay()]}ที่ ${parseInt(day)} ${MONTH_NAMES[parseInt(month)-1]} ${parseInt(year)+543}`;
-  loadFromLocal(date);
-  updateSummaryPreview();
-}
-
-function getCurrentDate() {
-  const year = document.getElementById('date-year')?.value;
-  const month = document.getElementById('date-month')?.value;
-  const day = document.getElementById('date-day')?.value;
-  if (!year || !month || !day) return '';
-  return `${year}-${month}-${day}`;
-}
-
-// ============ BOOKING ROWS ============
-let bookingRowCount = 0;
-function addBookingRow(data) {
-  bookingRowCount++;
-  const tbody = document.getElementById('booking-tbody');
-  const tr = document.createElement('tr');
-  tr.className = 'booking-row';
-  tr.dataset.id = bookingRowCount;
-  tr.innerHTML = `
-    <td style="color:var(--text-muted);font-size:12px;">${bookingRowCount}</td>
-    <td><input type="text" class="form-input" style="min-width:140px;" placeholder="ชื่อกลุ่ม / โรงเรียน" value="${data?.group||''}"></td>
-    <td><input type="text" class="form-input" style="min-width:140px;" placeholder="ชื่อกิจกรรม" value="${data?.activity||''}"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.count||''}" placeholder="0" style="width:80px;"></td>
-    <td><input type="text" class="form-input" style="width:100px;" placeholder="09:00" value="${data?.time||''}"></td>
-    <td><input type="text" class="form-input" style="min-width:100px;" placeholder="ชื่อ" value="${data?.responsible||''}"></td>
-    <td><button type="button" class="btn btn-ghost btn-sm" onclick="removeBookingRow(this)" style="padding:4px 8px;color:var(--danger);">✕</button></td>
-  `;
-  tbody.appendChild(tr);
-}
-
-
-let groupRowCount = 0;
-
-function addGroupRow(data) {
-  groupRowCount++;
-  const tbody = document.getElementById('group-tbody');
-  if (!tbody) return;
-  const tr = document.createElement('tr');
-  tr.dataset.id = groupRowCount;
-  tr.innerHTML = `
-    <td style="color:var(--text-muted);font-size:12px;">${groupRowCount}</td>
-    <td><input type="text" class="form-input group-name-input" style="min-width:140px;" placeholder="ชื่อกลุ่ม" value="${data?.group||''}"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:70px;" oninput="calcGroupRows()"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:70px;" oninput="calcGroupRows()"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:70px;" oninput="calcGroupRows()"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}" style="width:70px;" oninput="calcGroupRows()"></td>
-    <td class="computed" style="font-weight:600;">
-      ${(parseInt(data?.thaiChild||0)+parseInt(data?.thaiAdult||0)+parseInt(data?.foreignChild||0)+parseInt(data?.foreignAdult||0))}
-    </td>
-    <td><button type="button" class="btn btn-ghost btn-sm" onclick="removeGroupRow(this)" style="padding:4px 8px;color:var(--danger);">✕</button></td>
-  `;
-  tbody.appendChild(tr);
-  calcGroupRows();
-}
-
-function removeGroupRow(btn) {
-  btn.closest('tr').remove();
-  document.querySelectorAll('#group-tbody tr').forEach((tr, i) => {
-    const first = tr.querySelector('td');
-    if (first) first.textContent = i + 1;
-  });
-  calcGroupRows();
-}
-
-function calcGroupRows() {
-  let thaiChild = 0, thaiAdult = 0, forChild = 0, forAdult = 0;
-  let groupCount = 0;
-  document.querySelectorAll('#group-tbody tr').forEach(tr => {
-    const groupNameInput = tr.querySelector('input.group-name-input');
-    const inputs = tr.querySelectorAll('input[type="number"]');
-    if (inputs.length >= 4) {
-      const tc = parseInt(inputs[0].value)||0;
-      const ta = parseInt(inputs[1].value)||0;
-      const fc = parseInt(inputs[2].value)||0;
-      const fa = parseInt(inputs[3].value)||0;
-      thaiChild += tc; thaiAdult += ta; forChild += fc; forAdult += fa;
-      const rowTotal = tr.querySelector('td.computed');
-      if (rowTotal) rowTotal.textContent = tc + ta + fc + fa;
-      // Count only rows with a filled group name
-      if (groupNameInput && groupNameInput.value.trim() !== '') groupCount++;
-    }
-  });
-  const subTotal = thaiChild + thaiAdult + forChild + forAdult;
-  setTxt('vis-b-group-count', groupCount);
-  setTxt('vis-b-thai-child-total', thaiChild);
-  setTxt('vis-b-thai-adult-total', thaiAdult);
-  setTxt('vis-b-for-child-total', forChild);
-  setTxt('vis-b-for-adult-total', forAdult);
-  // vis-b-total will be updated by calcVis() to include IC/IA; set subtotal here as interim
-  setTxt('vis-b-total', subTotal);
-  // Sync with existing vis-b inputs if present
-  setInputVal('vis-b-thai-child', thaiChild);
-  setInputVal('vis-b-thai-adult', thaiAdult);
-  setInputVal('vis-b-for-child', forChild);
-  setInputVal('vis-b-for-adult', forAdult);
-  calcVis();
-}
-  
-function removeBookingRow(btn) {
-  btn.closest('tr').remove();
-  // Re-number
-  document.querySelectorAll('#booking-tbody tr').forEach((tr, i) => {
-    const first = tr.querySelector('td');
-    if (first) first.textContent = i + 1;
-  });
-}
-
-// ============ ACTIVITY ROWS ============
-let activityRowCount = 0;
-
-function addActivityRow(data) {
-  activityRowCount++;
-  const tbody = document.getElementById('activity-tbody');
-  if (!tbody) return;
-
-  const isGroup = data?.participantType === 'group';
-  const tr = document.createElement('tr');
-  tr.dataset.id = activityRowCount;
-  tr.innerHTML = `
-    <td>
-      <select class="form-input" style="width:100%;" onchange="handleActivitySelect(this)">
-        <option value="">เลือกกิจกรรม...</option>
-        <option value="inspire" ${data?.type==='inspire'?'selected':''}>Inspire Lab</option>
-        <option value="innovation" ${data?.type==='innovation'?'selected':''}>Innovation Space</option>
-        <option value="walk" ${data?.type==='walk'?'selected':''}>Walk Rallies</option>
-        <option value="mini" ${data?.type==='mini'?'selected':''}>Mini Make &amp; Play</option>
-        <option value="other" ${data?.type==='other'?'selected':''}>กิจกรรมอื่น</option>
-      </select>
-    </td>
-    <td><input type="text" class="form-input" style="min-width:120px;" placeholder="ชื่อกิจกรรม"></td>
-    <td><select class="form-input activity-officer-sel" style="min-width:120px;"></select></td>
-    <td>
-      <select class="form-input" style="min-width:100px;" onchange="handleParticipantType(this)">
-        <option value="walk-in" ${!isGroup?'selected':''}>Walk-in</option>
-        <option value="group" ${isGroup?'selected':''}>กลุ่ม</option>
-      </select>
-    </td>
-    <td><select class="form-input group-name-col" style="min-width:120px;display:${isGroup?'':'none'};"></select></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiChild||0}" style="width:55px;" oninput="calcVis()"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.thaiAdult||0}" style="width:55px;" oninput="calcVis()"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignChild||0}" style="width:55px;" oninput="calcVis()"></td>
-    <td><input type="number" class="num-input" min="0" value="${data?.foreignAdult||0}" style="width:55px;" oninput="calcVis()"></td>
-    <td><input type="number" class="num-input group-child-col" min="0" value="${data?.groupChild||0}" style="width:55px;display:${isGroup?'':'none'};"></td>
-    <td><input type="number" class="num-input group-adult-col" min="0" value="${data?.groupAdult||0}" style="width:55px;display:${isGroup?'':'none'};"></td>
-    <td><button type="button" class="btn btn-ghost btn-sm" onclick="removeActivityRow(this)" style="padding:4px 8px;color:var(--danger);">✕</button></td>
-  `;
-  tbody.appendChild(tr);
-
-  // Set text input value safely (no innerHTML injection)
-  const nameInput = tr.querySelector('input[type="text"]');
-  if (nameInput) nameInput.value = data?.name || '';
-
-  // Populate officer select using DOM methods (XSS-safe)
-  const officerSel = tr.querySelector('.activity-officer-sel');
-  if (officerSel) {
-    const settings = typeof getSettings === 'function' ? getSettings() : {};
-    const officers = settings.customOfficers || [];
-    const phOpt = document.createElement('option');
-    phOpt.value = '';
-    phOpt.textContent = '-- เลือกเจ้าหน้าที่ --';
-    officerSel.appendChild(phOpt);
-    officers.forEach(n => {
-      const opt = document.createElement('option');
-      opt.value = n;
-      opt.textContent = n;
-      if (n === data?.operator) opt.selected = true;
-      officerSel.appendChild(opt);
-    });
-  }
-
-  // Populate group name dropdown
-  const groupSel = tr.querySelector('.group-name-col');
-  if (groupSel) loadGroupNamesIntoSelect(groupSel, data?.groupName);
-}
-
-async function loadGroupNamesIntoSelect(sel, currentVal) {
-  if (!window.GoogleSheetsAPI) return;
+async function loadAllSections(date) {
+  showProgress('กำลังโหลดข้อมูลประจำวัน...');
+  setLoading(true);
   try {
-    const settings = typeof getSettings === 'function' ? getSettings() : {};
-    const groups = settings.customGroups || [];
-    if (groups.length) {
-      sel.innerHTML = '<option value="">-- เลือกกลุ่ม --</option>';
-      groups.forEach(n => {
-        const opt = document.createElement('option');
-        opt.value = n;
-        opt.textContent = n;
-        if (n === currentVal) opt.selected = true;
-        sel.appendChild(opt);
-      });
+    let payload;
+    try {
+      payload = await window.ModAPI.getFullDay(date);
+    } catch (error) {
+      const sections = ['assignments', 'walkin', 'groups', 'additional', 'inspire', 'innovation', 'pos', 'summary'];
+      const results = await Promise.all(sections.map(async (section) => ({ section, data: await loadSection(section, date, false) })));
+      payload = results.reduce((acc, item) => ((acc[item.section] = item.data), acc), {});
     }
-    // Try fetching fresh from API
-    const freshGroups = await window.GoogleSheetsAPI.fetchGroupNames();
-    if (freshGroups.length) {
-      const curVal = sel.value;
-      sel.innerHTML = '<option value="">-- เลือกกลุ่ม --</option>';
-      freshGroups.forEach(n => {
-        const opt = document.createElement('option');
-        opt.value = n;
-        opt.textContent = n;
-        sel.appendChild(opt);
-      });
-      if (curVal || currentVal) sel.value = curVal || currentVal;
-    }
-  } catch(e) {
-    // Silently fail - group name dropdown just stays empty
-  }
-}
-
-function handleParticipantType(sel) {
-  const row = sel.closest('tr');
-  const isGroup = sel.value === 'group';
-  row.querySelectorAll('.group-name-col').forEach(el => { el.style.display = isGroup ? '' : 'none'; });
-  row.querySelectorAll('.group-child-col').forEach(el => { el.style.display = isGroup ? '' : 'none'; });
-  row.querySelectorAll('.group-adult-col').forEach(el => { el.style.display = isGroup ? '' : 'none'; });
-}
-
-function removeActivityRow(btn) {
-  btn.closest('tr').remove();
-}
-
-function handleActivitySelect(selectEl) {
-  const value = selectEl.value;
-  const row = selectEl.closest('tr');
-  const nameInput = row.querySelectorAll('input[type="text"]')[0];
-
-  const activityNames = {
-    'inspire': 'Inspire Lab',
-    'innovation': 'Innovation Space',
-    'walk': 'Walk Rallies',
-    'mini': 'Mini Make & Play',
-    'other': ''
-  };
-
-  if (nameInput && activityNames[value] !== undefined) {
-    nameInput.value = activityNames[value];
-    if (value === 'other') {
-      nameInput.focus();
-    }
-  }
-}
-
-// ============ TABS ============
-function switchDayTab(idx, btn) {
-  for (let i = 0; i < 3; i++) {
-    const tab = document.getElementById('day-tab-' + i);
-    const tabBtn = document.getElementById('tab-btn-' + i);
-    if (tab) tab.classList.toggle('active', i === idx);
-    if (tabBtn) tabBtn.classList.toggle('active', i === idx);
-  }
-  if (idx === 1) { syncVolunteersToAfternoonTab(); calcVis(); calcRev(); updateSummaryPreview(); }
-  if (idx === 2) { syncVolunteersToEveningTab(); }
-}
-
-function syncVolunteersToEveningTab() {
-  const zones = [
-    ['ex-z1-name', 'eve-vol-z1'],
-    ['ex-z2-name', 'eve-vol-z2'],
-    ['ex-z3-name', 'eve-vol-z3'],
-    ['ex-z4-name', 'eve-vol-z4'],
-    ['ex-innovation-name', 'eve-vol-innovation'],
-    ['ex-inspire-name', 'eve-vol-inspire'],
-    ['ex-make-play1-name', 'eve-vol-make-play1'],
-    ['ex-make-play2-name', 'eve-vol-make-play2'],
-  ];
-  zones.forEach(([src, dst]) => {
-    const val = getInputVal(src);
-    const el = document.getElementById(dst);
-    if (el) el.textContent = val || '-';
-  });
-}
-
-// ============ COLLAPSIBLE ============
-function toggleSec(el) {
-  const parent = el.parentElement;
-  const body = parent.querySelector('.section-body');
-  if (!body) return;
-  const isCollapsed = body.classList.contains('collapsed');
-  if (isCollapsed) {
-    body.classList.remove('collapsed');
-    body.style.maxHeight = body.scrollHeight + 'px';
-    parent.classList.remove('collapsed-parent');
-  } else {
-    body.style.maxHeight = body.scrollHeight + 'px';
-    requestAnimationFrame(() => { body.classList.add('collapsed'); body.style.maxHeight = '0'; });
-    parent.classList.add('collapsed-parent');
-  }
-}
-
-// ============ HELPERS ============
-function getVal(id) {
-  const el = document.getElementById(id);
-  if (!el) return 0;
-  return parseInt(el.value) || 0;
-}
-function getFloatVal(id) {
-  const el = document.getElementById(id);
-  if (!el) return 0;
-  return parseFloat(el.value) || 0;
-}
-function setTxt(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-function getInputVal(id) {
-  const el = document.getElementById(id);
-  return el ? el.value : '';
-}
-function setInputVal(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.value = val !== undefined && val !== null ? val : '';
-}
-function setChecked(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.checked = !!val;
-}
-function isChecked(id) {
-  const el = document.getElementById(id);
-  return el ? el.checked : false;
-}
-function fmtNum(n) {
-  const num = parseFloat(n);
-  return (isNaN(num) ? 0 : num).toLocaleString('th-TH');
-}
-function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-}
-/** Sanitize a date string — only allow exact YYYY-MM-DD format */
-function sanitizeDate(str) {
-  const s = String(str || '');
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
-}
-/** Sanitize a year-month string — only allow exact YYYY-MM format */
-function sanitizeYearMonth(str) {
-  const s = String(str || '');
-  return /^\d{4}-\d{2}$/.test(s) ? s : '';
-}
-
-// ============ VALIDATION ============
-/**
- * ตรวจสอบข้อมูลก่อนบันทึก/ส่ง
- * Returns array of Thai error messages; empty array = valid.
- */
-function validateDailyForm() {
-  const errors = [];
-  // วันที่ต้องระบุ
-  const date = getCurrentDate();
-  if (!date || date.startsWith('-') || date.split('-').length < 3) {
-    errors.push('กรุณาเลือกวันที่บันทึก');
-  }
-  // MOD ประจำวัน (ต้องระบุ)
-  const modName = getInputVal('mod-morning').trim();
-  if (!modName) {
-    errors.push('กรุณากรอกชื่อ MOD ประจำวัน (แท็บ "ช่วงเช้า")');
-  }
-  // ตรวจสอบค่าตัวเลขไม่ติดลบ
-  let hasNegative = false;
-  document.querySelectorAll('#page-daily-log input[type="number"]').forEach(inp => {
-    if (parseFloat(inp.value) < 0) hasNegative = true;
-  });
-  if (hasNegative) {
-    errors.push('ค่าตัวเลขต้องไม่ติดลบ กรุณาตรวจสอบข้อมูลผู้เข้าชม / รายได้');
-  }
-  return errors;
-}
-
-// ============ CALCULATIONS ============
-function calcVis() {
-  // Section A - Walk-in
-  const aThai = getVal('vis-a-thai-child') + getVal('vis-a-thai-adult');
-  setTxt('vis-a-thai-total', aThai);
-  const aFor = getVal('vis-a-for-child') + getVal('vis-a-for-adult');
-  setTxt('vis-a-for-total', aFor);
-  const aMemC = getVal('vis-a-mem-child'), aMemFC = getVal('vis-a-mem-fc');
-  const aMemA = getVal('vis-a-mem-adult'), aMemFA = getVal('vis-a-mem-fa');
-  const aMem = aMemC + aMemA + aMemFC + aMemFA;
-  setTxt('vis-a-mem-total', aMem);
-  const aTotal = aThai + aFor + aMem;
-  setTxt('vis-a-total', aTotal);
-
-  // Section B - Group (totals are maintained by calcGroupRows via tfoot cells)
-  const bThaiChild = parseInt(document.getElementById('vis-b-thai-child-total')?.textContent) || 0;
-  const bThaiAdult = parseInt(document.getElementById('vis-b-thai-adult-total')?.textContent) || 0;
-  const bForChild  = parseInt(document.getElementById('vis-b-for-child-total')?.textContent) || 0;
-  const bForAdult  = parseInt(document.getElementById('vis-b-for-adult-total')?.textContent) || 0;
-  const bThai = bThaiChild + bThaiAdult;
-  setTxt('vis-b-thai-total', bThai);
-  const bFor = bForChild + bForAdult;
-  setTxt('vis-b-for-total', bFor);
-  const bIC = getVal('vis-b-ic'), bIA = getVal('vis-b-ia');
-  const bMem = bIC + bIA;
-  setTxt('vis-b-mem-total', bMem);
-  const bTotal = bThai + bFor + bMem;
-  setTxt('vis-b-total', bTotal);
-
-  // Section C - Senior
-  const cSenior = getVal('vis-c-senior');
-
-  // Section D - Education
-  const dInsTC = getVal('vis-d-ins-tc'), dInsTA = getVal('vis-d-ins-ta');
-  const dInsFC = getVal('vis-d-ins-fc'), dInsFA = getVal('vis-d-ins-fa');
-  const dIns = dInsTC + dInsTA + dInsFC + dInsFA;
-  setTxt('vis-d-ins-total', dIns);
-
-  const dInvTC = getVal('vis-d-inv-tc'), dInvTA = getVal('vis-d-inv-ta');
-  const dInvFC = getVal('vis-d-inv-fc'), dInvFA = getVal('vis-d-inv-fa');
-  const dInv = dInvTC + dInvTA + dInvFC + dInvFA;
-  setTxt('vis-d-inv-total', dInv);
-
-  const dWrTC = getVal('vis-d-wr-tc'), dWrTA = getVal('vis-d-wr-ta');
-  const dWrFC = getVal('vis-d-wr-fc'), dWrFA = getVal('vis-d-wr-fa');
-  const dWr = dWrTC + dWrTA + dWrFC + dWrFA;
-  setTxt('vis-d-wr-total', dWr);
-
-  const dMmChild = getVal('vis-d-mm1-child') + getVal('vis-d-mm2-child');
-  setTxt('vis-d-mm1-total', getVal('vis-d-mm1-child'));
-  setTxt('vis-d-mm2-total', getVal('vis-d-mm2-child'));
-
-  const dSpTC = getVal('vis-d-sp-tc'), dSpTA = getVal('vis-d-sp-ta');
-  const dSpFC = getVal('vis-d-sp-fc'), dSpFA = getVal('vis-d-sp-fa');
-  const dSp = dSpTC + dSpTA + dSpFC + dSpFA;
-  setTxt('vis-d-sp-total', dSp);
-
-  const dOth = getVal('vis-d-oth-count');
-  setTxt('vis-d-oth-total', dOth);
-
-  const dTotal = dIns + dInv + dWr + dMmChild + dSp + dOth;
-  setTxt('vis-d-total', dTotal);
-
-  // Grand totals by category
-  setTxt('grand-walkin', aTotal);
-  setTxt('grand-group', bTotal);
-  setTxt('grand-education', dTotal);
-  const grandTotal = aTotal + bTotal + cSenior + dTotal;
-  setTxt('grand-total', grandTotal);
-
-  // Grand total nationality splits
-  const walkInThai = aThai;
-  const walkInForeign = aFor;
-  setTxt('grand-walkin-thai', walkInThai);
-  setTxt('grand-walkin-foreign', walkInForeign);
-
-  const groupThai = bThai;
-  const groupForeign = bFor;
-  setTxt('grand-group-thai', groupThai);
-  setTxt('grand-group-foreign', groupForeign);
-
-  const eduThai = (dInsTC + dInsTA) + (dInvTC + dInvTA) + (dWrTC + dWrTA) + dMmChild + (dSpTC + dSpTA);
-  const eduForeign = (dInsFC + dInsFA) + (dInvFC + dInvFA) + (dWrFC + dWrFA) + (dSpFC + dSpFA);
-  setTxt('grand-edu-thai', eduThai);
-  setTxt('grand-edu-foreign', eduForeign);
-
-  // Summary by nationality and age
-  // Thai children: Walk-in Thai child + Group Thai child + Mem child + IC + Education Thai child
-  const sumThaiChild = getVal('vis-a-thai-child') + bThaiChild + aMemC + bIC
-    + dInsTC + dInvTC + dWrTC + dMmChild + dSpTC;
-  // Thai adults: Walk-in Thai adult + Group Thai adult + Mem adult + IA + Education Thai adult
-  const sumThaiAdult = getVal('vis-a-thai-adult') + bThaiAdult + aMemA + bIA
-    + dInsTA + dInvTA + dWrTA + dSpTA;
-  // Foreign children: Walk-in For child + Group For child + Mem FC + Education For child
-  const sumForChild = getVal('vis-a-for-child') + bForChild + aMemFC
-    + dInsFC + dInvFC + dWrFC + dSpFC;
-  // Foreign adults: Walk-in For adult + Group For adult + Mem FA + Education For adult
-  const sumForAdult = getVal('vis-a-for-adult') + bForAdult + aMemFA
-    + dInsFA + dInvFA + dWrFA + dSpFA;
-  // All children and adults
-  const sumAllChild = sumThaiChild + sumForChild;
-  // Note: cSenior (ผู้สูงอายุ) are counted as adults by definition.
-  // dOth (other education activities) has no age/nationality breakdown, so counted as adults.
-  const sumAllAdult = sumThaiAdult + sumForAdult + cSenior + dOth;
-
-  setTxt('sum-thai-child', sumThaiChild);
-  setTxt('sum-thai-adult', sumThaiAdult);
-  setTxt('sum-for-child', sumForChild);
-  setTxt('sum-for-adult', sumForAdult);
-  setTxt('sum-all-child', sumAllChild);
-  setTxt('sum-all-adult', sumAllAdult);
-
-  updateSummaryPreview();
-}
-
-function calcRev() {
-  const cats = ['ex','ins','inv','wr','mm','sp','mem','oth'];
-  let revRowTotal = 0, onlineRowTotal = 0;
-  cats.forEach(cat => {
-    const rev = getFloatVal('rev-' + cat);
-    const online = getFloatVal('online-' + cat);
-    const colTotal = rev + online;
-    setTxt('col-' + cat + '-total', fmtNum(colTotal));
-    revRowTotal += rev;
-    onlineRowTotal += online;
-  });
-  setTxt('rev-row-total', fmtNum(revRowTotal));
-  setTxt('online-row-total', fmtNum(onlineRowTotal));
-  const grand = revRowTotal + onlineRowTotal;
-  setTxt('rev-grand-total', fmtNum(grand));
-  updateSummaryPreview();
-}
-
-function updateSummaryPreview() {
-  const date = getCurrentDate();
-  setTxt('prev-date', date || '-');
-  setTxt('prev-mod', getInputVal('mod-morning') || '-');
-  const gt = document.getElementById('grand-total');
-  const vis = gt ? parseInt(gt.textContent) || 0 : 0;
-  setTxt('prev-visitors', fmtNum(vis) + ' คน');
-  // Revenue grand total
-  const revEl = document.getElementById('rev-grand-total');
-  const revText = revEl ? revEl.textContent.replace(/,/g,'') : '0';
-  setTxt('prev-revenue', fmtNum(parseFloat(revText) || 0) + ' บาท');
-}
-// ============ DATA STORAGE ============
-function getFormData() {
-  const date = getCurrentDate();
-  // Collect booking rows
-  const bookings = [];
-  document.querySelectorAll('#booking-tbody tr').forEach(tr => {
-    const inputs = tr.querySelectorAll('input');
-    if (inputs.length >= 4) {
-      bookings.push({
-        group: inputs[0].value || '',
-        count: inputs[1].value || '',
-        time: inputs[2].value || '',
-        responsible: inputs[3].value || ''
-      });
-    }
-  });
-  // รวบรวมข้อมูล activity rows
-  const activities = [];
-  document.querySelectorAll('#activity-tbody tr').forEach(tr => {
-    const selects = tr.querySelectorAll('select');
-    const numInputs = tr.querySelectorAll('input[type="number"]');
-    const textInputs = tr.querySelectorAll('input[type="text"]');
-    if (selects.length >= 1) {
-      const officerSel = tr.querySelector('.activity-officer-sel');
-      const participantTypeSel = selects[2] || selects[1];
-      const participantType = participantTypeSel?.value !== 'inspire' && participantTypeSel?.value !== 'innovation' && participantTypeSel?.value !== 'walk' && participantTypeSel?.value !== 'mini' && participantTypeSel?.value !== 'other'
-        ? (participantTypeSel?.value || 'walk-in')
-        : 'walk-in';
-      // More reliable: find participant type select by its option values
-      let partType = 'walk-in';
-      tr.querySelectorAll('select').forEach(s => {
-        const vals = Array.from(s.options).map(o => o.value);
-        if (vals.includes('walk-in') && vals.includes('group')) partType = s.value;
-      });
-      const groupNameSel = tr.querySelector('.group-name-col');
-      activities.push({
-        type: selects[0]?.value || '',
-        name: textInputs[0]?.value || '',
-        operator: officerSel?.value || '',
-        participantType: partType,
-        groupName: groupNameSel?.value || '',
-        thaiChild: parseInt(numInputs[0]?.value) || 0,
-        thaiAdult: parseInt(numInputs[1]?.value) || 0,
-        foreignChild: parseInt(numInputs[2]?.value) || 0,
-        foreignAdult: parseInt(numInputs[3]?.value) || 0,
-        groupChild: parseInt(numInputs[4]?.value) || 0,
-        groupAdult: parseInt(numInputs[5]?.value) || 0
-      });
-    }
-  });
-  // Collect group rows (Section B) and compute totals
-  const groups = [];
-  let bThaiChild = 0, bThaiAdult = 0, bForChild = 0, bForAdult = 0;
-  document.querySelectorAll('#group-tbody tr').forEach(tr => {
-    const groupNameInput = tr.querySelector('input.group-name-input');
-    const numInputs  = tr.querySelectorAll('input[type="number"]');
-    if (numInputs.length >= 4) {
-      const tc = parseInt(numInputs[0].value)||0;
-      const ta = parseInt(numInputs[1].value)||0;
-      const fc = parseInt(numInputs[2].value)||0;
-      const fa = parseInt(numInputs[3].value)||0;
-      bThaiChild += tc; bThaiAdult += ta; bForChild += fc; bForAdult += fa;
-      groups.push({
-        group: groupNameInput?.value || '',
-        thaiChild: tc, thaiAdult: ta, foreignChild: fc, foreignAdult: fa
-      });
-    }
-  });
-  // Grand total
-  const gt = document.getElementById('grand-total');
-  const totalVisitors = gt ? parseInt(gt.textContent) || 0 : 0;
-  // Revenue
-  const revEl = document.getElementById('rev-grand-total');
-  const revText = revEl ? revEl.textContent.replace(/,/g,'') : '0';
-  const totalRevenue = parseFloat(revText) || 0;
-
-  return {
-    date, year: date.split('-')[0], month: date.split('-')[1], day: date.split('-')[2],
-    // Morning
-    modMorning: getInputVal('mod-morning'),
-    mExhibition: getInputVal('m-exhibition'),
-    mEducation: getInputVal('m-education'),
-    mVisitor: getInputVal('m-visitor-service'),
-    bookings,
-    activities,
-    groups,
-    hoursTueFri: getInputVal('hours-tue-fri'),
-    hoursSatSun: getInputVal('hours-sat-sun'),
-    hoursClosed: getInputVal('hours-closed'),
-    mEducationActivities: getInputVal('m-education-activities'),
-    visitorServiceInfo: getInputVal('visitor-service-info'),
-    regulation1: getInputVal('regulation-1'),
-    regulation2: getInputVal('regulation-2'),
-    special1: getInputVal('special1'),
-    special2: getInputVal('special2'),
-    special3: getInputVal('special3'),
-    special4: getInputVal('special4'),
-    special5: getInputVal('special5'),
-    special6: getInputVal('special6'),
-    // Evening - VS
-    vsCounter2Name: getInputVal('vs-counter2-name'), vsCounter2Issue: getInputVal('vs-counter2-issue'), vsCounter2Note: getInputVal('vs-counter2-note'),
-    vsCounter1Name: getInputVal('vs-counter1-name'), vsCounter1Issue: getInputVal('vs-counter1-issue'), vsCounter1Note: getInputVal('vs-counter1-note'),
-    // Evening - Exhibition zones
-    exZ1Name: getInputVal('ex-z1-name'), exZ1Issue: getInputVal('ex-z1-issue'), exZ1Note: getInputVal('ex-z1-note'),
-    exZ2Name: getInputVal('ex-z2-name'), exZ2Issue: getInputVal('ex-z2-issue'), exZ2Note: getInputVal('ex-z2-note'),
-    exZ3Name: getInputVal('ex-z3-name'), exZ3Issue: getInputVal('ex-z3-issue'), exZ3Note: getInputVal('ex-z3-note'),
-    exZ4Name: getInputVal('ex-z4-name'), exZ4Issue: getInputVal('ex-z4-issue'), exZ4Note: getInputVal('ex-z4-note'),
-    exInnovationName: getInputVal('ex-innovation-name'), exInnovationIssue: getInputVal('ex-innovation-issue'), exInnovationNote: getInputVal('ex-innovation-note'),
-    exInspireName: getInputVal('ex-inspire-name'), exInspireIssue: getInputVal('ex-inspire-issue'), exInspireNote: getInputVal('ex-inspire-note'),
-    exMakePlay1Name: getInputVal('ex-make-play1-name'), exMakePlay1Issue: getInputVal('ex-make-play1-issue'), exMakePlay1Note: getInputVal('ex-make-play1-note'),
-    exMakePlay2Name: getInputVal('ex-make-play2-name'), exMakePlay2Issue: getInputVal('ex-make-play2-issue'), exMakePlay2Note: getInputVal('ex-make-play2-note'),
-    // Evening - Education
-    edInspireName: getInputVal('ed-inspire-name'), edInspireIssue: getInputVal('ed-inspire-issue'), edInspireNote: getInputVal('ed-inspire-note'),
-    edInnovationName: getInputVal('ed-innovation-name'), edInnovationIssue: getInputVal('ed-innovation-issue'), edInnovationNote: getInputVal('ed-innovation-note'),
-    edMiniName: getInputVal('ed-mini-name'), edMiniIssue: getInputVal('ed-mini-issue'), edMiniNote: getInputVal('ed-mini-note'),
-    modSign: getInputVal('mod-sign'), signDate: getInputVal('sign-date'),
-    // Visitors A
-    visAThai: { child: getVal('vis-a-thai-child'), adult: getVal('vis-a-thai-adult') },
-    visAFor: { child: getVal('vis-a-for-child'), adult: getVal('vis-a-for-adult') },
-    visAMem: { child: getVal('vis-a-mem-child'), adult: getVal('vis-a-mem-adult'), fc: getVal('vis-a-mem-fc'), fa: getVal('vis-a-mem-fa') },
-    // Visitors B (computed from group rows)
-    visBThai: { child: bThaiChild, adult: bThaiAdult },
-    visBFor: { child: bForChild, adult: bForAdult },
-    visBMem: { ic: getVal('vis-b-ic'), ia: getVal('vis-b-ia') },
-    // Visitors C
-    visCsenior: getVal('vis-c-senior'),
-    // Visitors D
-    visDIns: { tc: getVal('vis-d-ins-tc'), ta: getVal('vis-d-ins-ta'), fc: getVal('vis-d-ins-fc'), fa: getVal('vis-d-ins-fa') },
-    visDInv: { tc: getVal('vis-d-inv-tc'), ta: getVal('vis-d-inv-ta'), fc: getVal('vis-d-inv-fc'), fa: getVal('vis-d-inv-fa') },
-    visDWr: { tc: getVal('vis-d-wr-tc'), ta: getVal('vis-d-wr-ta'), fc: getVal('vis-d-wr-fc'), fa: getVal('vis-d-wr-fa') },
-    visDMm: { child1: getVal('vis-d-mm1-child'), child2: getVal('vis-d-mm2-child') },
-    visDSp: { tc: getVal('vis-d-sp-tc'), ta: getVal('vis-d-sp-ta'), fc: getVal('vis-d-sp-fc'), fa: getVal('vis-d-sp-fa') },
-    visDOth: { name: getInputVal('vis-d-oth-name'), count: getVal('vis-d-oth-count') },
-    // Revenue
-    rev: {
-      ex: getFloatVal('rev-ex'), ins: getFloatVal('rev-ins'), inv: getFloatVal('rev-inv'),
-      wr: getFloatVal('rev-wr'), mm: getFloatVal('rev-mm'), sp: getFloatVal('rev-sp'),
-      mem: getFloatVal('rev-mem'), oth: getFloatVal('rev-oth')
-    },
-    online: {
-      ex: getFloatVal('online-ex'), ins: getFloatVal('online-ins'), inv: getFloatVal('online-inv'),
-      wr: getFloatVal('online-wr'), mm: getFloatVal('online-mm'), sp: getFloatVal('online-sp'),
-      mem: getFloatVal('online-mem'), oth: getFloatVal('online-oth')
-    },
-    notes: getInputVal('daily-notes'),
-    totalVisitors,
-    totalRevenue,
-    // Zone volunteer assignments (morning tab)
-    exZones: [
-      { zone: 'โซน 1 ค้นพบตัวตน', name: getInputVal('ex-z1-name') },
-      { zone: 'โซน 2 เปิดโลกทางการแพทย์', name: getInputVal('ex-z2-name') },
-      { zone: 'โซน 3 ฐานปฏิบัติการภัยพิบัต', name: getInputVal('ex-z3-name') },
-      { zone: 'โซน 4 การบินและอวกาศ', name: getInputVal('ex-z4-name') },
-      { zone: 'ห้อง Innovation Space', name: getInputVal('ex-innovation-name') },
-      { zone: 'ห้อง Inspire Lab', name: getInputVal('ex-inspire-name') },
-      { zone: 'ห้อง Make and Play 1', name: getInputVal('ex-make-play1-name') },
-      { zone: 'ห้อง Make and Play 2', name: getInputVal('ex-make-play2-name') },
-    ].filter(z => z.name)
-  };
-}
-
-function setFormData(data) {
-  if (!data) return;
-  setInputVal('mod-morning', data.modMorning);
-  setInputVal('m-exhibition', data.mExhibition);
-  setInputVal('m-education', data.mEducation);
-  setInputVal('m-visitor-service', data.mVisitor);
-  setChecked('cb-inspire-lab', data.cbInspireLab);
-  setChecked('cb-innovation-space', data.cbInnovationSpace);
-  setChecked('cb-walk-rally', data.cbWalkRally);
-  setInputVal('hours-tue-fri', data.hoursTueFri);
-  setInputVal('hours-sat-sun', data.hoursSatSun);
-  setInputVal('hours-closed', data.hoursClosed);
-  setInputVal('m-education-activities', data.mEducationActivities);
-  setInputVal('visitor-service-info', data.visitorServiceInfo);
-  setInputVal('regulation-1', data.regulation1);
-  setInputVal('regulation-2', data.regulation2);
-  setInputVal('special1', data.special1);
-  setInputVal('special2', data.special2);
-  setInputVal('special3', data.special3);
-  setInputVal('special4', data.special4);
-  setInputVal('special5', data.special5);
-  setInputVal('special6', data.special6);
-  // Booking rows
-  const tbody = document.getElementById('booking-tbody');
-  if (tbody) { tbody.innerHTML = ''; bookingRowCount = 0; }
-  if (data.bookings && data.bookings.length) {
-    data.bookings.forEach(b => addBookingRow(b));
-  }
-  // Group rows (Section B)
-  const groupTbody = document.getElementById('group-tbody');
-  if (groupTbody) { groupTbody.innerHTML = ''; groupRowCount = 0; }
-  if (data.groups && data.groups.length) {
-    data.groups.forEach(g => addGroupRow(g));
-  } else if ((data.visBThai?.child || data.visBThai?.adult || data.visBFor?.child || data.visBFor?.adult)) {
-    // Legacy data: reconstruct a single aggregate row for backward compatibility
-    addGroupRow({
-      group: '',
-      thaiChild: data.visBThai?.child || 0,
-      thaiAdult: data.visBThai?.adult || 0,
-      foreignChild: data.visBFor?.child || 0,
-      foreignAdult: data.visBFor?.adult || 0
-    });
-  }
-  // Activity rows
-  const activityTbody = document.getElementById('activity-tbody');
-  if (activityTbody) { activityTbody.innerHTML = ''; activityRowCount = 0; }
-  if (data.activities && data.activities.length) {
-    data.activities.forEach(a => addActivityRow(a));
-  } else {
-    addActivityRow(); // เพิ่มแถวเริ่มต้น
-  }
-  // Evening
-  setInputVal('vs-counter2-name', data.vsCounter2Name); setInputVal('vs-counter2-issue', data.vsCounter2Issue); setInputVal('vs-counter2-note', data.vsCounter2Note);
-  setInputVal('vs-counter1-name', data.vsCounter1Name); setInputVal('vs-counter1-issue', data.vsCounter1Issue); setInputVal('vs-counter1-note', data.vsCounter1Note);
-  setInputVal('ex-z1-name', data.exZ1Name); setInputVal('ex-z1-issue', data.exZ1Issue); setInputVal('ex-z1-note', data.exZ1Note);
-  setInputVal('ex-z2-name', data.exZ2Name); setInputVal('ex-z2-issue', data.exZ2Issue); setInputVal('ex-z2-note', data.exZ2Note);
-  setInputVal('ex-z3-name', data.exZ3Name); setInputVal('ex-z3-issue', data.exZ3Issue); setInputVal('ex-z3-note', data.exZ3Note);
-  setInputVal('ex-z4-name', data.exZ4Name); setInputVal('ex-z4-issue', data.exZ4Issue); setInputVal('ex-z4-note', data.exZ4Note);
-  setInputVal('ex-innovation-name', data.exInnovationName); setInputVal('ex-innovation-issue', data.exInnovationIssue); setInputVal('ex-innovation-note', data.exInnovationNote);
-  setInputVal('ex-inspire-name', data.exInspireName); setInputVal('ex-inspire-issue', data.exInspireIssue); setInputVal('ex-inspire-note', data.exInspireNote);
-  setInputVal('ex-make-play1-name', data.exMakePlay1Name); setInputVal('ex-make-play1-issue', data.exMakePlay1Issue); setInputVal('ex-make-play1-note', data.exMakePlay1Note);
-  setInputVal('ex-make-play2-name', data.exMakePlay2Name); setInputVal('ex-make-play2-issue', data.exMakePlay2Issue); setInputVal('ex-make-play2-note', data.exMakePlay2Note);
-  setInputVal('ed-inspire-name', data.edInspireName); setInputVal('ed-inspire-issue', data.edInspireIssue); setInputVal('ed-inspire-note', data.edInspireNote);
-  setInputVal('ed-innovation-name', data.edInnovationName); setInputVal('ed-innovation-issue', data.edInnovationIssue); setInputVal('ed-innovation-note', data.edInnovationNote);
-  setInputVal('ed-mini-name', data.edMiniName); setInputVal('ed-mini-issue', data.edMiniIssue); setInputVal('ed-mini-note', data.edMiniNote);
-  setInputVal('mod-sign', data.modSign); setInputVal('sign-date', data.signDate);
-  // Visitors A
-  const va = data.visAThai || {}; setInputVal('vis-a-thai-child', va.child||0); setInputVal('vis-a-thai-adult', va.adult||0);
-  const vaf = data.visAFor || {}; setInputVal('vis-a-for-child', vaf.child||0); setInputVal('vis-a-for-adult', vaf.adult||0);
-  const vam = data.visAMem || {}; setInputVal('vis-a-mem-child', vam.child||0); setInputVal('vis-a-mem-adult', vam.adult||0); setInputVal('vis-a-mem-fc', vam.fc||0); setInputVal('vis-a-mem-fa', vam.fa||0);
-  // Visitors B is restored via group rows above (calcGroupRows is called by addGroupRow)
-  const vbm = data.visBMem || {}; setInputVal('vis-b-ic', vbm.ic||0); setInputVal('vis-b-ia', vbm.ia||0);
-  // Visitors C
-  setInputVal('vis-c-senior', data.visCsenior||0);
-  // Visitors D
-  const vdi = data.visDIns || {}; setInputVal('vis-d-ins-tc', vdi.tc||0); setInputVal('vis-d-ins-ta', vdi.ta||0); setInputVal('vis-d-ins-fc', vdi.fc||0); setInputVal('vis-d-ins-fa', vdi.fa||0);
-  const vdn = data.visDInv || {}; setInputVal('vis-d-inv-tc', vdn.tc||0); setInputVal('vis-d-inv-ta', vdn.ta||0); setInputVal('vis-d-inv-fc', vdn.fc||0); setInputVal('vis-d-inv-fa', vdn.fa||0);
-  const vdw = data.visDWr || {}; setInputVal('vis-d-wr-tc', vdw.tc||0); setInputVal('vis-d-wr-ta', vdw.ta||0); setInputVal('vis-d-wr-fc', vdw.fc||0); setInputVal('vis-d-wr-fa', vdw.fa||0);
-  const vdm = data.visDMm || {}; setInputVal('vis-d-mm1-child', vdm.child1||vdm.child||0); setInputVal('vis-d-mm2-child', vdm.child2||0);
-  const vds = data.visDSp || {}; setInputVal('vis-d-sp-tc', vds.tc||0); setInputVal('vis-d-sp-ta', vds.ta||0); setInputVal('vis-d-sp-fc', vds.fc||0); setInputVal('vis-d-sp-fa', vds.fa||0);
-  const vdo = data.visDOth || {}; setInputVal('vis-d-oth-name', vdo.name||''); setInputVal('vis-d-oth-count', vdo.count||0);
-  // Revenue
-  const rev = data.rev || {}; const online = data.online || {};
-  ['ex','ins','inv','wr','mm','sp','mem','oth'].forEach(c => {
-    setInputVal('rev-'+c, rev[c]||0);
-    setInputVal('online-'+c, online[c]||0);
-  });
-  setInputVal('daily-notes', data.notes);
-  // Recalculate
-  calcGroupRows();
-  calcVis();
-  calcRev();
-}
-
-
-function clearFormFields() {
-  // Reset all inputs in daily log
-  document.querySelectorAll('#page-daily-log input[type=text], #page-daily-log input[type=number], #page-daily-log textarea').forEach(el => {
-    el.value = el.type === 'number' ? '0' : '';
-  });
-  document.querySelectorAll('#page-daily-log input[type=checkbox]').forEach(el => el.checked = false);
-  const tbody = document.getElementById('booking-tbody');
-  if (tbody) { tbody.innerHTML = ''; bookingRowCount = 0; }
-  const groupTbody = document.getElementById('group-tbody');
-  if (groupTbody) { groupTbody.innerHTML = ''; groupRowCount = 0; }
-  // เคลียร์ activity rows
-  const activityTbody = document.getElementById('activity-tbody');
-  if (activityTbody) { activityTbody.innerHTML = ''; activityRowCount = 0; addActivityRow(); }
-  calcGroupRows();
-  calcVis();
-  calcRev();
-}
-
-function clearAllFields() {
-  if (confirm('ล้างข้อมูลทั้งหมดในฟอร์มนี้ใช่หรือไม่?')) {
-    clearFormFields();
-    showToast('ล้างข้อมูลเรียบร้อยแล้ว', 'info');
-  }
-}
-
-function saveToLocal(showMsg = true) {
-  const data = getFormData();
-  if (!data.date || data.date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
-  const key = 'nsm_' + data.date;
-  localStorage.setItem(key, JSON.stringify(data));
-  if (showMsg) showToast('บันทึกสำเร็จ: ' + data.date, 'success');
-}
-
-function loadFromLocal(date) {
-  if (!date) return;
-  const key = 'nsm_' + date;
-  const raw = localStorage.getItem(key);
-  if (raw) {
-    try { setFormData(JSON.parse(raw)); }
-    catch(e) { console.error('loadFromLocal error', e); }
-  } else {
-    clearFormFields();
-  }
-}
-
-function getAllRecords() {
-  const records = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith('nsm_2')) {
-      try { records.push(JSON.parse(localStorage.getItem(key))); } catch(e) {}
-    }
-  }
-  return records.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-}
-
-function deleteRecord(date) {
-  localStorage.removeItem('nsm_' + date);
-}
-
-// ============ GOOGLE SHEETS ============
-async function submitAll() {
-  // 1. ตรวจสอบข้อมูล
-  const errors = validateDailyForm();
-  if (errors.length > 0) {
-    errors.forEach((msg, i) => setTimeout(() => showToast(msg, 'error'), i * 450));
-    return;
-  }
-  // 2. บันทึกลง localStorage ก่อน
-  saveToLocal(false);
-  const statusEl = document.getElementById('sheets-save-status');
-  if (statusEl) statusEl.textContent = '🔄 กำลังบันทึก...';
-
-  const settings = getSettings();
-  if (!settings.sheetsURL && !window.GoogleSheetsAPI) {
-    showToast('บันทึกสำเร็จ! (ยังไม่ได้ตั้งค่า Google Sheets URL)', 'success');
-    if (statusEl) statusEl.textContent = '⚠️ ยังไม่ได้ตั้งค่า Google Sheets URL';
-    return;
-  }
-
-  const data = getFormData();
-  showProgress('กำลังบันทึกข้อมูล...', 'กำลังส่งไปยัง Google Sheets MOD_Data');
-  try {
-    if (window.GoogleSheetsAPI) {
-      await window.GoogleSheetsAPI.saveDailyRecord(data);
-    } else {
-      // Fallback: direct fetch
-      const records = getAllRecords();
-      if (!records.length) { hideProgress(); showToast('ไม่มีข้อมูลที่จะส่ง', 'warning'); return; }
-      const payload = JSON.stringify({
-        action: 'bulkInsert',
-        sheetName: settings.sheetName || 'Sheet1',
-        records: records.map(r => ({ ...r, submittedAt: new Date().toISOString() }))
-      });
-      await fetch(settings.sheetsURL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: payload });
-    }
+    AppState.data = normalizeFullDay(payload || {});
+    populateAllForms();
+    recalculateAll();
+    showToast('โหลดข้อมูลประจำวันเรียบร้อยแล้ว', 'success');
+  } catch (error) {
+    console.error(error);
+    AppState.data = normalizeFullDay({});
+    populateAllForms();
+    recalculateAll();
+    showToast(error.message || 'ไม่สามารถโหลดข้อมูลได้', 'error');
+  } finally {
+    setLoading(false);
     hideProgress();
-    if (statusEl) {
-      const now = new Date();
-      statusEl.textContent = '✅ บันทึกสำเร็จ ' + now.toLocaleTimeString('th-TH');
+  }
+}
+
+async function loadSection(section, date, shouldPopulate = true) {
+  const data = await window.ModAPI.getSection(section, date);
+  AppState.data[section] = data;
+  if (shouldPopulate) {
+    populateForm(section, data);
+    recalculateAll();
+  }
+  return data;
+}
+
+async function saveSection(section) {
+  const activeSection = section === 'current' ? mapPageToSaveTarget(AppState.currentPage) : section;
+  showProgress('กำลังบันทึกข้อมูล...');
+  setAutosaveIndicator('saving', 'กำลังบันทึก');
+  try {
+    if (activeSection === 'assignments') {
+      const data = getFormData('assignments');
+      await window.ModAPI.saveSection('assignments', AppState.currentDate, data);
+      AppState.data.assignments = data;
+    } else if (activeSection === 'exhibition') {
+      const walkin = getFormData('walkin');
+      const groups = getFormData('groups');
+      const additional = getFormData('additional');
+      const inspire = getFormData('inspire');
+      const innovation = getFormData('innovation');
+      const pos = getFormData('pos');
+      await Promise.all([
+        window.ModAPI.saveSection('walkin', AppState.currentDate, walkin),
+        window.ModAPI.saveGroups(AppState.currentDate, groups),
+        window.ModAPI.saveSection('additional', AppState.currentDate, additional),
+        window.ModAPI.saveLabRows('inspire', AppState.currentDate, inspire),
+        window.ModAPI.saveLabRows('innovation', AppState.currentDate, innovation),
+        window.ModAPI.saveSection('pos', AppState.currentDate, pos)
+      ]);
+      Object.assign(AppState.data, { walkin, groups, additional, inspire, innovation, pos });
+    } else if (activeSection === 'pos') {
+      const pos = getFormData('pos');
+      await window.ModAPI.saveSection('pos', AppState.currentDate, pos);
+      AppState.data.pos = pos;
+    } else if (activeSection === 'summary') {
+      const summary = getFormData('summary');
+      await window.ModAPI.saveSection('summary', AppState.currentDate, summary);
+      AppState.data.summary = summary;
     }
-    showToast('บันทึกข้อมูลไปยัง Google Sheets สำเร็จ!', 'success');
-  } catch (err) {
+    setAutosaveIndicator('saved', 'บันทึกแล้ว');
+    showToast('บันทึกข้อมูลสำเร็จ', 'success');
+  } catch (error) {
+    console.error(error);
+    setAutosaveIndicator('error', 'บันทึกล้มเหลว');
+    showToast(error.message || 'บันทึกข้อมูลไม่สำเร็จ', 'error');
+  } finally {
     hideProgress();
-    if (statusEl) statusEl.textContent = '❌ บันทึกไม่สำเร็จ';
-    showToast('บันทึกสำเร็จ แต่ไม่สามารถส่ง Google Sheets: ' + err.message, 'warning');
-    // Fallback: try bulk insert with direct fetch
-    const records = getAllRecords();
-    if (records.length && settings.sheetsURL) {
-      showProgress('กำลังส่งข้อมูลแบบเดิม...', `กำลังส่ง ${records.length} รายการ`);
-      const payload = JSON.stringify({ action: 'bulkInsert', sheetName: settings.sheetName || 'Sheet1', records });
-      fetch(settings.sheetsURL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: payload })
-        .then(() => { hideProgress(); showToast('ส่งข้อมูลสำเร็จ (แบบเดิม)', 'success'); })
-        .catch(() => { hideProgress(); showToast('บันทึกใน localStorage แล้ว แต่ยังไม่ได้ส่ง Google Sheets', 'warning'); });
+  }
+}
+
+function populateAllForms() {
+  populateForm('assignments', AppState.data.assignments);
+  populateForm('walkin', AppState.data.walkin);
+  populateForm('groups', AppState.data.groups);
+  populateForm('additional', AppState.data.additional);
+  populateForm('inspire', AppState.data.inspire);
+  populateForm('innovation', AppState.data.innovation);
+  populateForm('summary', AppState.data.summary);
+  renderAssignmentsSummary();
+}
+
+function populateForm(section, data) {
+  switch (section) {
+    case 'assignments': {
+      const source = data || defaultAssignments();
+      setValue('mo-officer', source.mo_officer || '');
+      setValue('mex-officer', source.mex_officer || '');
+      setValue('med-officer', source.med_officer || '');
+      setValue('mvi-officer', source.mvi_officer || '');
+      setValue('z2f-volunteer', source.z2f_volunteer || '');
+      setValue('zmp-volunteer', source.zmp_volunteer || '');
+      setValue('zinl-volunteer', source.zinl_volunteer || '');
+      setValue('other-activity-note', source.other_activity_note || '');
+      break;
+    }
+    case 'walkin': {
+      const source = data || defaultWalkin();
+      ['mor-th-kids', 'mor-th-adults', 'mor-fr-kids', 'mor-fr-adults', 'eve-th-kids', 'eve-th-adults', 'eve-fr-kids', 'eve-fr-adults'].forEach((id) => setValue(id, source[id.replace(/-/g, '_')] ?? 0));
+      break;
+    }
+    case 'groups': {
+      buildIndexedRows(data, 10, 'group_index').forEach((row, index) => {
+        const i = index + 1;
+        setValue(`group-name-${i}`, row.group_name || '');
+        setValue(`g-kids-${i}`, row.g_kids ?? 0);
+        setValue(`g-adults-${i}`, row.g_adults ?? 0);
+      });
+      break;
+    }
+    case 'additional': {
+      const source = data || defaultAdditional();
+      setValue('ac-walk-r-kids', source.ac_walk_r_kids ?? 0);
+      setValue('ac-walk-r-adults', source.ac_walk_r_adults ?? 0);
+      setValue('ac-mmap-kids', source.ac_mmap_kids ?? 0);
+      setValue('ac-mmap-adults', source.ac_mmap_adults ?? 0);
+      setValue('ac-etcac-kids', source.ac_etcac_kids ?? 0);
+      setValue('ac-etcac-adults', source.ac_etcac_adults ?? 0);
+      setValue('activity-notes', source.activity_notes || '');
+      break;
+    }
+    case 'inspire': populateLabRows('insl', data); break;
+    case 'innovation': populateLabRows('inns', data); break;
+    case 'summary': {
+      const source = data || defaultSummary();
+      setValue('issue-mo', source.issue_mo || '');
+      setValue('issue-mex', source.issue_mex || '');
+      setValue('issue-med', source.issue_med || '');
+      setValue('issue-mvi', source.issue_mvi || '');
+      setValue('issue-insl', source.issue_insl || '');
+      setValue('issue-inns', source.issue_inns || '');
+      setValue('summary-notes', source.summary_notes || '');
+      break;
     }
   }
 }
 
-function showProgress(title, sub) {
-  const ov = document.getElementById('progress-overlay');
-  if (ov) {
-    setTxt('progress-title', title);
-    setTxt('progress-sub', sub);
-    ov.style.display = 'flex';
-  }
-}
-function hideProgress() {
-  const ov = document.getElementById('progress-overlay');
-  if (ov) ov.style.display = 'none';
-}
-
-// ============ HISTORY ============
-let allHistoryRecords = [];
-function renderHistory(filterMonth) {
-  allHistoryRecords = getAllRecords();
-  let records = allHistoryRecords;
-  // Populate filter dropdown
-  const filterSel = document.getElementById('history-filter-month');
-  if (filterSel) {
-    const months = [...new Set(records.map(r => (r.date || '').substring(0,7)))].sort().reverse();
-    const curFilter = filterSel.value;
-    filterSel.innerHTML = '<option value="">ทั้งหมด</option>';
-    months.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m;
-      const [y, mo] = m.split('-');
-      opt.textContent = `${MONTH_NAMES[parseInt(mo)-1]} ${parseInt(y)+543}`;
-      filterSel.appendChild(opt);
-    });
-    filterSel.value = filterMonth || curFilter || '';
-  }
-  if (filterMonth) {
-    records = records.filter(r => (r.date || '').startsWith(filterMonth));
-  }
-  // Stats
-  const totalVis = records.reduce((s, r) => s + (r.totalVisitors || 0), 0);
-  const totalRev = records.reduce((s, r) => s + (r.totalRevenue || 0), 0);
-  const months = new Set(records.map(r => (r.date || '').substring(0,7)));
-  setTxt('history-stat-total', records.length);
-  setTxt('history-stat-visitors', fmtNum(totalVis));
-  setTxt('history-stat-revenue', fmtNum(totalRev));
-  setTxt('history-stat-months', months.size);
-
-  // Paginate
-  const totalPages = Math.max(1, Math.ceil(records.length / ITEMS_PER_PAGE));
-  historyPage = Math.min(historyPage, totalPages);
-  const start = (historyPage - 1) * ITEMS_PER_PAGE;
-  const pageRecords = records.slice(start, start + ITEMS_PER_PAGE);
-
-  const tbody = document.getElementById('history-tbody');
-  if (!tbody) return;
-  if (!pageRecords.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px;">ยังไม่มีข้อมูล</td></tr>';
-  } else {
-    tbody.innerHTML = pageRecords.map(r => {
-      const walkin = calcWalkinFromData(r);
-      const group = calcGroupFromData(r);
-      const edu = calcEduFromData(r);
-      const safeDate = sanitizeDate(r.date);
-      return `<tr>
-        <td style="white-space:nowrap;">${escHtml(r.date || '-')}</td>
-        <td>${escHtml(r.modMorning || '-')}</td>
-        <td>${fmtNum(walkin)}</td>
-        <td>${fmtNum(group)}</td>
-        <td>${fmtNum(edu)}</td>
-        <td style="font-weight:600;color:var(--accent);">${fmtNum(r.totalVisitors || 0)}</td>
-        <td style="color:var(--warning);">${fmtNum(r.totalRevenue || 0)}</td>
-        <td style="white-space:nowrap;">
-          <button class="btn btn-ghost btn-sm" onclick="viewRecord('${safeDate}')" title="ดูรายละเอียด">👁</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportDailyBriefingPDF('${safeDate}')" title="Export Briefing PDF" style="color:var(--danger);">📄</button>
-          <button class="btn btn-ghost btn-sm" onclick="editRecord('${safeDate}')" title="แก้ไข" style="color:var(--info);">✏️</button>
-          <button class="btn btn-ghost btn-sm" onclick="confirmDelete('${safeDate}')" title="ลบ" style="color:var(--danger);">🗑</button>
-        </td>
-      </tr>`;
-    }).join('');
-  }
-  // Info
-  setTxt('history-info', `แสดง ${start+1}-${Math.min(start+ITEMS_PER_PAGE, records.length)} จาก ${records.length} รายการ`);
-  // Pagination
-  renderPagination(totalPages, records, filterMonth);
-}
-
-function renderPagination(totalPages, records, filterMonth) {
-  const pg = document.getElementById('history-pagination');
-  if (!pg) return;
-  if (totalPages <= 1) { pg.innerHTML = ''; return; }
-  // Sanitize filterMonth — must be YYYY-MM format only
-  const safeFilter = sanitizeYearMonth(filterMonth);
-  let html = '';
-  html += `<button class="page-btn" onclick="setHistoryPage(${historyPage-1},'${safeFilter}')" ${historyPage===1?'disabled':''}>‹</button>`;
-  for (let p = 1; p <= totalPages; p++) {
-    if (p === 1 || p === totalPages || Math.abs(p - historyPage) <= 1) {
-      html += `<button class="page-btn ${p===historyPage?'active':''}" onclick="setHistoryPage(${p},'${safeFilter}')">${p}</button>`;
-    } else if (Math.abs(p - historyPage) === 2) {
-      html += '<span style="color:var(--text-muted);padding:0 4px;">…</span>';
-    }
-  }
-  html += `<button class="page-btn" onclick="setHistoryPage(${historyPage+1},'${safeFilter}')" ${historyPage===totalPages?'disabled':''}>›</button>`;
-  pg.innerHTML = html;
-}
-
-function setHistoryPage(p, filter) {
-  historyPage = p;
-  renderHistory(filter);
-}
-
-function calcWalkinFromData(r) {
-  const va = r.visAThai||{}, vaf = r.visAFor||{}, vam = r.visAMem||{};
-  return (va.child||0)+(va.adult||0)+(vaf.child||0)+(vaf.adult||0)+(vam.child||0)+(vam.adult||0)+(vam.fc||0)+(vam.fa||0);
-}
-function calcGroupFromData(r) {
-  const vb = r.visBThai||{}, vbf = r.visBFor||{}, vbm = r.visBMem||{};
-  return (vb.child||0)+(vb.adult||0)+(vbf.child||0)+(vbf.adult||0)+(vbm.ic||0)+(vbm.ia||0);
-}
-function calcEduFromData(r) {
-  const di = r.visDIns||{}, dn = r.visDInv||{}, dw = r.visDWr||{}, dm = r.visDMm||{}, ds = r.visDSp||{}, doth = r.visDOth||{};
-  return (di.tc||0)+(di.ta||0)+(di.fc||0)+(di.fa||0)+(dn.tc||0)+(dn.ta||0)+(dn.fc||0)+(dn.fa||0)+(dw.tc||0)+(dw.ta||0)+(dw.fc||0)+(dw.fa||0)+(dm.child1||dm.child||0)+(dm.child2||0)+(ds.tc||0)+(ds.ta||0)+(ds.fc||0)+(ds.fa||0)+(doth.count||0);
-}
-
-function viewRecord(date) {
-  const raw = localStorage.getItem('nsm_' + date);
-  if (!raw) { showToast('ไม่พบข้อมูล', 'error'); return; }
-  const r = JSON.parse(raw);
-  const walkin = calcWalkinFromData(r);
-  const group = calcGroupFromData(r);
-  const edu = calcEduFromData(r);
-  const content = document.getElementById('view-modal-content');
-  if (content) {
-    content.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-        <div class="preview-box">
-          <div class="preview-row"><span class="preview-label">วันที่</span><span class="preview-value">${escHtml(r.date||'-')}</span></div>
-          <div class="preview-row"><span class="preview-label">MOD</span><span class="preview-value">${escHtml(r.modMorning||'-')}</span></div>
-          <div class="preview-row"><span class="preview-label">M-Exhibition</span><span class="preview-value">${escHtml(r.mExhibition||'-')}</span></div>
-          <div class="preview-row"><span class="preview-label">M-Education</span><span class="preview-value">${escHtml(r.mEducation||'-')}</span></div>
-          <div class="preview-row"><span class="preview-label">M-Visitor Service</span><span class="preview-value">${escHtml(r.mVisitor||'-')}</span></div>
-        </div>
-        <div class="preview-box">
-          <div class="preview-row"><span class="preview-label">Walk-in</span><span class="preview-value">${fmtNum(walkin)}</span></div>
-          <div class="preview-row"><span class="preview-label">กลุ่ม</span><span class="preview-value">${fmtNum(group)}</span></div>
-          <div class="preview-row"><span class="preview-label">การศึกษา</span><span class="preview-value">${fmtNum(edu)}</span></div>
-          <div class="preview-row" style="border-top:2px solid var(--accent);padding-top:10px;"><span class="preview-label">รวมทั้งหมด</span><span class="preview-value" style="color:var(--accent);font-size:18px;">${fmtNum(r.totalVisitors||0)}</span></div>
-          <div class="preview-row"><span class="preview-label">รายได้รวม</span><span class="preview-value" style="color:var(--warning);">${fmtNum(r.totalRevenue||0)} บาท</span></div>
-        </div>
-      </div>
-      ${r.notes ? `<div class="info-box"><strong>หมายเหตุ:</strong> ${escHtml(r.notes)}</div>` : ''}
-      <div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
-        <button class="btn btn-ghost btn-sm" onclick="exportDailyBriefingPDF('${sanitizeDate(date)}')">📄 Export Briefing PDF</button>
-        <button class="btn btn-primary btn-sm" onclick="editRecord('${sanitizeDate(date)}');closeModal('view-modal')">✏️ แก้ไขข้อมูล</button>
-      </div>
-    `;
-  }
-  openModal('view-modal');
-}
-
-function editRecord(date) {
-  gotoPage('daily-log');
-  // Set date selectors
-  const parts = date.split('-');
-  if (parts.length === 3) {
-    setInputVal('date-year', parts[0]);
-    setInputVal('date-month', parts[1]);
-    onYearMonthChange();
-    setInputVal('date-day', parts[2]);
-    onDateChange();
+function getFormData(section) {
+  switch (section) {
+    case 'assignments': return { mo_officer: valueOf('mo-officer'), mex_officer: valueOf('mex-officer'), med_officer: valueOf('med-officer'), mvi_officer: valueOf('mvi-officer'), z2f_volunteer: valueOf('z2f-volunteer'), zmp_volunteer: valueOf('zmp-volunteer'), zinl_volunteer: valueOf('zinl-volunteer'), other_activity_note: valueOf('other-activity-note') };
+    case 'walkin': return { mor_th_kids: numVal('mor-th-kids'), mor_th_adults: numVal('mor-th-adults'), mor_fr_kids: numVal('mor-fr-kids'), mor_fr_adults: numVal('mor-fr-adults'), eve_th_kids: numVal('eve-th-kids'), eve_th_adults: numVal('eve-th-adults'), eve_fr_kids: numVal('eve-fr-kids'), eve_fr_adults: numVal('eve-fr-adults') };
+    case 'groups': return Array.from({ length: 10 }, (_, index) => ({ group_index: index + 1, group_name: valueOf(`group-name-${index + 1}`), g_kids: numVal(`g-kids-${index + 1}`), g_adults: numVal(`g-adults-${index + 1}`) }));
+    case 'additional': return { ac_walk_r_kids: numVal('ac-walk-r-kids'), ac_walk_r_adults: numVal('ac-walk-r-adults'), ac_mmap_kids: numVal('ac-mmap-kids'), ac_mmap_adults: numVal('ac-mmap-adults'), ac_etcac_kids: numVal('ac-etcac-kids'), ac_etcac_adults: numVal('ac-etcac-adults'), activity_notes: valueOf('activity-notes') };
+    case 'inspire': return collectLabRows('insl');
+    case 'innovation': return collectLabRows('inns');
+    case 'pos': return calcPOSSummary();
+    case 'summary': return { issue_mo: valueOf('issue-mo'), issue_mex: valueOf('issue-mex'), issue_med: valueOf('issue-med'), issue_mvi: valueOf('issue-mvi'), issue_insl: valueOf('issue-insl'), issue_inns: valueOf('issue-inns'), summary_notes: valueOf('summary-notes') };
+    default: return {};
   }
 }
 
-function confirmDelete(date) {
-  pendingDeleteDate = date;
-  setTxt('delete-date-label', date);
-  openModal('delete-modal');
+function calcWalkInTotals() {
+  const sumThKids = numVal('mor-th-kids') + numVal('eve-th-kids');
+  const sumThAdults = numVal('mor-th-adults') + numVal('eve-th-adults');
+  const sumFrKids = numVal('mor-fr-kids') + numVal('eve-fr-kids');
+  const sumFrAdults = numVal('mor-fr-adults') + numVal('eve-fr-adults');
+  const sumWalkKids = sumThKids + sumFrKids;
+  const sumWalkAdults = sumThAdults + sumFrAdults;
+  setText('sum-th-kids', sumThKids); setText('sum-th-adults', sumThAdults); setText('sum-fr-kids', sumFrKids); setText('sum-fr-adults', sumFrAdults); setText('sum-walk-kids', sumWalkKids); setText('sum-walk-adults', sumWalkAdults);
+  setText('summary-walk-th-kids', sumThKids); setText('summary-walk-th-adults', sumThAdults); setText('summary-walk-fr-kids', sumFrKids); setText('summary-walk-fr-adults', sumFrAdults);
+  AppState.data.walkin = getFormData('walkin');
+  return { sumThKids, sumThAdults, sumFrKids, sumFrAdults, sumWalkKids, sumWalkAdults };
 }
 
-function doDelete() {
-  if (!pendingDeleteDate) return;
-  deleteRecord(pendingDeleteDate);
-  closeModal('delete-modal');
-  showToast('ลบข้อมูลวันที่ ' + pendingDeleteDate + ' เรียบร้อย', 'success');
-  pendingDeleteDate = null;
-  renderHistory(document.getElementById('history-filter-month')?.value || '');
+function calcGroupTotals() {
+  let count = 0, kids = 0, adults = 0;
+  for (let i = 1; i <= 10; i += 1) {
+    if (valueOf(`group-name-${i}`)) count += 1;
+    kids += numVal(`g-kids-${i}`);
+    adults += numVal(`g-adults-${i}`);
+  }
+  setText('number-of-groups', count); setText('sum-group-kids', kids); setText('sum-group-adults', adults);
+  setText('summary-number-of-groups', count); setText('summary-group-kids', kids); setText('summary-group-adults', adults);
+  AppState.data.groups = getFormData('groups');
+  return { count, kids, adults };
 }
 
-// ============ SUMMARY ============
-function renderSummary() {
-  const records = getAllRecords();
-  const totalVis = records.reduce((s,r) => s+(r.totalVisitors||0),0);
-  const totalRev = records.reduce((s,r) => s+(r.totalRevenue||0),0);
-  const avg = records.length ? Math.round(totalVis / records.length) : 0;
-  setTxt('sum-stat-records', records.length);
-  setTxt('sum-stat-visitors', fmtNum(totalVis));
-  setTxt('sum-stat-revenue', fmtNum(totalRev));
-  setTxt('sum-stat-avg', fmtNum(avg));
+function calcAdditionalTotals() {
+  const total = numVal('ac-walk-r-kids') + numVal('ac-walk-r-adults') + numVal('ac-mmap-kids') + numVal('ac-mmap-adults') + numVal('ac-etcac-kids') + numVal('ac-etcac-adults');
+  setText('additional-total-visitors', total);
+  setText('summary-additional-total', total);
+  setText('additional-notes-status', valueOf('activity-notes') ? 'มีบันทึก' : 'พร้อมบันทึก');
+  setText('summary-additional-notes', valueOf('activity-notes') || '-');
+  AppState.data.additional = getFormData('additional');
+  return total;
+}
 
-  // Monthly breakdown
-  const monthly = {};
-  records.forEach(r => {
-    const ym = (r.date||'').substring(0,7);
-    if (!ym) return;
-    if (!monthly[ym]) monthly[ym] = { days:0, visitors:0, revenue:0 };
-    monthly[ym].days++;
-    monthly[ym].visitors += r.totalVisitors||0;
-    monthly[ym].revenue += r.totalRevenue||0;
+function calcLabTotals(roomType) {
+  const prefix = roomType === 'inspire' ? 'insl' : 'inns';
+  const rows = collectLabRows(prefix);
+  let kids = 0, adults = 0, total = 0;
+  rows.forEach((row) => {
+    kids += row.th_kids + row.fr_kids;
+    adults += row.th_adults + row.fr_adults;
+    total += row.th_kids + row.th_adults + row.fr_kids + row.fr_adults;
   });
-
-  // MOD performance
-  const modPerf = {};
-  records.forEach(r => {
-    const mod = r.modMorning || '(ไม่ระบุ)';
-    if (!modPerf[mod]) modPerf[mod] = { days:0, visitors:0 };
-    modPerf[mod].days++;
-    modPerf[mod].visitors += r.totalVisitors||0;
-  });
-  const modList = Object.entries(modPerf).sort((a,b)=>b[1].visitors-a[1].visitors).slice(0,10);
-  const modTbody = document.getElementById('sum-mod-tbody');
-  if (modTbody) {
-    if (!modList.length) {
-      modTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>';
-    } else {
-      modTbody.innerHTML = modList.map(([name, d], i) =>
-        `<tr><td style="color:var(--text-muted);">${i+1}</td><td>${escHtml(name)}</td><td>${d.days}</td><td style="color:var(--success);">${fmtNum(d.visitors)}</td></tr>`
-      ).join('');
-    }
-  }
-
-  // Monthly table
-  const monthTbody = document.getElementById('sum-month-tbody');
-  if (monthTbody) {
-    const sortedMonths = Object.keys(monthly).sort().reverse();
-    if (!sortedMonths.length) {
-      monthTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>';
-    } else {
-      monthTbody.innerHTML = sortedMonths.map(ym => {
-        const m = monthly[ym];
-        const [y, mo] = ym.split('-');
-        const label = `${MONTH_NAMES[parseInt(mo)-1]} ${parseInt(y)+543}`;
-        const avgM = m.days ? Math.round(m.visitors / m.days) : 0;
-        return `<tr>
-          <td>${label}</td><td>${m.days}</td>
-          <td style="color:var(--success);">${fmtNum(m.visitors)}</td>
-          <td style="color:var(--warning);">${fmtNum(m.revenue)}</td>
-          <td>${fmtNum(avgM)}</td>
-        </tr>`;
-      }).join('');
-    }
-  }
-
-  // Update summary chart
-  const sortedMonths = Object.keys(monthly).sort().slice(-12);
-  const chartLabels = sortedMonths.map(ym => {
-    const [y, mo] = ym.split('-');
-    return MONTH_NAMES[parseInt(mo)-1].substring(0,3) + ' ' + (parseInt(y)+543-2500);
-  });
-  const chartData = sortedMonths.map(ym => monthly[ym].visitors);
-  initSummaryChart(chartLabels, chartData);
-
-  // Officer activity statistics
-  const officerStats = {};
-  records.forEach(r => {
-    const officers = [r.modMorning, r.mExhibition, r.mEducation, r.mVisitor].filter(Boolean);
-    officers.forEach(name => {
-      if (!officerStats[name]) officerStats[name] = 0;
-      officerStats[name]++;
-    });
-  });
-  const officerList = Object.entries(officerStats).sort((a,b) => b[1] - a[1]);
-  const totalRounds = officerList.reduce((s, [,c]) => s + c, 0);
-  const officerStatsTbody = document.getElementById('sum-officer-stats-tbody');
-  if (officerStatsTbody) {
-    if (!officerList.length) {
-      officerStatsTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>';
-    } else {
-      officerStatsTbody.innerHTML = officerList.map(([name, count], i) => {
-        const pct = totalRounds ? Math.round(count / totalRounds * 100) : 0;
-        return `<tr>
-          <td style="color:var(--text-muted);">${i+1}</td>
-          <td style="font-weight:600;">${escHtml(name)}</td>
-          <td style="color:var(--success);">${count} รอบ</td>
-          <td>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;min-width:60px;">
-                <div style="width:${pct}%;height:100%;background:var(--accent);border-radius:3px;"></div>
-              </div>
-              <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${pct}%</span>
-            </div>
-          </td>
-        </tr>`;
-      }).join('');
-    }
-  }
+  setText(`${prefix}-sum-kids`, kids); setText(`${prefix}-sum-adults`, adults); setText(`${prefix}-sum-total`, total);
+  AppState.data[roomType] = rows;
+  renderLabSummaryTable(prefix, rows);
+  return { rows, kids, adults, total };
 }
 
-// ============ EXPORT ============
-function renderExportPreview() {
-  const records = getAllRecords();
-  setTxt('export-count', records.length);
-  const tbody = document.getElementById('export-preview-tbody');
-  if (!tbody) return;
-  if (!records.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>';
-    return;
-  }
-  tbody.innerHTML = records.slice(0, 10).map(r =>
-    `<tr><td>${escHtml(r.date||'-')}</td><td>${escHtml(r.modMorning||'-')}</td><td style="color:var(--success);">${fmtNum(r.totalVisitors||0)}</td><td style="color:var(--warning);">${fmtNum(r.totalRevenue||0)}</td></tr>`
-  ).join('');
-  if (records.length > 10) {
-    tbody.innerHTML += `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);font-size:12px;">... และอีก ${records.length-10} รายการ</td></tr>`;
-  }
+function calcCombinedRoomTotals() {
+  const thTotal = sumLabLanguage('insl', 'th') + sumLabLanguage('inns', 'th');
+  const frTotal = sumLabLanguage('insl', 'fr') + sumLabLanguage('inns', 'fr');
+  setText('combined-th-sum', thTotal); setText('combined-fr-sum', frTotal);
+  return { thTotal, frTotal };
 }
 
-function exportCSV(startDate, endDate) {
-  let records = getAllRecords();
-  if (startDate) records = records.filter(r => r.date >= startDate);
-  if (endDate) records = records.filter(r => r.date <= endDate);
-  if (!records.length) { showToast('ไม่มีข้อมูลในช่วงที่เลือก', 'warning'); return; }
-  const headers = ['วันที่','MOD','M-Exhibition','M-Education','M-Visitor Service','Walk-in ไทย (เด็ก)','Walk-in ไทย (ผู้ใหญ่)','Walk-in ต่างชาติ (เด็ก)','Walk-in ต่างชาติ (ผู้ใหญ่)','สมาชิก (เด็ก)','สมาชิก (ผู้ใหญ่)','สมาชิก FC','สมาชิก FA','กลุ่ม ไทย (เด็ก)','กลุ่ม ไทย (ผู้ใหญ่)','กลุ่ม ต่างชาติ (เด็ก)','กลุ่ม ต่างชาติ (ผู้ใหญ่)','กลุ่ม IC','กลุ่ม IA','ผู้สูงอายุ','Inspire Lab','Innovation Space','Walk Rally','Mini Make & Play','Special Event','อื่น ๆ','รวมผู้เข้าชม','รายได้ Exhibition','รายได้ Inspire','รายได้ Innovation','รายได้ Walk Rally','รายได้ Mini','รายได้ Special','รายได้ สมาชิก','รายได้ อื่น ๆ','รวมรายได้','หมายเหตุ'];
-  const rows = records.map(r => {
-    const va=r.visAThai||{}, vaf=r.visAFor||{}, vam=r.visAMem||{};
-    const vb=r.visBThai||{}, vbf=r.visBFor||{}, vbm=r.visBMem||{};
-    const di=r.visDIns||{}, dn=r.visDInv||{}, dw=r.visDWr||{}, dm=r.visDMm||{}, ds=r.visDSp||{}, doth=r.visDOth||{};
-    const rev=r.rev||{}, onl=r.online||{};
-    const dIns=(di.tc||0)+(di.ta||0)+(di.fc||0)+(di.fa||0);
-    const dInv=(dn.tc||0)+(dn.ta||0)+(dn.fc||0)+(dn.fa||0);
-    const dWr=(dw.tc||0)+(dw.ta||0)+(dw.fc||0)+(dw.fa||0);
-    const dSp=(ds.tc||0)+(ds.ta||0)+(ds.fc||0)+(ds.fa||0);
-    return [
-      r.date, r.modMorning, r.mExhibition, r.mEducation, r.mVisitor,
-      va.child, va.adult, vaf.child, vaf.adult, vam.child, vam.adult, vam.fc, vam.fa,
-      vb.child, vb.adult, vbf.child, vbf.adult, vbm.ic, vbm.ia,
-      r.visCsenior||0, dIns, dInv, dWr, dm.child||0, dSp, doth.count||0,
-      r.totalVisitors,
-      (rev.ex||0)+(onl.ex||0),(rev.ins||0)+(onl.ins||0),(rev.inv||0)+(onl.inv||0),(rev.wr||0)+(onl.wr||0),(rev.mm||0)+(onl.mm||0),(rev.sp||0)+(onl.sp||0),(rev.mem||0)+(onl.mem||0),(rev.oth||0)+(onl.oth||0),
-      r.totalRevenue,
-      r.notes||''
-    ].map(v => `"${String(v||'').replace(/"/g,'""')}"`);
-  });
-  const csv = '\uFEFF' + [headers.map(h=>`"${h}"`), ...rows].map(r=>r.join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '_all';
-  link.download = `nsm_mod_data${suffix}.csv`;
-  link.click();
-  showToast(`Export CSV สำเร็จ: ${records.length} รายการ`, 'success');
+function calcPOSSummary() {
+  const walk = calcWalkInTotals();
+  const groups = calcGroupTotals();
+  const additionalTotal = calcAdditionalTotals();
+  const insl = calcLabTotals('inspire');
+  const inns = calcLabTotals('innovation');
+  const combined = calcCombinedRoomTotals();
+  const sumActivity = additionalTotal + insl.total + inns.total;
+  const sumAcViAll = walk.sumWalkKids + walk.sumWalkAdults + groups.kids + groups.adults + sumActivity;
+  const pos = { sum_w_th_kids: walk.sumThKids, sum_w_a_th_adult: walk.sumThAdults, sum_w_fr_kids: walk.sumFrKids, sum_w_a_fr_adult: walk.sumFrAdults, sum_activity: sumActivity, sum_ac_vi_all: sumAcViAll, combined_th_sum: combined.thTotal, combined_fr_sum: combined.frTotal };
+  AppState.data.pos = pos;
+  renderPOSPage(pos);
+  setText('summary-sum-activity', pos.sum_activity);
+  setText('summary-sum-ac-vi-all', pos.sum_ac_vi_all);
+  renderAssignmentsSummary();
+  return pos;
 }
 
-function exportPDF(startDate, endDate) {
-  let records = getAllRecords();
-  if (startDate) records = records.filter(r => r.date >= startDate);
-  if (endDate) records = records.filter(r => r.date <= endDate);
-  if (!records.length) { showToast('ไม่มีข้อมูลในช่วงที่เลือก', 'warning'); return; }
-  try {
-    const { jsPDF } = window.jspdf;
-    if (!jsPDF) { showToast('ไม่พบ jsPDF library', 'error'); return; }
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text('NSM MOD Management System - Report', 148, 15, { align: 'center' });
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Generated: ${new Date().toLocaleDateString('th-TH')} | Records: ${records.length}`, 148, 22, { align: 'center' });
-    const headers = [['Date','MOD','Walk-in','Group','Education','Total Vis.','Revenue (THB)','Notes']];
-    const rows = records.map(r => [
-      r.date||'', r.modMorning||'', fmtNum(calcWalkinFromData(r)), fmtNum(calcGroupFromData(r)), fmtNum(calcEduFromData(r)), fmtNum(r.totalVisitors||0), fmtNum(r.totalRevenue||0), (r.notes||'').substring(0,40)
-    ]);
-    // Totals row
-    const totVis = records.reduce((s,r)=>s+(r.totalVisitors||0),0);
-    const totRev = records.reduce((s,r)=>s+(r.totalRevenue||0),0);
-    rows.push(['TOTAL','','','','', fmtNum(totVis), fmtNum(totRev),'']);
-    doc.autoTable({
-      head: headers, body: rows,
-      startY: 28, theme: 'grid',
-      headStyles: { fillColor: [0, 85, 255], textColor: 255, fontStyle: 'bold', fontSize: 9 },
-      bodyStyles: { fontSize: 8 },
-      alternateRowStyles: { fillColor: [245, 245, 250] },
-      margin: { left: 10, right: 10 },
-      didDrawRow: (data) => {
-        if (data.row.index === rows.length - 1) {
-          doc.setFillColor(0, 85, 255);
-        }
-      }
-    });
-    const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '_all';
-    doc.save(`nsm_mod_report${suffix}.pdf`);
-    showToast(`Export PDF สำเร็จ: ${records.length} รายการ`, 'success');
-  } catch(e) {
-    console.error('PDF export error:', e);
-    showToast('เกิดข้อผิดพลาดในการสร้าง PDF: ' + (e.message || 'unknown error'), 'error');
-  }
+function gotoPage(pageId) {
+  AppState.currentPage = pageId;
+  qsa('.page').forEach((page) => page.classList.toggle('active', page.id === `page-${pageId}`));
+  qsa('.nav-button').forEach((btn) => btn.classList.toggle('active', btn.dataset.page === pageId));
+  const meta = PAGE_META[pageId] || PAGE_META.assignments;
+  setText('page-title', meta.title);
+  setText('page-subtitle', meta.subtitle);
+  byId('sidebar').classList.remove('open');
 }
 
-// ============ DAILY BRIEFING PDF EXPORT ============
-/**
- * โหลด LOGO.png เป็น data URL สำหรับฝังใน PDF
- */
-async function getLogoDataUrl() {
-  try {
-    const response = await fetch('./LOGO.png');
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) { return null; }
-}
-
-/**
- * สร้าง HTML Popup และ Print เป็น PDF รูปแบบ Daily Briefing
- * ใช้ฟอนต์ Sarabun (TH Sarabun) จาก Google Fonts
- * หน้าที่ 1: Briefing ช่วงเช้า + Briefing ช่วงเย็น
- * หน้าที่ 2: ยอดผู้เข้าชม + รายได้ + ลายเซ็น
- */
-async function exportDailyBriefingPDF(date) {
-  if (!date) { showToast('กรุณาระบุวันที่', 'warning'); return; }
-  const raw = localStorage.getItem('nsm_' + date);
-  if (!raw) { showToast('ไม่พบข้อมูลวันที่ ' + date, 'warning'); return; }
-  let r;
-  try { r = JSON.parse(raw); } catch(e) { showToast('ข้อมูลผิดพลาด', 'error'); return; }
-
-  // ---- วันที่ภาษาไทย ----
-  const thaiMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
-    'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
-  function toThaiDate(dateStr) {
-    if (!dateStr) return '-';
-    const parts = dateStr.split('-');
-    if (parts.length < 3) return dateStr;
-    const d = parseInt(parts[2], 10);
-    const m = parseInt(parts[1], 10) - 1;
-    const y = parseInt(parts[0], 10) + 543;
-    return `${d} ${thaiMonths[m]} ${y}`;
-  }
-  const today = new Date();
-  const genDate = `${today.getDate()}/${today.getMonth()+1}/${today.getFullYear()+543}`;
-  const recDate = toThaiDate(date);
-
-  // ---- ข้อมูลผู้เข้าชม ----
-  const va = r.visAThai||{}, vaf = r.visAFor||{}, vam = r.visAMem||{};
-  const vb = r.visBThai||{}, vbf = r.visBFor||{}, vbm = r.visBMem||{};
-  const vdi = r.visDIns||{}, vdn = r.visDInv||{}, vdw = r.visDWr||{};
-  const vdm = r.visDMm||{}, vds = r.visDSp||{}, vdo = r.visDOth||{};
-  const rev = r.rev||{}, onl = r.online||{};
-
-  const aThaiC = va.child||0, aThaiA = va.adult||0;
-  const aForC = vaf.child||0, aForA = vaf.adult||0;
-  const aMemC = vam.child||0, aMemA = vam.adult||0, aMemFC = vam.fc||0, aMemFA = vam.fa||0;
-  const aTotal = aThaiC+aThaiA+aForC+aForA+aMemC+aMemA+aMemFC+aMemFA;
-
-  const bThaiC = vb.child||0, bThaiA = vb.adult||0;
-  const bForC = vbf.child||0, bForA = vbf.adult||0;
-  const bIC = vbm.ic||0, bIA = vbm.ia||0;
-  const bTotal = bThaiC+bThaiA+bForC+bForA+bIC+bIA;
-
-  const cSenior = r.visCsenior||0;
-
-  const dInsTotal = (vdi.tc||0)+(vdi.ta||0)+(vdi.fc||0)+(vdi.fa||0);
-  const dInvTotal = (vdn.tc||0)+(vdn.ta||0)+(vdn.fc||0)+(vdn.fa||0);
-  const dWrTotal  = (vdw.tc||0)+(vdw.ta||0)+(vdw.fc||0)+(vdw.fa||0);
-  const dMmTotal  = vdm.child||0;
-  const dSpTotal  = (vds.tc||0)+(vds.ta||0)+(vds.fc||0)+(vds.fa||0);
-  const dOthTotal = vdo.count||0;
-  const dTotal = dInsTotal+dInvTotal+dWrTotal+dMmTotal+dSpTotal+dOthTotal;
-
-  const grandTotal = r.totalVisitors || (aTotal+bTotal+cSenior+dTotal);
-  const totalRevenue = r.totalRevenue || 0;
-
-  // ---- Nationality splits ----
-  const walkInThai = aThaiC + aThaiA;
-  const walkInForeign = aForC + aForA;
-  const groupThai = bThaiC + bThaiA;
-  const groupForeign = bForC + bForA;
-  const eduThai = (vdi.tc||0)+(vdi.ta||0) + (vdn.tc||0)+(vdn.ta||0) + (vdw.tc||0)+(vdw.ta||0) + dMmTotal + (vds.tc||0)+(vds.ta||0);
-  const eduForeign = (vdi.fc||0)+(vdi.fa||0) + (vdn.fc||0)+(vdn.fa||0) + (vdw.fc||0)+(vdw.fa||0) + (vds.fc||0)+(vds.fa||0);
-
-  // ---- Summary by nationality and age ----
-  const sumThaiChild = aThaiC + bThaiC + aMemC + bIC + (vdi.tc||0) + (vdn.tc||0) + (vdw.tc||0) + dMmTotal + (vds.tc||0);
-  const sumThaiAdult = aThaiA + bThaiA + aMemA + bIA + (vdi.ta||0) + (vdn.ta||0) + (vdw.ta||0) + (vds.ta||0);
-  const sumForChild  = aForC + bForC + aMemFC + (vdi.fc||0) + (vdn.fc||0) + (vdw.fc||0) + (vds.fc||0);
-  const sumForAdult  = aForA + bForA + aMemFA + (vdi.fa||0) + (vdn.fa||0) + (vdw.fa||0) + (vds.fa||0);
-  const sumAllChild  = sumThaiChild + sumForChild;
-  // Note: cSenior (ผู้สูงอายุ) are counted as adults by definition.
-  // dOthTotal (other education activities) has no age/nationality breakdown, so counted as adults.
-  const sumAllAdult  = sumThaiAdult + sumForAdult + cSenior + dOthTotal;
-
-  // ---- HTML-escape shorthand (strip emojis + escape HTML for PDF safety) ----
-  // Comprehensive emoji regex covering all Unicode emoji ranges
-  const emojiRe = /[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}]/gu;
-  const e = s => escHtml(String(s || '').replace(emojiRe, '').trim());
-
-  // ---- bookings HTML ----
-  const bookingRows = (r.bookings||[]).map((b,i) =>
-    `<tr><td>${i+1}</td><td>${e(b.group)}</td><td>${e(b.count)}</td><td>${e(b.time)}</td><td>${e(b.responsible)}</td></tr>`
-  ).join('') || '<tr><td colspan="5" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
-
-  // ---- activities HTML ----
-  const actRows = (r.activities||[]).map(a => {
-    const total = (a.thaiChild||0)+(a.thaiAdult||0)+(a.foreignChild||0)+(a.foreignAdult||0);
-    return `<tr><td>${e(a.name||a.type)}</td><td>${e(a.operator)}</td><td>${a.thaiChild||0}</td><td>${a.thaiAdult||0}</td><td>${a.foreignChild||0}</td><td>${a.foreignAdult||0}</td><td>${total}</td></tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
-
-  // ---- group rows HTML ----
-  const groupCount = (r.groups||[]).filter(g => (g.group||'').trim() !== '').length;
-  const groupRows = (r.groups||[]).map((g,i) => {
-    const total = (g.thaiChild||0)+(g.thaiAdult||0)+(g.foreignChild||0)+(g.foreignAdult||0);
-    return `<tr><td>${i+1}</td><td>${e(g.group)}</td><td class="num">${g.thaiChild||0}</td><td class="num">${g.thaiAdult||0}</td><td class="num">${g.foreignChild||0}</td><td class="num">${g.foreignAdult||0}</td><td class="num">${total}</td></tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:#888;">ไม่มีข้อมูล</td></tr>';
-
-  // ---- LOGO (embedded as data URL) ----
-  const logoDataUrl = await getLogoDataUrl();
-  const logoHtml = logoDataUrl
-    ? `<img src="${logoDataUrl}" alt="NSM Logo" style="height:56px;width:auto;object-fit:contain;">`
-    : `<svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="56" height="56" rx="10" fill="#003087"/>
-        <text x="28" y="22" text-anchor="middle" fill="white" font-size="10" font-family="Sarabun,sans-serif" font-weight="700">NSM</text>
-        <text x="28" y="35" text-anchor="middle" fill="white" font-size="8" font-family="Sarabun,sans-serif">พิพิธภัณฑ์</text>
-        <text x="28" y="47" text-anchor="middle" fill="white" font-size="8" font-family="Sarabun,sans-serif">วิทยาศาสตร์</text>
-      </svg>`;
-
-  // ---- specials HTML ----
-  const specials = [r.special1,r.special2,r.special3,r.special4,r.special5,r.special6].filter(Boolean);
-  const specialsHtml = specials.length ? `
-  <div class="sub-header">กิจกรรมพิเศษ</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin-bottom:8px;">
-    ${specials.map((s,i) => `<div class="info-item"><span class="info-label">กิจกรรม ${i+1}:</span><span class="info-value">${e(s)}</span></div>`).join('')}
-  </div>` : '';
-
-  // ---- สร้าง HTML ----
-  const html = `<!DOCTYPE html>
-<html lang="th">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MOD Daily Briefing - ${date}</title>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'TH Sarabun PSK', 'TH Sarabun New', 'Sarabun', sans-serif; font-size: 12pt; color: #1a1a1a; background: white; }
-  .page { width: 210mm; min-height: 297mm; padding: 12mm 14mm; page-break-after: always; position: relative; }
-  .page:last-child { page-break-after: avoid; }
-  /* Header */
-  .doc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid #003087; }
-  .logos { display: flex; align-items: center; gap: 10px; }
-  .date-box { text-align: right; font-size: 11pt; }
-  .date-box .date-label { font-weight: 700; color: #003087; font-size: 12pt; }
-  /* Titles */
-  .section-header { background: #003087; color: white; font-weight: 700; font-size: 12pt; padding: 5px 10px; margin: 10px 0 6px; border-radius: 3px; }
-  .sub-header { background: #0055FF; color: white; font-weight: 600; font-size: 11pt; padding: 4px 10px; margin: 8px 0 5px; }
-  /* Staff info */
-  .staff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-bottom: 8px; }
-  .staff-item { display: flex; gap: 8px; }
-  .staff-label { color: #444; font-size: 10pt; white-space: nowrap; }
-  .staff-value { font-weight: 600; border-bottom: 1px dotted #888; flex: 1; min-width: 60px; }
-  /* Tables */
-  table { width: 100%; border-collapse: collapse; font-size: 10pt; margin-bottom: 8px; }
-  th { background: #003087; color: white; text-align: center; padding: 4px 6px; font-weight: 600; border: 1px solid #002060; }
-  td { border: 1px solid #ccc; padding: 3px 6px; vertical-align: middle; }
-  tr:nth-child(even) td { background: #f5f8ff; }
-  .total-row td { background: #e8eeff; font-weight: 700; }
-  .num { text-align: right; }
-  .center { text-align: center; }
-  /* Grand total box */
-  .grand-box { border: 2px solid #003087; border-radius: 6px; padding: 8px 14px; display: inline-flex; align-items: center; gap: 14px; margin: 8px 0; }
-  .grand-num { font-size: 22pt; font-weight: 700; color: #0055FF; }
-  /* Info row */
-  .info-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
-  .info-item { display: flex; gap: 6px; }
-  .info-label { color: #444; font-size: 10pt; }
-  .info-value { font-weight: 600; border-bottom: 1px dotted #888; min-width: 80px; }
-  /* Signature */
-  .sig-box { display: flex; justify-content: flex-end; margin-top: 10px; }
-  .sig-inner { border: 1px solid #ccc; border-radius: 6px; padding: 10px 20px; text-align: center; min-width: 200px; }
-  .sig-line { border-top: 1px solid #555; width: 160px; margin: 20px auto 4px; }
-  .notes-box { border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; min-height: 30px; font-size: 10pt; color: #333; }
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .page { margin: 0; padding: 12mm 14mm; width: 100%; min-height: 0; }
-    .no-print { display: none !important; }
-  }
-</style>
-</head>
-<body>
-
-<!-- ====== PAGE 1: BRIEFING MORNING + EVENING ====== -->
-<div class="page">
-  <!-- Header -->
-  <div class="doc-header">
-    <div class="logos">
-      ${logoHtml}
-      <div style="margin-left:8px;">
-        <div style="font-size:14pt;font-weight:700;color:#003087;">NSM MOD System</div>
-        <div style="font-size:10pt;color:#555;">Museum of Discovery — Daily Briefing</div>
-      </div>
-    </div>
-    <div class="date-box">
-      <div class="date-label">MOD วันที่ ${genDate}</div>
-      <div style="font-size:10pt;color:#555;">วันที่บันทึก: ${recDate}</div>
-    </div>
-  </div>
-
-  <!-- MORNING BRIEFING -->
-  <div class="section-header">Briefing ช่วงเช้า — Morning Briefing</div>
-
-  <div class="staff-grid">
-    <div class="staff-item"><span class="staff-label">MOD ประจำวัน:</span><span class="staff-value">${e(r.modMorning)}</span></div>
-    <div class="staff-item"><span class="staff-label">M-Exhibition:</span><span class="staff-value">${e(r.mExhibition)}</span></div>
-    <div class="staff-item"><span class="staff-label">M-Education:</span><span class="staff-value">${e(r.mEducation)}</span></div>
-    <div class="staff-item"><span class="staff-label">M-Visitor Service:</span><span class="staff-value">${e(r.mVisitor)}</span></div>
-  </div>
-
-  ${(r.exZones || []).filter(z=>z.name).length > 0 ? `
-  <div class="sub-header">อาสาสมัครประจำโซน</div>
-  <table>
-    <thead><tr><th>โซน</th><th>ชื่ออาสาสมัคร</th></tr></thead>
-    <tbody>
-      ${(r.exZones||[]).filter(z=>z.name).map(z=>`<tr><td>${e(z.zone)}</td><td>${e(z.name)}</td></tr>`).join('')}
-    </tbody>
-  </table>` : ''}
-
-  <div class="info-row">
-    <div class="info-item"><span class="info-label">อังคาร–ศุกร์:</span><span class="info-value">${e(r.hoursTueFri||'เวลา 8.30 - 16.30 น.')}</span></div>
-    <div class="info-item"><span class="info-label">เสาร์–อาทิตย์:</span><span class="info-value">${e(r.hoursSatSun||'เวลา 9.30 - 16.30 น.')}</span></div>
-    <div class="info-item"><span class="info-label">วันหยุด:</span><span class="info-value">${e(r.hoursClosed||'หยุดทุกวันจันทร์')}</span></div>
-  </div>
-
-  ${(r.bookings||[]).length ? `
-  <div class="sub-header">ตารางจองกลุ่ม</div>
-  <table>
-    <thead><tr><th style="width:30px">#</th><th>กลุ่ม / ชื่อ</th><th style="width:70px">จำนวน</th><th style="width:70px">เวลา</th><th>ผู้รับผิดชอบ</th></tr></thead>
-    <tbody>${bookingRows}</tbody>
-  </table>` : ''}
-
-  ${r.mEducationActivities ? `
-  <div class="sub-header">กิจกรรมพิเศษ M-Education</div>
-  <div class="notes-box">${e(r.mEducationActivities)}</div>` : ''}
-
-  ${specialsHtml}
-
-  <!-- EVENING BRIEFING -->
-  <div class="section-header" style="margin-top:10px;">Briefing ช่วงเย็น — Evening Briefing</div>
-
-  <div class="sub-header">VS Visitor Service — เคาน์เตอร์</div>
-  <table>
-    <thead><tr><th>พื้นที่</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
-    <tbody>
-      <tr><td>เคาน์เตอร์ชั้น 1</td><td>${e(r.vsCounter1Name)}</td><td>${e(r.vsCounter1Issue)}</td><td>${e(r.vsCounter1Note)}</td></tr>
-    </tbody>
-  </table>
-
-  <div class="sub-header">EX Exhibition Zones</div>
-  <table>
-    <thead><tr><th>พื้นที่</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
-    <tbody>
-      <tr><td>โซน 1 ค้นพบตัวตน</td><td>${e(r.exZ1Name)}</td><td>${e(r.exZ1Issue)}</td><td>${e(r.exZ1Note)}</td></tr>
-      <tr><td>โซน 2 เปิดโลกทางการแพทย์</td><td>${e(r.exZ2Name)}</td><td>${e(r.exZ2Issue)}</td><td>${e(r.exZ2Note)}</td></tr>
-      <tr><td>โซน 3 ฐานปฏิบัติการภัยพิบัต</td><td>${e(r.exZ3Name)}</td><td>${e(r.exZ3Issue)}</td><td>${e(r.exZ3Note)}</td></tr>
-      <tr><td>โซน 4 การบินและอวกาศ</td><td>${e(r.exZ4Name)}</td><td>${e(r.exZ4Issue)}</td><td>${e(r.exZ4Note)}</td></tr>
-      <tr><td>ห้อง Innovation Space</td><td>${e(r.exInnovationName)}</td><td>${e(r.exInnovationIssue)}</td><td>${e(r.exInnovationNote)}</td></tr>
-      <tr><td>ห้อง Inspire Lab</td><td>${e(r.exInspireName)}</td><td>${e(r.exInspireIssue)}</td><td>${e(r.exInspireNote)}</td></tr>
-      <tr><td>ห้อง Make and Play 1</td><td>${e(r.exMakePlay1Name)}</td><td>${e(r.exMakePlay1Issue)}</td><td>${e(r.exMakePlay1Note)}</td></tr>
-      <tr><td>ห้อง Make and Play 2</td><td>${e(r.exMakePlay2Name)}</td><td>${e(r.exMakePlay2Issue)}</td><td>${e(r.exMakePlay2Note)}</td></tr>
-    </tbody>
-  </table>
-
-  ${(r.activities||[]).length ? `
-  <div class="sub-header">OP ผู้ดำเนินกิจกรรม</div>
-  <table>
-    <thead>
-      <tr><th rowspan="2">กิจกรรม</th><th rowspan="2">ผู้ดำเนิน</th><th colspan="2">ชาวไทย</th><th colspan="2">ชาวต่างชาติ</th><th rowspan="2">รวม</th></tr>
-      <tr><th>เด็ก</th><th>ผู้ใหญ่</th><th>เด็ก</th><th>ผู้ใหญ่</th></tr>
-    </thead>
-    <tbody>${actRows}</tbody>
-  </table>` : ''}
-
-  <div class="sub-header">ED Education Programs</div>
-  <table>
-    <thead><tr><th>โปรแกรม</th><th>ชื่อเจ้าหน้าที่</th><th>ปัญหา / ข้อเสนอ</th><th>หมายเหตุ</th></tr></thead>
-    <tbody>
-      <tr><td>Inspire Lab</td><td>${e(r.edInspireName)}</td><td>${e(r.edInspireIssue)}</td><td>${e(r.edInspireNote)}</td></tr>
-      <tr><td>Innovation Space</td><td>${e(r.edInnovationName)}</td><td>${e(r.edInnovationIssue)}</td><td>${e(r.edInnovationNote)}</td></tr>
-      <tr><td>Mini Make &amp; Play</td><td>${e(r.edMiniName)}</td><td>${e(r.edMiniIssue)}</td><td>${e(r.edMiniNote)}</td></tr>
-    </tbody>
-  </table>
-</div><!-- /page 1 -->
-
-<!-- ====== PAGE 2: VISITOR STATISTICS + REVENUE ====== -->
-<div class="page">
-  <!-- Header -->
-  <div class="doc-header">
-    <div class="logos">
-      ${logoHtml}
-      <div style="margin-left:8px;">
-        <div style="font-size:14pt;font-weight:700;color:#003087;">NSM MOD System</div>
-        <div style="font-size:10pt;color:#555;">Museum of Discovery — ยอดผู้เข้าชม &amp; รายได้</div>
-      </div>
-    </div>
-    <div class="date-box">
-      <div class="date-label">MOD วันที่ ${genDate}</div>
-      <div style="font-size:10pt;color:#555;">วันที่บันทึก: ${recDate}</div>
-    </div>
-  </div>
-
-  <div class="section-header">ยอดผู้เข้าชมประจำวัน</div>
-
-  <!-- Section A: Walk-in -->
-  <div class="sub-header">A. ผู้เข้าชมทั่วไป (Walk-in)</div>
-  <table>
-    <thead><tr><th>ประเภท</th><th class="num">เด็ก</th><th class="num">ผู้ใหญ่</th><th class="num">รวม</th></tr></thead>
-    <tbody>
-      <tr><td>ผู้เข้าชมไทย</td><td class="num">${aThaiC}</td><td class="num">${aThaiA}</td><td class="num">${aThaiC+aThaiA}</td></tr>
-      <tr><td>ผู้เข้าชมต่างชาติ</td><td class="num">${aForC}</td><td class="num">${aForA}</td><td class="num">${aForC+aForA}</td></tr>
-      <tr>
-        <td>สมาชิก (เด็ก/FC)<br><span style="font-size:9pt;color:#555;">ผู้ใหญ่/FA</span></td>
-        <td class="num">${aMemC}${aMemFC > 0 ? ` / FC:${aMemFC}` : ''}</td>
-        <td class="num">${aMemA}${aMemFA > 0 ? ` / FA:${aMemFA}` : ''}</td>
-        <td class="num">${aMemC+aMemA+aMemFC+aMemFA}</td>
-      </tr>
-      <tr class="total-row"><td colspan="3"><strong>รวม Walk-in</strong></td><td class="num"><strong>${aTotal}</strong></td></tr>
-    </tbody>
-  </table>
-
-  <!-- Section B: Group -->
-  <div class="sub-header">B. ผู้เข้าชมกลุ่ม (Group) — จำนวนกลุ่ม: ${groupCount} กลุ่ม</div>
-  <table>
-    <thead>
-      <tr><th>#</th><th>ชื่อกลุ่ม</th><th class="num">ไทย เด็ก</th><th class="num">ไทย ผู้ใหญ่</th><th class="num">ต่างชาติ เด็ก</th><th class="num">ต่างชาติ ผู้ใหญ่</th><th class="num">รวม</th></tr>
-    </thead>
-    <tbody>${groupRows}</tbody>
-    <tfoot>
-      <tr class="total-row">
-        <td colspan="2"><strong>รวม Group</strong></td>
-        <td class="num">${bThaiC}</td><td class="num">${bThaiA}</td>
-        <td class="num">${bForC}</td><td class="num">${bForA}</td>
-        <td class="num"><strong>${bThaiC+bThaiA+bForC+bForA}</strong></td>
-      </tr>
-      ${(bIC+bIA) > 0 ? `<tr><td colspan="6">สมาชิก IC: ${bIC} / IA: ${bIA}</td><td class="num"><strong>${bIC+bIA}</strong></td></tr>` : ''}
-      ${(bIC+bIA) > 0 ? `<tr class="total-row"><td colspan="6"><strong>รวม Group ทั้งหมด (รวมสมาชิก)</strong></td><td class="num"><strong>${bTotal}</strong></td></tr>` : ''}
-    </tfoot>
-  </table>
-
-  <!-- Section C: Senior -->
-  <div style="margin-bottom:6px;">
-    <span style="font-weight:600;color:#003087;">C. ผู้สูงอายุ:</span>
-    <span style="font-size:13pt;font-weight:700;margin-left:10px;">${cSenior}</span> คน
-  </div>
-
-  <!-- Section D: Education -->
-  <div class="sub-header">D. กิจกรรมการศึกษา</div>
-  <table>
-    <thead>
-      <tr><th rowspan="2">กิจกรรม</th><th colspan="2">ไทย</th><th colspan="2">ต่างชาติ</th><th rowspan="2" class="num">รวม</th></tr>
-      <tr><th class="num">เด็ก</th><th class="num">ผู้ใหญ่</th><th class="num">เด็ก</th><th class="num">ผู้ใหญ่</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Inspire Lab</td><td class="num">${vdi.tc||0}</td><td class="num">${vdi.ta||0}</td><td class="num">${vdi.fc||0}</td><td class="num">${vdi.fa||0}</td><td class="num">${dInsTotal}</td></tr>
-      <tr><td>Innovation Space</td><td class="num">${vdn.tc||0}</td><td class="num">${vdn.ta||0}</td><td class="num">${vdn.fc||0}</td><td class="num">${vdn.fa||0}</td><td class="num">${dInvTotal}</td></tr>
-      <tr><td>Walk Rallies</td><td class="num">${vdw.tc||0}</td><td class="num">${vdw.ta||0}</td><td class="num">${vdw.fc||0}</td><td class="num">${vdw.fa||0}</td><td class="num">${dWrTotal}</td></tr>
-      <tr><td>Mini Make &amp; Play</td><td class="num">${vdm.child||0}</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">${dMmTotal}</td></tr>
-      <tr><td>Special Event</td><td class="num">${vds.tc||0}</td><td class="num">${vds.ta||0}</td><td class="num">${vds.fc||0}</td><td class="num">${vds.fa||0}</td><td class="num">${dSpTotal}</td></tr>
-      ${dOthTotal ? `<tr><td>กิจกรรมอื่น${vdo.name?' ('+e(vdo.name)+')':''}</td><td class="num" colspan="4">${dOthTotal}</td><td class="num">${dOthTotal}</td></tr>` : ''}
-      <tr class="total-row"><td colspan="5"><strong>รวมกิจกรรมการศึกษา</strong></td><td class="num"><strong>${dTotal}</strong></td></tr>
-    </tbody>
-  </table>
-
-  <!-- Grand Total -->
-  <div style="display:flex;align-items:center;gap:20px;margin:8px 0;">
-    <div class="grand-box">
-      <div>
-        <div style="font-size:10pt;color:#555;">รวมผู้เข้าชมทั้งหมด</div>
-        <div class="grand-num">${grandTotal.toLocaleString()}</div>
-        <div style="font-size:10pt;color:#555;">คน</div>
-      </div>
-    </div>
-    <table style="flex:1;margin:0;">
-      <thead><tr><th>ประเภท</th><th class="num">Walk-in</th><th class="num">Group</th><th class="num">ผู้สูงอายุ</th><th class="num">การศึกษา</th><th class="num">รวม</th></tr></thead>
-      <tbody><tr><td>จำนวน</td><td class="num">${aTotal}</td><td class="num">${bTotal}</td><td class="num">${cSenior}</td><td class="num">${dTotal}</td><td class="num"><strong>${grandTotal.toLocaleString()}</strong></td></tr></tbody>
-    </table>
-  </div>
-
-  <!-- Nationality Splits -->
-  <div style="font-weight:600;color:#003087;margin:8px 0 4px;font-size:11pt;">แยกตามสัญชาติ</div>
-  <table>
-    <thead>
-      <tr>
-        <th>ประเภท</th>
-        <th class="num">รวม</th>
-        <th class="num">ไทย</th>
-        <th class="num">ต่างชาติ</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>รวมนิทรรศการ (Walk-in)</td>
-        <td class="num">${aTotal}</td>
-        <td class="num">${walkInThai}</td>
-        <td class="num">${walkInForeign}</td>
-      </tr>
-      <tr>
-        <td>รวมกลุ่ม (Group)</td>
-        <td class="num">${bTotal}</td>
-        <td class="num">${groupThai}</td>
-        <td class="num">${groupForeign}</td>
-      </tr>
-      <tr>
-        <td>รวมกิจกรรมการศึกษา</td>
-        <td class="num">${dTotal}</td>
-        <td class="num">${eduThai}</td>
-        <td class="num">${eduForeign}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <!-- Summary by Nationality and Age -->
-  <div style="font-weight:600;color:#003087;margin:8px 0 4px;font-size:11pt;">สรุปตามสัญชาติและวัย</div>
-  <table>
-    <thead>
-      <tr>
-        <th>หมวด</th>
-        <th class="num">เด็กไทย</th>
-        <th class="num">ผู้ใหญ่ไทย</th>
-        <th class="num">เด็กต่างชาติ</th>
-        <th class="num">ผู้ใหญ่ต่างชาติ</th>
-        <th class="num">เด็กทั้งหมด</th>
-        <th class="num">ผู้ใหญ่ทั้งหมด</th>
-        <th class="num">รวม</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr class="total-row">
-        <td><strong>รวมทั้งหมด</strong></td>
-        <td class="num">${sumThaiChild}</td>
-        <td class="num">${sumThaiAdult}</td>
-        <td class="num">${sumForChild}</td>
-        <td class="num">${sumForAdult}</td>
-        <td class="num"><strong>${sumAllChild}</strong></td>
-        <td class="num"><strong>${sumAllAdult}</strong></td>
-        <td class="num"><strong>${grandTotal.toLocaleString()}</strong></td>
-      </tr>
-    </tbody>
-  </table>
-
-  <!-- Revenue -->
-  <div class="section-header" style="margin-top:8px;">รายได้ประจำวัน</div>
-  <table>
-    <thead>
-      <tr><th>ประเภท</th><th class="num">Exhibition</th><th class="num">Inspire Lab</th><th class="num">Innovation</th><th class="num">Walk Rally</th><th class="num">Mini M&amp;P</th><th class="num">Special</th><th class="num">สมาชิก</th><th class="num">อื่นๆ</th><th class="num">รวม</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>รายได้ (บาท)</td>
-        <td class="num">${(rev.ex||0).toLocaleString()}</td>
-        <td class="num">${(rev.ins||0).toLocaleString()}</td>
-        <td class="num">${(rev.inv||0).toLocaleString()}</td>
-        <td class="num">${(rev.wr||0).toLocaleString()}</td>
-        <td class="num">${(rev.mm||0).toLocaleString()}</td>
-        <td class="num">${(rev.sp||0).toLocaleString()}</td>
-        <td class="num">${(rev.mem||0).toLocaleString()}</td>
-        <td class="num">${(rev.oth||0).toLocaleString()}</td>
-        <td class="num">${Object.values(rev).reduce((s,v)=>s+(v||0),0).toLocaleString()}</td>
-      </tr>
-      <tr>
-        <td>ออนไลน์ (บาท)</td>
-        <td class="num">${(onl.ex||0).toLocaleString()}</td>
-        <td class="num">${(onl.ins||0).toLocaleString()}</td>
-        <td class="num">${(onl.inv||0).toLocaleString()}</td>
-        <td class="num">${(onl.wr||0).toLocaleString()}</td>
-        <td class="num">${(onl.mm||0).toLocaleString()}</td>
-        <td class="num">${(onl.sp||0).toLocaleString()}</td>
-        <td class="num">${(onl.mem||0).toLocaleString()}</td>
-        <td class="num">${(onl.oth||0).toLocaleString()}</td>
-        <td class="num">${Object.values(onl).reduce((s,v)=>s+(v||0),0).toLocaleString()}</td>
-      </tr>
-      <tr class="total-row">
-        <td><strong>รวมรายได้ทั้งหมด</strong></td>
-        <td class="num">${((rev.ex||0)+(onl.ex||0)).toLocaleString()}</td>
-        <td class="num">${((rev.ins||0)+(onl.ins||0)).toLocaleString()}</td>
-        <td class="num">${((rev.inv||0)+(onl.inv||0)).toLocaleString()}</td>
-        <td class="num">${((rev.wr||0)+(onl.wr||0)).toLocaleString()}</td>
-        <td class="num">${((rev.mm||0)+(onl.mm||0)).toLocaleString()}</td>
-        <td class="num">${((rev.sp||0)+(onl.sp||0)).toLocaleString()}</td>
-        <td class="num">${((rev.mem||0)+(onl.mem||0)).toLocaleString()}</td>
-        <td class="num">${((rev.oth||0)+(onl.oth||0)).toLocaleString()}</td>
-        <td class="num"><strong>${totalRevenue.toLocaleString()}</strong></td>
-      </tr>
-    </tbody>
-  </table>
-
-  <!-- Notes -->
-  ${r.notes ? `
-  <div style="margin-top:8px;">
-    <div style="font-weight:600;color:#003087;margin-bottom:4px;">หมายเหตุประจำวัน</div>
-    <div class="notes-box">${e(r.notes)}</div>
-  </div>` : ''}
-
-  <!-- Signature -->
-  <div class="sig-box" style="margin-top:16px;">
-    <div class="sig-inner">
-      <div style="font-size:10pt;color:#555;margin-bottom:4px;">ลายเซ็น MOD ประจำวัน</div>
-      <div class="sig-line"></div>
-      <div style="font-weight:600;">${e(r.modSign||'...........................')}</div>
-      <div style="font-size:10pt;color:#555;margin-top:4px;">วันที่: ${r.signDate ? toThaiDate(r.signDate) : recDate}</div>
-    </div>
-  </div>
-</div><!-- /page 2 -->
-
-<script>
-  window.onload = function() {
-    setTimeout(function() { window.print(); }, 600);
-  };
-<\/script>
-</body>
-</html>`;
-
-  // Use Blob URL to avoid document.write with user-derived HTML
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const blobUrl = URL.createObjectURL(blob);
-  const win = window.open(blobUrl, '_blank', 'width=900,height=700,scrollbars=yes');
-  if (!win) {
-    URL.revokeObjectURL(blobUrl);
-    showToast('กรุณาอนุญาต Popup ในเบราว์เซอร์เพื่อ Export PDF', 'warning');
-    return;
-  }
-  // Release the Blob URL after the window has had time to load
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-  showToast('กำลังเปิดหน้า Briefing PDF...', 'info');
-}
-
-/** Export briefing PDF จากหน้า Export โดยเลือกจาก date picker */
-function exportBriefingFromDate() {
-  const inp = document.getElementById('briefing-date');
-  const date = inp ? inp.value : '';
-  if (!date) { showToast('กรุณาเลือกวันที่', 'warning'); return; }
-  exportDailyBriefingPDF(date);
-}
-
-// ============ DASHBOARD ============
-function updateDashboard() {
-  const now = new Date();
-  const thaiDays = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
-  const greetHour = now.getHours();
-  let greet = 'สวัสดี';
-  if (greetHour < 12) greet = 'สวัสดีตอนเช้า';
-  else if (greetHour < 17) greet = 'สวัสดีตอนบ่าย';
-  else greet = 'สวัสดีตอนเย็น';
-  setTxt('dash-greeting', `${greet}! 👋`);
-  const dateStr = `วัน${thaiDays[now.getDay()]}ที่ ${now.getDate()} ${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()+543}`;
-  setTxt('dash-date', dateStr);
-
-  const records = getAllRecords();
-  const totalVis = records.reduce((s,r)=>s+(r.totalVisitors||0),0);
-  const totalRev = records.reduce((s,r)=>s+(r.totalRevenue||0),0);
-  setTxt('stat-total-records', records.length);
-  setTxt('stat-total-visitors', fmtNum(totalVis));
-  setTxt('stat-total-revenue', fmtNum(totalRev));
-  setTxt('stat-active-days', records.length);
-
-  // Recent activity (last 7)
-  const recent = records.slice(0,7);
-  const tbody = document.getElementById('recent-activity-tbody');
-  if (tbody) {
-    if (!recent.length) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีข้อมูล</td></tr>';
-    } else {
-      tbody.innerHTML = recent.map(r => `
-        <tr>
-          <td style="white-space:nowrap;font-size:13px;">${escHtml(r.date||'-')}</td>
-          <td style="font-size:13px;">${escHtml(r.modMorning||'-')}</td>
-          <td style="color:var(--success);font-size:13px;">${fmtNum(r.totalVisitors||0)}</td>
-          <td style="color:var(--warning);font-size:13px;">${fmtNum(r.totalRevenue||0)}</td>
-        </tr>`).join('');
-    }
-  }
-
-  // Month grid
-  const curYear = now.getFullYear();
-  setTxt('dash-year-label', `พ.ศ. ${curYear+543}`);
-  const yearRecords = records.filter(r => (r.date||'').startsWith(String(curYear)));
-  const monthsWithData = new Set(yearRecords.map(r => parseInt((r.date||'').split('-')[1])));
-  const grid = document.getElementById('month-grid');
-  if (grid) {
-    grid.innerHTML = MONTH_NAMES.map((m, i) => {
-      const hasData = monthsWithData.has(i+1);
-      const count = yearRecords.filter(r => parseInt((r.date||'').split('-')[1]) === i+1).length;
-      return `<div class="month-cell ${hasData?'has-data':''}" onclick="filterByMonthDash(${curYear},${i+1})">
-        <div style="font-weight:${hasData?'600':'400'}">${m.substring(0,3)}</div>
-        ${hasData ? `<div class="month-dot"></div><div style="font-size:11px;margin-top:2px;">${count} วัน</div>` : ''}
-      </div>`;
-    }).join('');
-  }
-
-  // 7-day chart data
-  const labels = [];
-  const data = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now); d.setDate(now.getDate() - i);
-    const dateStr2 = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    labels.push(`${d.getDate()}/${d.getMonth()+1}`);
-    const rec = records.find(r => r.date === dateStr2);
-    data.push(rec ? (rec.totalVisitors || 0) : 0);
-  }
-  initDashboardChart(labels, data);
-}
-
-function filterByMonthDash(year, month) {
-  gotoPage('history');
-  const ym = `${year}-${String(month).padStart(2,'0')}`;
-  const sel = document.getElementById('history-filter-month');
-  if (sel) { sel.value = ym; renderHistory(ym); }
-}
-
-// ============ CHARTS ============
-function initDashboardChart(labels, data) {
-  const canvas = document.getElementById('activity-chart');
-  if (!canvas) return;
-  if (activityChart) { activityChart.destroy(); activityChart = null; }
-  const ctx = canvas.getContext('2d');
-  activityChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels || [],
-      datasets: [{
-        label: 'ผู้เข้าชม',
-        data: data || [],
-        backgroundColor: 'rgba(0,85,255,0.6)',
-        borderColor: 'rgba(0,85,255,1)',
-        borderWidth: 1,
-        borderRadius: 6,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888899' } },
-        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888899' }, beginAtZero: true }
-      }
-    }
-  });
-}
-
-function initSummaryChart(labels, data) {
-  const canvas = document.getElementById('summary-chart');
-  if (!canvas) return;
-  if (summaryChart) { summaryChart.destroy(); summaryChart = null; }
-  const ctx = canvas.getContext('2d');
-  summaryChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels || [],
-      datasets: [{
-        label: 'ผู้เข้าชม',
-        data: data || [],
-        backgroundColor: 'rgba(0,184,148,0.6)',
-        borderColor: 'rgba(0,184,148,1)',
-        borderWidth: 1,
-        borderRadius: 6,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888899', maxRotation: 45 } },
-        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888899' }, beginAtZero: true }
-      }
-    }
-  });
-}
-
-// ============ MODAL & TOAST ============
-function openModal(id) {
-  const el = document.getElementById(id);
-  if (el) { el.style.display = 'flex'; if (id==='settings-modal') loadSettings(); }
-}
-function closeModal(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = 'none';
-}
-function closeBD(event, id) {
-  if (event.target.id === id) closeModal(id);
-}
-
-function showToast(message, type = 'info') {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-  const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+function showToast(message, type = 'success') {
   const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  const iconSpan = document.createElement('span');
-  iconSpan.textContent = icons[type] || 'ℹ️';
-  const msgSpan = document.createElement('span');
-  msgSpan.style.flex = '1';
-  msgSpan.textContent = message;
-  toast.appendChild(iconSpan);
-  toast.appendChild(msgSpan);
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.add('removing');
-    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
-  }, 3500);
+  toast.className = `toast ${type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success'}`;
+  toast.textContent = message;
+  byId('toast-container').appendChild(toast);
+  window.setTimeout(() => toast.remove(), 3200);
 }
 
-// ============ SETTINGS MODAL ============
+function showProgress(message = 'กำลังดำเนินการ...') { setText('progress-text', message); byId('progress-overlay').classList.add('visible'); }
+function hideProgress() { byId('progress-overlay').classList.remove('visible'); }
+
+async function login(username, password) {
+  const settings = loadSettings();
+  const expectedUsername = settings.username || 'admin';
+  const expectedHash = settings.passwordHash;
+  let isValid = false;
+
+  if (expectedHash) {
+    isValid = username === expectedUsername && (await sha256Hex(password)) === expectedHash;
+  } else {
+    isValid = username === expectedUsername && password === 'admin';
+  }
+
+  if (isValid) {
+    sessionStorage.setItem(AUTH_KEY, 'true');
+    updateAuthUI();
+    bootstrapApp();
+    showToast('เข้าสู่ระบบสำเร็จ', 'success');
+  } else {
+    showToast('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem(AUTH_KEY);
+  updateAuthUI();
+  byId('app-shell').classList.add('hidden');
+  byId('login-screen').classList.remove('hidden');
+  showToast('ออกจากระบบแล้ว', 'warning');
+}
+
+function updateAuthUI() {
+  const loggedIn = isLoggedIn();
+  byId('login-screen').classList.toggle('hidden', loggedIn);
+  byId('app-shell').classList.toggle('hidden', !loggedIn);
+}
+
+async function saveSettingsFromForm() {
+  const existingSettings = loadSettings();
+  const rawPassword = byId('settings-password').value;
+  const passwordToStore = rawPassword || (existingSettings.passwordHash ? null : 'admin');
+  const settings = {
+    apiUrl: valueOf('settings-api-url').trim(),
+    spreadsheetId: valueOf('settings-spreadsheet-id').trim(),
+    username: valueOf('settings-username').trim() || 'admin',
+    passwordHash: existingSettings.passwordHash || ''
+  };
+
+  if (rawPassword) {
+    settings.passwordHash = await sha256Hex(rawPassword);
+  } else if (!settings.passwordHash && passwordToStore) {
+    settings.passwordHash = await sha256Hex(passwordToStore);
+  }
+
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  byId('sidebar-username').textContent = settings.username;
+  byId('settings-password').value = '';
+  updateConnectionBadge();
+  showToast('บันทึกการตั้งค่าเรียบร้อยแล้ว', 'success');
+}
+
 function loadSettings() {
-  const s = getSettings();
-  setInputVal('set-sheets-url', s.sheetsURL || '');
-  setInputVal('set-sheet-name', s.sheetName || 'Sheet1');
-  setInputVal('set-username', s.username || 'admin');
-  setInputVal('set-password', ''); // Never pre-fill password field
-  const officersEl = document.getElementById('set-officers-list');
-  if (officersEl) officersEl.value = (s.customOfficers || []).join('\n');
-  const volunteersEl = document.getElementById('set-volunteers-list');
-  if (volunteersEl) volunteersEl.value = (s.customVolunteers || []).join('\n');
+  try { return { ...DEFAULT_SETTINGS, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')) }; }
+  catch (error) { return { ...DEFAULT_SETTINGS }; }
 }
 
-async function saveSettingsModal() {
-  const rawPass = getInputVal('set-password');
-  const existing = getSettings();
-  // Hash the new password if provided, otherwise keep existing hash
-  const passwordHash = rawPass ? await sha256hex(rawPass) : existing.passwordHash;
-  const officersText = document.getElementById('set-officers-list')?.value || '';
-  const volunteersText = document.getElementById('set-volunteers-list')?.value || '';
-  const s = {
-    sheetsURL: getInputVal('set-sheets-url'),
-    sheetName: getInputVal('set-sheet-name') || 'Sheet1',
-    username: getInputVal('set-username') || 'admin',
-    passwordHash: passwordHash || null,
-    customOfficers: officersText.split('\n').map(s => s.trim()).filter(Boolean),
-    customVolunteers: volunteersText.split('\n').map(s => s.trim()).filter(Boolean)
-  };
-  saveSettings(s);
-  updateDropdownDatalist();
-  closeModal('settings-modal');
-  showToast('บันทึกการตั้งค่าเรียบร้อย', 'success');
+function fillSettingsForm(settings) {
+  setValue('settings-api-url', settings.apiUrl || '');
+  setValue('settings-spreadsheet-id', settings.spreadsheetId || '');
+  setValue('settings-username', settings.username || 'admin');
+  setValue('settings-password', '');
 }
 
-// ============ KEYBOARD SHORTCUTS ============
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    ['settings-modal','forgot-modal','request-modal','view-modal','delete-modal','issues-modal'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el && el.style.display === 'flex') closeModal(id);
-    });
-  }
-});
-
-// ============ NEW SESSION & DROPDOWN FUNCTIONS ============
-async function saveMorningSession() {
-  const date = getCurrentDate();
-  if (!date || date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
-  const data = getFormData();
-  // Always save to localStorage as backup
-  localStorage.setItem('mod_morning_data_' + date, JSON.stringify(data));
-  showToast('บันทึกช่วงเช้าสำเร็จ: ' + date, 'success');
-  const statusEl = document.getElementById('morning-save-status');
-  if (statusEl) {
-    const now = new Date();
-    statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
-  }
-  // Try to save to Google Sheets (non-blocking)
-  if (window.GoogleSheetsAPI) {
-    try {
-      await window.GoogleSheetsAPI.saveDailyRecord({ ...data, session: 'morning' });
-    } catch (e) {
-      console.warn('Google Sheets save failed (morning):', e.message);
-    }
-  }
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  return new Intl.DateTimeFormat('th-TH', { dateStyle: 'full' }).format(new Date(`${dateStr}T00:00:00`));
 }
 
-async function saveAfternoonSession() {
-  const date = getCurrentDate();
-  if (!date || date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
-  const data = getFormData();
-  // Always save to localStorage as backup
-  localStorage.setItem('mod_afternoon_data_' + date, JSON.stringify(data));
-  saveToLocal(false); // Also save as the main record
-  showToast('บันทึกช่วงบ่ายสำเร็จ: ' + date, 'success');
-  const statusEl = document.getElementById('sheets-save-status');
-  if (statusEl) {
-    const now = new Date();
-    statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
-  }
-  // Try to save to Google Sheets (non-blocking)
-  if (window.GoogleSheetsAPI) {
-    try {
-      await window.GoogleSheetsAPI.saveDailyRecord({ ...data, session: 'afternoon' });
-    } catch (e) {
-      console.warn('Google Sheets save failed (afternoon):', e.message);
-    }
-  }
+function todayISO() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
-async function saveEveningSession() {
-  const date = getCurrentDate();
-  if (!date || date === '--') { showToast('กรุณาเลือกวันที่', 'warning'); return; }
-  const data = getFormData();
-  const eveZones = {};
-  ['z1','z2','z3','z4','innovation','inspire','make-play1','make-play2'].forEach(z => {
-    eveZones[z] = {
-      staff: getInputVal('eve-' + z + '-staff'),
-      issue: getInputVal('eve-' + z + '-issue'),
-      note: getInputVal('eve-' + z + '-note'),
-    };
+function setupEventListeners() {
+  byId('login-form').addEventListener('submit', async (event) => { event.preventDefault(); await login(valueOf('login-username').trim(), valueOf('login-password')); });
+  byId('logout-btn').addEventListener('click', logout);
+  byId('global-date').addEventListener('change', (event) => setDate(event.target.value));
+  byId('top-save-btn').addEventListener('click', () => saveSection('current'));
+  byId('sidebar-toggle').addEventListener('click', () => byId('sidebar').classList.toggle('open'));
+  qsa('[data-page]').forEach((button) => button.addEventListener('click', () => gotoPage(button.dataset.page)));
+  qsa('[data-save]').forEach((button) => button.addEventListener('click', () => saveSection(button.dataset.save)));
+  byId('settings-form').addEventListener('submit', async (event) => { event.preventDefault(); await saveSettingsFromForm(); });
+  byId('test-connection-btn').addEventListener('click', async () => { showProgress('กำลังทดสอบการเชื่อมต่อ...'); try { await window.ModAPI.checkConnection(); showToast('เชื่อมต่อ Google Apps Script สำเร็จ', 'success'); } catch (error) { showToast(error.message || 'ไม่สามารถเชื่อมต่อได้', 'error'); } finally { hideProgress(); } });
+  byId('refresh-lookups-btn').addEventListener('click', async () => { showProgress('กำลังรีเฟรชรายการเจ้าหน้าที่และอาสาสมัคร...'); try { await loadLookups(true); showToast('รีเฟรช Lookups สำเร็จ', 'success'); } catch (error) { showToast(error.message || 'รีเฟรช Lookups ไม่สำเร็จ', 'error'); } finally { hideProgress(); } });
+  byId('init-sheets-btn').addEventListener('click', async () => { showProgress('กำลังสร้างชีตที่จำเป็น...'); try { await window.ModAPI.initSheets(); showToast('สร้างชีตทั้งหมดเรียบร้อยแล้ว', 'success'); } catch (error) { showToast(error.message || 'สร้างชีตไม่สำเร็จ', 'error'); } finally { hideProgress(); } });
+  const debouncedCalc = debounce(() => { recalculateAll(); setAutosaveIndicator('dirty', 'มีการเปลี่ยนแปลง'); }, 60);
+  document.addEventListener('input', (event) => { if (event.target.matches('input, textarea, select')) debouncedCalc(); });
+  document.addEventListener('click', (event) => {
+    const trigger = event.target.closest('[data-step-target]');
+    if (!trigger) return;
+    const input = byId(trigger.dataset.stepTarget);
+    if (!input) return;
+    input.value = Math.max(0, safeNum(input.value) + safeNum(trigger.dataset.step));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  data.eveZones = eveZones;
-  data.eveVS = {
-    counter1: { name: getInputVal('eve-vs-counter1-name'), issue: getInputVal('eve-vs-counter1-issue'), note: getInputVal('eve-vs-counter1-note') },
-    counter2: { name: getInputVal('eve-vs-counter2-name'), issue: getInputVal('eve-vs-counter2-issue'), note: getInputVal('eve-vs-counter2-note') },
-  };
-  data.eveNotes = getInputVal('eve-notes');
-  // Always save to localStorage as backup
-  localStorage.setItem('mod_evening_data_' + date, JSON.stringify(data));
-  showToast('บันทึกช่วงเย็นสำเร็จ: ' + date, 'success');
-  const statusEl = document.getElementById('evening-save-status');
-  if (statusEl) {
-    const now = new Date();
-    statusEl.textContent = '✅ บันทึกเมื่อ ' + now.toLocaleTimeString('th-TH');
-  }
-  // Try to save to Google Sheets (non-blocking)
-  if (window.GoogleSheetsAPI) {
-    try {
-      await window.GoogleSheetsAPI.saveDailyRecord({ ...data, session: 'evening' });
-    } catch (e) {
-      console.warn('Google Sheets save failed (evening):', e.message);
-    }
+  window.addEventListener('online', updateConnectionBadge);
+  window.addEventListener('offline', updateConnectionBadge);
+}
+
+async function loadLookups(force = false) {
+  try {
+    const lookups = await window.ModAPI.getLookups(force);
+    AppState.lookups = { officers: Array.isArray(lookups.officers) ? lookups.officers : [], volunteers: Array.isArray(lookups.volunteers) ? lookups.volunteers : [] };
+    populateLookupFields();
+  } catch (error) {
+    AppState.lookups = { officers: [], volunteers: [] };
+    populateLookupFields();
+    showToast('ไม่สามารถโหลดรายการ Lookups ได้', 'warning');
+    throw error;
   }
 }
 
-function toggleMorningSync(enabled) {
-  if (!enabled) return;
-  const vis = getInputVal('m-visitor-service');
-  const mod = getInputVal('mod-morning');
-  if (!getInputVal('vs-counter1-name') && vis) setInputVal('vs-counter1-name', vis);
-  if (!getInputVal('vs-counter2-name') && mod) setInputVal('vs-counter2-name', mod);
-  showToast('คัดลอกข้อมูลเจ้าหน้าที่จากช่วงเช้าแล้ว', 'info');
+function populateLookupFields() {
+  qsa('.officer-select').forEach((select) => refreshSelectOptions(select, AppState.lookups.officers));
+  qsa('.volunteer-select').forEach((select) => refreshSelectOptions(select, AppState.lookups.volunteers));
+  byId('officer-list').innerHTML = buildOptionsHtml(AppState.lookups.officers);
+  byId('volunteer-list').innerHTML = buildOptionsHtml(AppState.lookups.volunteers);
 }
 
-function updateDropdownDatalist() {
-  const settings = getSettings();
-  const officers = settings.customOfficers || [];
-  const volunteers = settings.customVolunteers || [];
+function recalculateAll() { calcPOSSummary(); }
 
-  // Helper: populate a select or datalist using DOM methods (XSS-safe)
-  function populateSelect(sel, options, placeholder) {
-    if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '';
-    if (sel.tagName === 'SELECT') {
-      const ph = document.createElement('option');
-      ph.value = '';
-      ph.textContent = placeholder;
-      sel.appendChild(ph);
-    }
-    options.forEach(n => {
-      const opt = document.createElement('option');
-      opt.value = n;
-      if (sel.tagName === 'SELECT') opt.textContent = n;
-      sel.appendChild(opt);
-    });
-    if (cur && sel.tagName === 'SELECT') sel.value = cur;
-  }
+function renderAssignmentsSummary() {
+  const assignments = getFormData('assignments');
+  const mapping = { 'summary-mo-officer': assignments.mo_officer, 'summary-mex-officer': assignments.mex_officer, 'summary-med-officer': assignments.med_officer, 'summary-mvi-officer': assignments.mvi_officer, 'summary-z2f-volunteer': assignments.z2f_volunteer, 'summary-zmp-volunteer': assignments.zmp_volunteer, 'summary-zinl-volunteer': assignments.zinl_volunteer, 'summary-other-activity': assignments.other_activity_note };
+  Object.entries(mapping).forEach(([id, value]) => setText(id, value || '-'));
+  AppState.data.assignments = assignments;
+}
 
-  populateSelect(document.getElementById('officers-datalist'), officers, '');
-  populateSelect(document.getElementById('volunteers-datalist'), volunteers, '');
+function renderLabSummaryTable(prefix, rows) {
+  const target = byId(prefix === 'insl' ? 'summary-insl-body' : 'summary-inns-body');
+  const filtered = rows.filter((row) => row.ac_name || row.officer_name || row.th_kids || row.th_adults || row.fr_kids || row.fr_adults);
+  const list = filtered.length ? filtered : [{ ac_name: '-', officer_name: '-', th_kids: 0, th_adults: 0, fr_kids: 0, fr_adults: 0 }];
+  target.innerHTML = list.map((row) => `<tr><td>${escapeHtml(row.ac_name || '-')}</td><td>${escapeHtml(row.officer_name || '-')}</td><td>${row.th_kids + row.th_adults + row.fr_kids + row.fr_adults}</td></tr>`).join('');
+}
 
-  ['mod-morning', 'm-exhibition', 'm-education', 'm-visitor-service'].forEach(id => {
-    populateSelect(document.getElementById(id), officers, '-- เลือกเจ้าหน้าที่ --');
-  });
+function renderPOSPage(pos) {
+  setText('pos-sum-w-th-kids', pos.sum_w_th_kids ?? 0);
+  setText('pos-sum-w-a-th-adult', pos.sum_w_a_th_adult ?? 0);
+  setText('pos-sum-w-fr-kids', pos.sum_w_fr_kids ?? 0);
+  setText('pos-sum-w-a-fr-adult', pos.sum_w_a_fr_adult ?? 0);
+  setText('pos-sum-activity', pos.sum_activity ?? 0);
+  setText('pos-sum-ac-vi-all', pos.sum_ac_vi_all ?? 0);
+  setText('pos-date-indicator', `ข้อมูลวันที่ ${formatDate(AppState.currentDate)}`);
+}
 
-  ['ex-z1-name','ex-z2-name','ex-z3-name','ex-z4-name','ex-innovation-name','ex-inspire-name','ex-make-play1-name','ex-make-play2-name'].forEach(id => {
-    populateSelect(document.getElementById(id), volunteers, '-- เลือกอาสาสมัคร --');
+function updateDateLabels() { const text = formatDate(AppState.currentDate); setText('assignment-date-label', text); setText('summary-date-label', `วันที่ ${text}`); }
+function updateConnectionBadge() { const indicator = byId('offline-indicator'); if (!navigator.onLine) { indicator.className = 'chip danger'; indicator.textContent = '● ออฟไลน์'; } else { indicator.className = 'chip success'; indicator.textContent = '● ออนไลน์'; } }
+function setAutosaveIndicator(state, label) { const indicator = byId('autosave-indicator'); indicator.className = `chip ${state === 'saved' ? 'success' : state === 'error' ? 'danger' : state === 'saving' ? 'warning' : ''}`.trim(); indicator.textContent = label; }
+function setLoading(loading) { AppState.isLoading = loading; document.body.classList.toggle('loading', loading); }
+
+function populateLabRows(prefix, rows) {
+  buildIndexedRows(rows, 6, 'row_index').forEach((row, index) => {
+    const i = index + 1;
+    setValue(`${prefix}-name-${i}`, row.ac_name || '');
+    setValue(`${prefix}-officer-${i}`, row.officer_name || '');
+    setValue(`${prefix}-th-kids-${i}`, row.th_kids ?? 0);
+    setValue(`${prefix}-th-adults-${i}`, row.th_adults ?? 0);
+    setValue(`${prefix}-fr-kids-${i}`, row.fr_kids ?? 0);
+    setValue(`${prefix}-fr-adults-${i}`, row.fr_adults ?? 0);
   });
 }
 
-async function syncFromGoogleSheets() {
-  const statusEl = document.getElementById('sync-status-label');
-  if (statusEl) statusEl.textContent = '🔄 กำลังดึงข้อมูล...';
-  try {
-    if (!window.GoogleSheetsAPI) throw new Error('GoogleSheetsAPI ไม่พร้อมใช้งาน');
-    const result = await window.GoogleSheetsAPI.refreshDropdownData();
-    const settings = getSettings();
-    settings.customOfficers = result.officers || [];
-    settings.customVolunteers = result.volunteers || [];
-    saveSettings(settings);
-    const officersTextarea = document.getElementById('set-officers-list');
-    const volunteersTextarea = document.getElementById('set-volunteers-list');
-    if (officersTextarea) officersTextarea.value = settings.customOfficers.join('\n');
-    if (volunteersTextarea) volunteersTextarea.value = settings.customVolunteers.join('\n');
-    updateDropdownDatalist();
-    if (statusEl) {
-      const now = new Date();
-      statusEl.textContent = `✅ ซิงค์สำเร็จ ${settings.customOfficers.length} เจ้าหน้าที่, ${settings.customVolunteers.length} อาสาสมัคร (${now.toLocaleTimeString('th-TH')})`;
-    }
-    showToast('ดึงข้อมูลจาก Google Sheets สำเร็จ', 'success');
-  } catch (e) {
-    if (statusEl) statusEl.textContent = '❌ ไม่สามารถเชื่อมต่อได้: ' + e.message;
-    showToast('ไม่สามารถดึงข้อมูลจาก Google Sheets: ' + e.message, 'error');
-  }
+function collectLabRows(prefix) {
+  return Array.from({ length: 6 }, (_, index) => ({ row_index: index + 1, ac_name: valueOf(`${prefix}-name-${index + 1}`), officer_name: valueOf(`${prefix}-officer-${index + 1}`), th_kids: numVal(`${prefix}-th-kids-${index + 1}`), th_adults: numVal(`${prefix}-th-adults-${index + 1}`), fr_kids: numVal(`${prefix}-fr-kids-${index + 1}`), fr_adults: numVal(`${prefix}-fr-adults-${index + 1}`) }));
 }
 
-// ============ VOLUNTEER SYNC TO AFTERNOON ============
-function syncVolunteersToAfternoonTab() {
-  const zones = [
-    ['ex-z1-name', 'โซน 1 ค้นพบตัวตน'],
-    ['ex-z2-name', 'โซน 2 เปิดโลกทางการแพทย์'],
-    ['ex-z3-name', 'โซน 3 ฐานปฏิบัติการภัยพิบัต'],
-    ['ex-z4-name', 'โซน 4 การบินและอวกาศ'],
-    ['ex-innovation-name', 'ห้อง Innovation Space'],
-    ['ex-inspire-name', 'ห้อง Inspire Lab'],
-    ['ex-make-play1-name', 'ห้อง Make and Play 1'],
-    ['ex-make-play2-name', 'ห้อง Make and Play 2'],
-  ];
-  const container = document.getElementById('afternoon-volunteer-list');
-  if (!container) return;
-  const filled = zones.filter(([src]) => getInputVal(src).trim());
-  if (!filled.length) {
-    container.innerHTML = '<span style="font-size:13px;color:var(--text-muted);">ℹ️ ยังไม่มีข้อมูลอาสาสมัครจากช่วงเช้า</span>';
-    return;
-  }
-  container.innerHTML = filled.map(([src, label]) => {
-    const name = escHtml(getInputVal(src).trim());
-    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:13px;"><span style="color:var(--success);">✓</span> <span style="font-weight:600;">${name}</span> <span style="color:var(--text-muted);font-size:11px;">(${label})</span></span>`;
-  }).join('');
-  showToast(`ดึงชื่ออาสา ${filled.length} คนจากช่วงเช้า`, 'info');
-}
+function buildIndexedRows(rows, expectedCount, indexKey) { const map = new Map((Array.isArray(rows) ? rows : []).map((row) => [Number(row[indexKey]), row])); return Array.from({ length: expectedCount }, (_, index) => map.get(index + 1) || { [indexKey]: index + 1 }); }
+function buildOptionsHtml(values) { return values.map((value) => `<option value="${escapeHtml(value)}"></option>`).join(''); }
+function refreshSelectOptions(select, values) { const currentValue = select.value; select.innerHTML = ['<option value="">เลือก...</option>'].concat(values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`)).join(''); select.value = values.includes(currentValue) ? currentValue : currentValue || ''; }
+function normalizeFullDay(payload) { return { assignments: payload.assignments || defaultAssignments(), walkin: payload.walkin || defaultWalkin(), groups: Array.isArray(payload.groups) ? payload.groups : [], additional: payload.additional || defaultAdditional(), inspire: Array.isArray(payload.inspire) ? payload.inspire : [], innovation: Array.isArray(payload.innovation) ? payload.innovation : [], pos: payload.pos || payload.computed_pos || defaultPOS(), summary: payload.summary || defaultSummary() }; }
+function mapPageToSaveTarget(pageId) { return pageId === 'exhibition' ? 'exhibition' : pageId === 'pos' ? 'pos' : pageId === 'summary' ? 'summary' : 'assignments'; }
+function isLoggedIn() { return sessionStorage.getItem(AUTH_KEY) === 'true'; }
+function qs(selector, parent = document) { return parent.querySelector(selector); }
+function qsa(selector, parent = document) { return [...parent.querySelectorAll(selector)]; }
+function byId(id) { return document.getElementById(id); }
+function valueOf(id) { return byId(id)?.value.trim() || ''; }
+function setValue(id, value) { const element = byId(id); if (element) element.value = value ?? ''; }
+function setText(id, value) { const element = byId(id); if (element) element.textContent = value ?? ''; }
+function numVal(id) { return safeNum(byId(id)?.value); }
+function safeNum(value) { const number = Number(value); return Number.isFinite(number) ? number : 0; }
+function debounce(fn, delay) { let timer; return (...args) => { clearTimeout(timer); timer = window.setTimeout(() => fn(...args), delay); }; }
+function sumLabLanguage(prefix, lang) { let total = 0; for (let i = 1; i <= 6; i += 1) total += numVal(`${prefix}-${lang}-kids-${i}`) + numVal(`${prefix}-${lang}-adults-${i}`); return total; }
+function defaultAssignments() { return { mo_officer: '', mex_officer: '', med_officer: '', mvi_officer: '', z2f_volunteer: '', zmp_volunteer: '', zinl_volunteer: '', other_activity_note: '' }; }
+function defaultWalkin() { return { mor_th_kids: 0, mor_th_adults: 0, mor_fr_kids: 0, mor_fr_adults: 0, eve_th_kids: 0, eve_th_adults: 0, eve_fr_kids: 0, eve_fr_adults: 0 }; }
+function defaultAdditional() { return { ac_walk_r_kids: 0, ac_walk_r_adults: 0, ac_mmap_kids: 0, ac_mmap_adults: 0, ac_etcac_kids: 0, ac_etcac_adults: 0, activity_notes: '' }; }
+function defaultPOS() { return { sum_w_th_kids: 0, sum_w_a_th_adult: 0, sum_w_fr_kids: 0, sum_w_a_fr_adult: 0, sum_activity: 0, sum_ac_vi_all: 0 }; }
+function defaultSummary() { return { issue_mo: '', issue_mex: '', issue_med: '', issue_mvi: '', issue_insl: '', issue_inns: '', summary_notes: '' }; }
+function escapeHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
-// ============ ISSUES / FEEDBACK ============
-function openIssueModal(zone) {
-  const zoneEl = document.getElementById('issue-zone');
-  if (zoneEl) zoneEl.value = zone || '';
-  const descEl = document.getElementById('issue-description');
-  if (descEl) descEl.value = '';
-  const detailsEl = document.getElementById('issue-details');
-  if (detailsEl) detailsEl.value = '';
-  const typeEl = document.getElementById('issue-type-problem');
-  if (typeEl) typeEl.checked = true;
-  const priEl = document.getElementById('issue-priority');
-  if (priEl) priEl.value = 'ปานกลาง';
-  openModal('issues-modal');
-}
-
-async function submitIssueFeedback() {
-  const typeEl = document.querySelector('input[name="issue-type"]:checked');
-  const zone = getInputVal('issue-zone');
-  const priority = getInputVal('issue-priority');
-  const description = document.getElementById('issue-description')?.value?.trim();
-  const details = document.getElementById('issue-details')?.value?.trim();
-
-  if (!description) {
-    showToast('กรุณากรอกรายละเอียดปัญหา/ข้อเสนอ', 'warning');
-    return;
-  }
-
-  const data = {
-    date: getCurrentDate(),
-    type: typeEl ? typeEl.value : 'ปัญหา',
-    zone,
-    priority,
-    description,
-    details,
-    reporter: sessionStorage.getItem('nsm_user') || 'admin',
-    status: 'รอดำเนินการ',
-    timestamp: new Date().toISOString()
-  };
-
-  try {
-    if (window.GoogleSheetsAPI && typeof window.GoogleSheetsAPI.saveIssueFeedback === 'function') {
-      await window.GoogleSheetsAPI.saveIssueFeedback(data);
-      showToast('ส่งรายงานปัญหาเรียบร้อยแล้ว', 'success');
-    } else {
-      // Fallback: save to localStorage
-      const key = 'issues_' + Date.now();
-      localStorage.setItem(key, JSON.stringify(data));
-      showToast('บันทึกรายงานปัญหา (offline mode)', 'info');
-    }
-    closeModal('issues-modal');
-  } catch(e) {
-    showToast('ไม่สามารถส่งรายงานได้: ' + e.message, 'error');
-  }
-}
-
-// ============ SETTINGS PAGE ============
-function initSettingsPage() {
-  const settings = getSettings();
-  // Load URL
-  const urlEl = document.getElementById('settings-sheets-url');
-  if (urlEl) urlEl.value = settings.sheetsUrl || '';
-  // Load username
-  const userEl = document.getElementById('settings-username');
-  if (userEl) userEl.value = settings.username || 'admin';
-  // Display current lists
-  renderSettingsLists(settings.customOfficers || [], settings.customVolunteers || []);
-  // Fill textareas
-  const volTA = document.getElementById('settings-volunteers-textarea');
-  const offTA = document.getElementById('settings-officers-textarea');
-  if (volTA) volTA.value = (settings.customVolunteers || []).join('\n');
-  if (offTA) offTA.value = (settings.customOfficers || []).join('\n');
-  // Check connection
-  checkGoogleSheetsConnection();
-}
-
-function renderSettingsLists(officers, volunteers) {
-  const volContainer = document.getElementById('settings-volunteers-list');
-  const offContainer = document.getElementById('settings-officers-list');
-  const volCount = document.getElementById('settings-vol-count');
-  const offCount = document.getElementById('settings-off-count');
-  if (volCount) volCount.textContent = `(${volunteers.length} คน)`;
-  if (offCount) offCount.textContent = `(${officers.length} คน)`;
-  if (volContainer) {
-    volContainer.innerHTML = volunteers.length
-      ? volunteers.map(n => `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:13px;">${escHtml(n)}</span>`).join('')
-      : '<span style="color:var(--text-muted);font-size:13px;">ยังไม่มีข้อมูล</span>';
-  }
-  if (offContainer) {
-    offContainer.innerHTML = officers.length
-      ? officers.map(n => `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:13px;">${escHtml(n)}</span>`).join('')
-      : '<span style="color:var(--text-muted);font-size:13px;">ยังไม่มีข้อมูล</span>';
-  }
-}
-
-async function checkGoogleSheetsConnection() {
-  const statusEl = document.getElementById('settings-conn-status');
-  const syncEl = document.getElementById('settings-last-sync');
-  if (!statusEl) return;
-  statusEl.textContent = '🔄 กำลังตรวจสอบ...';
-  statusEl.style.color = 'var(--text-muted)';
-  try {
-    const settings = getSettings();
-    if (!settings.sheetsUrl) {
-      statusEl.textContent = '⚠️ ยังไม่ได้ตั้งค่า URL';
-      statusEl.style.color = 'var(--warning)';
-      return;
-    }
-    if (window.GoogleSheetsAPI && typeof window.GoogleSheetsAPI.checkConnection === 'function') {
-      const ok = await window.GoogleSheetsAPI.checkConnection();
-      if (ok) {
-        statusEl.textContent = '✅ เชื่อมต่อสำเร็จ';
-        statusEl.style.color = 'var(--success)';
-        if (syncEl) syncEl.textContent = 'ล่าสุด: ' + new Date().toLocaleString('th-TH');
-      } else {
-        statusEl.textContent = '❌ ไม่สามารถเชื่อมต่อได้';
-        statusEl.style.color = 'var(--danger)';
-      }
-    } else {
-      statusEl.textContent = '⚠️ Google Sheets API ไม่พร้อมใช้งาน';
-      statusEl.style.color = 'var(--warning)';
-    }
-  } catch(e) {
-    statusEl.textContent = '❌ เกิดข้อผิดพลาด: ' + e.message;
-    statusEl.style.color = 'var(--danger)';
-  }
-}
-
-function settingsSaveURL() {
-  const urlEl = document.getElementById('settings-sheets-url');
-  if (!urlEl) return;
-  const url = urlEl.value.trim();
-  const settings = getSettings();
-  settings.sheetsUrl = url;
-  saveSettings(settings);
-  // Also update the GoogleSheetsAPI URL
-  if (window.GoogleSheetsAPI && typeof window.GoogleSheetsAPI.setUrl === 'function') {
-    window.GoogleSheetsAPI.setUrl(url);
-  }
-  showToast('บันทึก URL เรียบร้อยแล้ว', 'success');
-  checkGoogleSheetsConnection();
-}
-
-function settingsSaveManual() {
-  const volTA = document.getElementById('settings-volunteers-textarea');
-  const offTA = document.getElementById('settings-officers-textarea');
-  const settings = getSettings();
-  if (volTA) settings.customVolunteers = volTA.value.split('\n').map(s => s.trim()).filter(Boolean);
-  if (offTA) settings.customOfficers = offTA.value.split('\n').map(s => s.trim()).filter(Boolean);
-  saveSettings(settings);
-  updateDropdownDatalist();
-  renderSettingsLists(settings.customOfficers || [], settings.customVolunteers || []);
-  showToast('บันทึกรายชื่อเรียบร้อยแล้ว', 'success');
-}
-
-async function settingsSaveLogin() {
-  const userEl = document.getElementById('settings-username');
-  const passEl = document.getElementById('settings-password');
-  const settings = getSettings();
-  if (userEl && userEl.value.trim()) settings.username = userEl.value.trim();
-  if (passEl && passEl.value) {
-    settings.passwordHash = await sha256hex(passEl.value);
-    passEl.value = '';
-  }
-  saveSettings(settings);
-  showToast('บันทึกข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว', 'success');
-}
-
-async function settingsSync() {
-  const statusEl = document.getElementById('settings-conn-status');
-  if (statusEl) { statusEl.textContent = '🔄 กำลัง Sync...'; statusEl.style.color = 'var(--text-muted)'; }
-  try {
-    if (!window.GoogleSheetsAPI) throw new Error('GoogleSheetsAPI ไม่พร้อมใช้งาน');
-    const result = await window.GoogleSheetsAPI.refreshDropdownData();
-    const settings = getSettings();
-    if (result.officers && result.officers.length) settings.customOfficers = result.officers;
-    if (result.volunteers && result.volunteers.length) settings.customVolunteers = result.volunteers;
-    saveSettings(settings);
-    updateDropdownDatalist();
-    renderSettingsLists(settings.customOfficers || [], settings.customVolunteers || []);
-    const volTA = document.getElementById('settings-volunteers-textarea');
-    const offTA = document.getElementById('settings-officers-textarea');
-    if (volTA) volTA.value = (settings.customVolunteers || []).join('\n');
-    if (offTA) offTA.value = (settings.customOfficers || []).join('\n');
-    if (statusEl) { statusEl.textContent = '✅ เชื่อมต่อสำเร็จ'; statusEl.style.color = 'var(--success)'; }
-    const syncEl = document.getElementById('settings-last-sync');
-    if (syncEl) syncEl.textContent = 'Sync ล่าสุด: ' + new Date().toLocaleString('th-TH');
-    showToast(`Sync สำเร็จ: ${(settings.customOfficers||[]).length} เจ้าหน้าที่, ${(settings.customVolunteers||[]).length} อาสาสมัคร`, 'success');
-  } catch(e) {
-    if (statusEl) { statusEl.textContent = '❌ ' + e.message; statusEl.style.color = 'var(--danger)'; }
-    showToast('ไม่สามารถ Sync ได้: ' + e.message, 'error');
-  }
-}
-
-// ============ INIT ============
-document.addEventListener('DOMContentLoaded', function() {
-  checkSession();
-  // Add some default booking rows
-  if (document.getElementById('booking-tbody')) {
-    addBookingRow();
-    addBookingRow();
-  }
-  // Add default activity row
-  if (document.getElementById('activity-tbody')) {
-    addActivityRow();
-  }
-  // Populate dropdowns from settings cache
-  updateDropdownDatalist();
-  // Try to populate from Google Sheets
-  if (window.GoogleSheetsAPI) {
-    window.GoogleSheetsAPI.populateDropdowns().catch(() => {});
-  }
-});
+document.addEventListener('DOMContentLoaded', init);
