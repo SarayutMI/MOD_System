@@ -2,6 +2,7 @@ const AppState = {
   currentPage: 'assignments',
   currentDate: todayISO(),
   isLoading: false,
+  isExistingData: false,
   data: {
     assignments: null,
     walkin: null,
@@ -59,28 +60,37 @@ async function setDate(dateStr) {
 }
 
 async function loadAllSections(date) {
+  const sections = ['assignments', 'walkin', 'groups', 'additional', 'inspire', 'innovation', 'pos', 'summary'];
   showProgress('กำลังโหลดข้อมูลประจำวัน...');
   setLoading(true);
+  updateDataModeIndicator(null);
   try {
     let payload;
     try {
       payload = await window.ModAPI.getFullDay(date);
     } catch (error) {
-      const sections = ['assignments', 'walkin', 'groups', 'additional', 'inspire', 'innovation', 'pos', 'summary'];
       const results = await Promise.all(sections.map(async (section) => ({ section, data: await loadSection(section, date, false) })));
       payload = results.reduce((acc, item) => ((acc[item.section] = item.data), acc), {});
     }
-    const hasExistingData = payload && (payload.assignments !== null || payload.walkin !== null || payload.summary !== null);
+    const hasExistingData = payload && sections.some((key) => {
+      const val = payload[key];
+      if (Array.isArray(val)) return val.length > 0;
+      return val !== null && val !== undefined;
+    });
+    AppState.isExistingData = Boolean(hasExistingData);
     AppState.data = normalizeFullDay(payload || {});
     populateAllForms();
     recalculateAll();
     const dateLabel = formatDate(date);
-    showToast(hasExistingData ? `พบข้อมูลวันที่ ${dateLabel}` : `เริ่มบันทึกข้อมูลใหม่ — ${dateLabel}`, 'success');
+    updateDataModeIndicator(AppState.isExistingData);
+    showToast(hasExistingData ? `พบข้อมูลวันที่ ${dateLabel} — โหมดแก้ไข` : `ไม่พบข้อมูลวันที่ ${dateLabel} — บันทึกข้อมูลใหม่`, hasExistingData ? 'warning' : 'success');
   } catch (error) {
     console.error(error);
+    AppState.isExistingData = false;
     AppState.data = normalizeFullDay({});
     populateAllForms();
     recalculateAll();
+    updateDataModeIndicator(false);
     showToast(error.message || 'ไม่สามารถโหลดข้อมูลได้', 'error');
   } finally {
     setLoading(false);
@@ -133,7 +143,10 @@ async function saveSection(section) {
       AppState.data.summary = summary;
     }
     setAutosaveIndicator('saved', 'บันทึกแล้ว');
-    showToast('บันทึกข้อมูลสำเร็จ', 'success');
+    const saveLabel = AppState.isExistingData ? 'อัปเดตข้อมูลสำเร็จ' : 'บันทึกข้อมูลใหม่สำเร็จ';
+    AppState.isExistingData = true;
+    updateDataModeIndicator(true);
+    showToast(saveLabel, 'success');
   } catch (error) {
     console.error(error);
     setAutosaveIndicator('error', 'บันทึกล้มเหลว');
@@ -487,6 +500,7 @@ function updateDateLabels() { const text = formatDate(AppState.currentDate); set
 function updateConnectionBadge() { const indicator = byId('offline-indicator'); if (!navigator.onLine) { indicator.className = 'chip danger'; indicator.textContent = '● ออฟไลน์'; } else { indicator.className = 'chip success'; indicator.textContent = '● ออนไลน์'; } }
 function setAutosaveIndicator(state, label) { const indicator = byId('autosave-indicator'); indicator.className = `chip ${state === 'saved' ? 'success' : state === 'error' ? 'danger' : state === 'saving' ? 'warning' : ''}`.trim(); indicator.textContent = label; }
 function setLoading(loading) { AppState.isLoading = loading; document.body.classList.toggle('loading', loading); }
+function updateDataModeIndicator(hasData) { const indicator = byId('data-mode-indicator'); if (!indicator) return; if (hasData === null) { indicator.className = 'chip'; indicator.textContent = 'กำลังโหลด...'; } else if (hasData) { indicator.className = 'chip warning'; indicator.textContent = '✏️ แก้ไขข้อมูลเดิม'; } else { indicator.className = 'chip success'; indicator.textContent = '✨ บันทึกข้อมูลใหม่'; } }
 
 function populateLabRows(prefix, rows) {
   buildIndexedRows(rows, 6, 'row_index').forEach((row, index) => {
