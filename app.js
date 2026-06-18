@@ -46,7 +46,7 @@ async function bootstrapApp() {
   byId('app-shell').classList.remove('hidden');
   byId('sidebar-username').textContent = loadSettings().username || 'ผู้ดูแลระบบ';
   gotoPage(AppState.currentPage);
-  await loadLookups();
+  try { await loadLookups(); } catch (_) { /* warnings already shown inside loadLookups */ }
   await loadAllSections(AppState.currentDate);
 }
 
