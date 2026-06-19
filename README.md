@@ -190,6 +190,7 @@
 - `?action=getSection&section=pos&date=YYYY-MM-DD`
 - `?action=getSection&section=summary&date=YYYY-MM-DD`
 - `?action=getFullDay&date=YYYY-MM-DD`
+- `?action=getDashboard&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`
 
 ### POST
 - `saveSection`

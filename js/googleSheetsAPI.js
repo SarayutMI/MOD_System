@@ -99,6 +99,10 @@
       return getRequest({ action: 'getFullDay', date });
     },
 
+    async getDashboard(startDate, endDate) {
+      return getRequest({ action: 'getDashboard', startDate, endDate });
+    },
+
     async saveSection(section, date, data) {
       return postRequest({ action: 'saveSection', section, date_key: date, data });
     },

@@ -77,6 +77,11 @@ function doGet(e) {
         const dateKey = normalizeDateKey_(params.date);
         return jsonResponse_({ status: 'success', data: getFullDayData_(dateKey) });
       }
+      case 'getDashboard': {
+        const startDate = normalizeDateKey_(params.startDate || params.start_date);
+        const endDate = normalizeDateKey_(params.endDate || params.end_date);
+        return jsonResponse_({ status: 'success', data: getDashboardData_(startDate, endDate) });
+      }
       default:
         throw new Error('Unsupported action: ' + action);
     }
@@ -134,6 +139,121 @@ function getFullDayData_(dateKey) {
 
   data.computed_pos = buildComputedPos_(data);
   return data;
+}
+
+function getDashboardData_(startDate, endDate) {
+  if (startDate > endDate) throw new Error('startDate must be before or equal to endDate');
+
+  const ss = getSpreadsheet_();
+  const walkinRows = getRowsByDateRange_(getOrCreateSheet(SHEET_NAMES.DAILY_WALKIN, COLUMN_HEADERS.Daily_WalkIn, ss), startDate, endDate);
+  const groupRows = getRowsByDateRange_(getOrCreateSheet(SHEET_NAMES.DAILY_GROUPS, COLUMN_HEADERS.Daily_Groups, ss), startDate, endDate);
+  const additionalRows = getRowsByDateRange_(getOrCreateSheet(SHEET_NAMES.DAILY_ADDITIONAL, COLUMN_HEADERS.Daily_Additional_Activities, ss), startDate, endDate);
+  const inspireRows = getRowsByDateRange_(getOrCreateSheet(SHEET_NAMES.DAILY_LAB_INSPIRE, COLUMN_HEADERS.Daily_Lab_Inspire, ss), startDate, endDate);
+  const innovationRows = getRowsByDateRange_(getOrCreateSheet(SHEET_NAMES.DAILY_LAB_INNOVATION, COLUMN_HEADERS.Daily_Lab_Innovation, ss), startDate, endDate);
+
+  const walkinByDate = {};
+  walkinRows.forEach(function(row) {
+    const dateKey = normalizeDateKeyForLookup_(row.date_key);
+    if (!dateKey) return;
+    const kids = safeNum(row.mor_th_kids) + safeNum(row.mor_fr_kids) + safeNum(row.eve_th_kids) + safeNum(row.eve_fr_kids);
+    const adults = safeNum(row.mor_th_adults) + safeNum(row.mor_fr_adults) + safeNum(row.eve_th_adults) + safeNum(row.eve_fr_adults);
+    walkinByDate[dateKey] = { kids: kids, adults: adults };
+  });
+
+  const groupByDate = aggregateByDate_(groupRows, function(row) {
+    return { kids: safeNum(row.g_kids), adults: safeNum(row.g_adults), total: safeNum(row.g_kids) + safeNum(row.g_adults) };
+  });
+  const additionalByDate = aggregateByDate_(additionalRows, function(row) {
+    const total = safeNum(row.ac_walk_r_kids) + safeNum(row.ac_walk_r_adults) + safeNum(row.ac_mmap_kids) + safeNum(row.ac_mmap_adults) + safeNum(row.ac_etcac_kids) + safeNum(row.ac_etcac_adults);
+    return { total: total };
+  });
+  const inspireByDate = aggregateByDate_(inspireRows, function(row) {
+    const kids = safeNum(row.th_kids) + safeNum(row.fr_kids);
+    const adults = safeNum(row.th_adults) + safeNum(row.fr_adults);
+    return { kids: kids, adults: adults, total: kids + adults };
+  });
+  const innovationByDate = aggregateByDate_(innovationRows, function(row) {
+    const kids = safeNum(row.th_kids) + safeNum(row.fr_kids);
+    const adults = safeNum(row.th_adults) + safeNum(row.fr_adults);
+    return { kids: kids, adults: adults, total: kids + adults };
+  });
+
+  const allDates = {};
+  [walkinByDate, groupByDate, additionalByDate, inspireByDate, innovationByDate].forEach(function(mapObj) {
+    Object.keys(mapObj).forEach(function(dateKey) { allDates[dateKey] = true; });
+  });
+
+  const byDate = Object.keys(allDates).sort().map(function(dateKey) {
+    const walk = walkinByDate[dateKey] || { kids: 0, adults: 0 };
+    const group = groupByDate[dateKey] || { kids: 0, adults: 0, total: 0 };
+    const additional = additionalByDate[dateKey] || { total: 0 };
+    const inspire = inspireByDate[dateKey] || { kids: 0, adults: 0, total: 0 };
+    const innovation = innovationByDate[dateKey] || { kids: 0, adults: 0, total: 0 };
+    const walkinTotal = walk.kids + walk.adults;
+    const roomTotal = inspire.total + innovation.total;
+    const sumActivity = additional.total + roomTotal;
+    const sumAcViAll = walkinTotal + group.total + sumActivity;
+    return {
+      date_key: dateKey,
+      walkin_kids: walk.kids,
+      walkin_adults: walk.adults,
+      walkin_total: walkinTotal,
+      group_kids: group.kids,
+      group_adults: group.adults,
+      group_total: group.total,
+      additional_total: additional.total,
+      inspire_kids: inspire.kids,
+      inspire_adults: inspire.adults,
+      innovation_kids: innovation.kids,
+      innovation_adults: innovation.adults,
+      room_total: roomTotal,
+      sum_activity: sumActivity,
+      sum_ac_vi_all: sumAcViAll
+    };
+  });
+
+  const totals = byDate.reduce(function(acc, row) {
+    acc.walkin_kids += row.walkin_kids;
+    acc.walkin_adults += row.walkin_adults;
+    acc.walkin_total += row.walkin_total;
+    acc.group_kids += row.group_kids;
+    acc.group_adults += row.group_adults;
+    acc.group_total += row.group_total;
+    acc.additional_total += row.additional_total;
+    acc.inspire_kids += row.inspire_kids;
+    acc.inspire_adults += row.inspire_adults;
+    acc.innovation_kids += row.innovation_kids;
+    acc.innovation_adults += row.innovation_adults;
+    acc.room_total += row.room_total;
+    acc.sum_activity += row.sum_activity;
+    acc.sum_ac_vi_all += row.sum_ac_vi_all;
+    return acc;
+  }, {
+    walkin_kids: 0,
+    walkin_adults: 0,
+    walkin_total: 0,
+    group_kids: 0,
+    group_adults: 0,
+    group_total: 0,
+    additional_total: 0,
+    inspire_kids: 0,
+    inspire_adults: 0,
+    innovation_kids: 0,
+    innovation_adults: 0,
+    room_total: 0,
+    sum_activity: 0,
+    sum_ac_vi_all: 0
+  });
+
+  return {
+    range: {
+      start_date: startDate,
+      end_date: endDate,
+      total_days_with_data: byDate.length
+    },
+    totals: totals,
+    by_date: byDate
+  };
 }
 
 function getSectionData_(section, dateKey) {
@@ -380,6 +500,26 @@ function getRowsByDate_(sheet, dateKey) {
   return getAllDataObjects_(sheet).filter(function(row) {
     return normalizeDateKeyForLookup_(row.date_key) === targetDateKey;
   });
+}
+
+function getRowsByDateRange_(sheet, startDate, endDate) {
+  return getAllDataObjects_(sheet).filter(function(row) {
+    const dateKey = normalizeDateKeyForLookup_(row.date_key);
+    return dateKey && dateKey >= startDate && dateKey <= endDate;
+  });
+}
+
+function aggregateByDate_(rows, mapper) {
+  return rows.reduce(function(acc, row) {
+    const dateKey = normalizeDateKeyForLookup_(row.date_key);
+    if (!dateKey) return acc;
+    const values = mapper(row) || {};
+    if (!acc[dateKey]) acc[dateKey] = {};
+    Object.keys(values).forEach(function(key) {
+      acc[dateKey][key] = safeNum(acc[dateKey][key]) + safeNum(values[key]);
+    });
+    return acc;
+  }, {});
 }
 
 function upsertSingleRow_(sheet, record, headers) {
