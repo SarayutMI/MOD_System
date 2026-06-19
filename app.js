@@ -40,7 +40,6 @@ function init() {
   updateConnectionBadge();
   byId('global-date').value = AppState.currentDate;
   initDashboardFilters();
-  setSummaryTab('summary-data');
   updateDateLabels();
   updateAuthUI();
   if (isLoggedIn()) bootstrapApp();
@@ -470,6 +469,7 @@ function setupEventListeners() {
     setSummaryTab(nextButton.dataset.summaryTabTarget);
     nextButton.focus();
   });
+  setSummaryTab('summary-data');
   const debouncedCalc = debounce(() => { recalculateAll(); setAutosaveIndicator('dirty', 'มีการเปลี่ยนแปลง'); }, 60);
   document.addEventListener('input', (event) => { if (event.target.matches('input, textarea, select')) debouncedCalc(); });
   document.addEventListener('click', (event) => {
@@ -493,7 +493,6 @@ function setSummaryTab(tabId = 'summary-data') {
   qsa('.summary-tab-panel').forEach((panel) => {
     const isActive = panel.id === `summary-tab-${tabId}`;
     panel.classList.toggle('active', isActive);
-    panel.hidden = !isActive;
   });
 }
 
@@ -675,7 +674,11 @@ function renderDashboardAnalysis(range, totals, byDate) {
   const totalVisitors = safeNum(totals.sum_ac_vi_all);
   const days = Math.max(1, safeNum(range.total_days_with_data));
   const average = Math.round(totalVisitors / days);
-  const peak = byDate.length ? byDate.reduce((best, row) => (safeNum(row.sum_ac_vi_all) > safeNum(best.sum_ac_vi_all) ? row : best), byDate[0]) : null;
+  const peak = byDate.length ? byDate.reduce((best, row) => {
+    const bestValue = safeNum(best.sum_ac_vi_all);
+    const rowValue = safeNum(row.sum_ac_vi_all);
+    return rowValue > bestValue ? row : best;
+  }, byDate[0]) : null;
   const peakDate = peak?.date_key || '-';
   const peakValue = safeNum(peak?.sum_ac_vi_all);
   const walkinShare = totalVisitors ? Math.round((safeNum(totals.walkin_total) / totalVisitors) * 100) : 0;
