@@ -470,20 +470,38 @@ function normalizeDateKey_(value) {
   return dateKey;
 }
 
+/**
+ * Normalizes common sheet date cell formats into YYYY-MM-DD for safe comparisons.
+ * Accepts Date objects and date strings such as YYYY-MM-DD, YYYY/MM/DD,
+ * or those formats followed by a time component.
+ */
 function normalizeDateKeyForLookup_(value) {
-  if (value instanceof Date && !isNaN(value.getTime())) {
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
     return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   }
 
-  const dateKey = safeStr(value);
-  if (!dateKey) return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return dateKey;
+  const raw = safeStr(value);
+  if (!raw) return '';
 
-  const parsed = new Date(dateKey);
-  if (!isNaN(parsed.getTime())) {
-    return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const match = raw.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[T\s].*)?$/);
+  if (!match) return '';
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return '';
+
+  const parsed = new Date(year, month - 1, day);
+  if (
+    isNaN(parsed.getTime()) ||
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return '';
   }
-  return '';
+
+  return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
 function safeNum(value) {
