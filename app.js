@@ -40,6 +40,7 @@ function init() {
   updateConnectionBadge();
   byId('global-date').value = AppState.currentDate;
   initDashboardFilters();
+  setSummaryTab('summary-data');
   updateDateLabels();
   updateAuthUI();
   if (isLoggedIn()) bootstrapApp();
@@ -449,6 +450,7 @@ function setupEventListeners() {
     setValue('dashboard-end-date', AppState.dashboardFilter.endDate);
     await loadDashboardData();
   });
+  qsa('[data-summary-tab-target]').forEach((button) => button.addEventListener('click', () => setSummaryTab(button.dataset.summaryTabTarget)));
   const debouncedCalc = debounce(() => { recalculateAll(); setAutosaveIndicator('dirty', 'มีการเปลี่ยนแปลง'); }, 60);
   document.addEventListener('input', (event) => { if (event.target.matches('input, textarea, select')) debouncedCalc(); });
   document.addEventListener('click', (event) => {
@@ -461,6 +463,19 @@ function setupEventListeners() {
   });
   window.addEventListener('online', updateConnectionBadge);
   window.addEventListener('offline', updateConnectionBadge);
+}
+
+function setSummaryTab(tabId = 'summary-data') {
+  qsa('[data-summary-tab-target]').forEach((button) => {
+    const isActive = button.dataset.summaryTabTarget === tabId;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+  qsa('.summary-tab-panel').forEach((panel) => {
+    const isActive = panel.id === `summary-tab-${tabId}`;
+    panel.classList.toggle('active', isActive);
+    panel.hidden = !isActive;
+  });
 }
 
 async function loadLookups(force = false) {
@@ -608,6 +623,8 @@ function renderDashboard(data) {
   setText('dashboard-group-total', totals.group_total || 0);
   setText('dashboard-room-total', totals.room_total || 0);
   setText('dashboard-additional-total', totals.additional_total || 0);
+  renderDashboardChart(totals);
+  renderDashboardAnalysis(range, totals, byDate);
 
   const body = byId('dashboard-by-date-body');
   if (!body) return;
@@ -616,6 +633,36 @@ function renderDashboard(data) {
     return;
   }
   body.innerHTML = byDate.map((row) => `<tr><td>${escapeHtml(row.date_key)}</td><td>${row.walkin_total}</td><td>${row.group_total}</td><td>${row.room_total}</td><td>${row.additional_total}</td><td>${row.sum_ac_vi_all}</td></tr>`).join('');
+}
+
+function renderDashboardChart(totals) {
+  const chart = byId('dashboard-chart-bars');
+  if (!chart) return;
+  const items = [
+    { label: 'Walk-in', value: safeNum(totals.walkin_total) },
+    { label: 'Group', value: safeNum(totals.group_total) },
+    { label: '2 Rooms', value: safeNum(totals.room_total) },
+    { label: 'Additional', value: safeNum(totals.additional_total) }
+  ];
+  const maxValue = Math.max(...items.map((item) => item.value), 1);
+  chart.innerHTML = items.map((item) => {
+    const width = Math.max(6, Math.round((item.value / maxValue) * 100));
+    return `<div class="dashboard-bar-row"><span class="dashboard-bar-label">${escapeHtml(item.label)}</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:${item.value ? width : 0}%"></div></div><span class="dashboard-bar-value">${item.value}</span></div>`;
+  }).join('');
+}
+
+function renderDashboardAnalysis(range, totals, byDate) {
+  const totalVisitors = safeNum(totals.sum_ac_vi_all);
+  const days = Math.max(1, safeNum(range.total_days_with_data));
+  const average = Math.round(totalVisitors / days);
+  const peak = byDate.reduce((best, row) => (safeNum(row.sum_ac_vi_all) > safeNum(best.sum_ac_vi_all) ? row : best), byDate[0] || {});
+  const peakDate = peak.date_key || '-';
+  const peakValue = safeNum(peak.sum_ac_vi_all);
+  const walkinShare = totalVisitors ? Math.round((safeNum(totals.walkin_total) / totalVisitors) * 100) : 0;
+  const groupShare = totalVisitors ? Math.round((safeNum(totals.group_total) / totalVisitors) * 100) : 0;
+  setText('dashboard-analysis-average', average);
+  setText('dashboard-analysis-peak-date', peakDate);
+  setText('dashboard-analysis-summary', `ยอดรวม ${totalVisitors} คน | ค่าสูงสุด ${peakValue} คน (${peakDate}) | สัดส่วน Walk-in ${walkinShare}% และ Group ${groupShare}%`);
 }
 
 function startOfMonthISO(dateStr) {
