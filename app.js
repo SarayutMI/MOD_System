@@ -451,19 +451,17 @@ function setupEventListeners() {
   });
   const summaryTabButtons = qsa('[data-summary-tab-target]');
   summaryTabButtons.forEach((button) => button.addEventListener('click', () => setSummaryTab(button.dataset.summaryTabTarget)));
-  byId('summary-tab-btn-summary-data')?.closest('.summary-tab-nav')?.addEventListener('keydown', (event) => {
+  byId('summary-tab-nav')?.addEventListener('keydown', (event) => {
     const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
     if (!keys.includes(event.key)) return;
     event.preventDefault();
     const activeIndex = summaryTabButtons.findIndex((button) => button.classList.contains('active'));
     if (activeIndex === -1) return;
-    const nextIndex = event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? summaryTabButtons.length - 1
-        : event.key === 'ArrowRight'
-          ? (activeIndex + 1) % summaryTabButtons.length
-          : (activeIndex - 1 + summaryTabButtons.length) % summaryTabButtons.length;
+    let nextIndex = activeIndex;
+    if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = summaryTabButtons.length - 1;
+    else if (event.key === 'ArrowRight') nextIndex = (activeIndex + 1) % summaryTabButtons.length;
+    else if (event.key === 'ArrowLeft') nextIndex = (activeIndex - 1 + summaryTabButtons.length) % summaryTabButtons.length;
     const nextButton = summaryTabButtons[nextIndex];
     if (!nextButton) return;
     setSummaryTab(nextButton.dataset.summaryTabTarget);
@@ -656,7 +654,7 @@ function renderDashboard(data) {
 function renderDashboardChart(totals) {
   const chart = byId('dashboard-chart-bars');
   if (!chart) return;
-  const MIN_BAR_WIDTH_PERCENT = 6;
+  const MIN_VISIBLE_BAR_WIDTH_PERCENT = 6;
   const items = [
     { label: 'Walk-in', value: safeNum(totals.walkin_total) },
     { label: 'Group', value: safeNum(totals.group_total) },
@@ -665,7 +663,7 @@ function renderDashboardChart(totals) {
   ];
   const maxValue = Math.max(...items.map((item) => item.value), 1);
   chart.innerHTML = items.map((item) => {
-    const widthPercent = item.value ? Math.max(MIN_BAR_WIDTH_PERCENT, Math.round((item.value / maxValue) * 100)) : 0;
+    const widthPercent = item.value ? Math.max(MIN_VISIBLE_BAR_WIDTH_PERCENT, Math.round((item.value / maxValue) * 100)) : 0;
     return `<div class="dashboard-bar-row"><span class="dashboard-bar-label">${escapeHtml(item.label)}</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:${widthPercent}%"></div></div><span class="dashboard-bar-value">${item.value}</span></div>`;
   }).join('');
 }
@@ -674,13 +672,16 @@ function renderDashboardAnalysis(range, totals, byDate) {
   const totalVisitors = safeNum(totals.sum_ac_vi_all);
   const days = Math.max(1, safeNum(range.total_days_with_data));
   const average = Math.round(totalVisitors / days);
-  const peak = byDate.length ? byDate.reduce((best, row) => {
-    const bestValue = safeNum(best.sum_ac_vi_all);
-    const rowValue = safeNum(row.sum_ac_vi_all);
-    return rowValue > bestValue ? row : best;
-  }, byDate[0]) : null;
+  let peak = null;
+  let peakValue = 0;
+  byDate.forEach((row) => {
+    const value = safeNum(row.sum_ac_vi_all);
+    if (!peak || value > peakValue) {
+      peak = row;
+      peakValue = value;
+    }
+  });
   const peakDate = peak?.date_key || '-';
-  const peakValue = safeNum(peak?.sum_ac_vi_all);
   const walkinShare = totalVisitors ? Math.round((safeNum(totals.walkin_total) / totalVisitors) * 100) : 0;
   const groupShare = totalVisitors ? Math.round((safeNum(totals.group_total) / totalVisitors) * 100) : 0;
   setText('dashboard-analysis-average', average);
