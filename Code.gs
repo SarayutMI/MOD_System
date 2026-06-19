@@ -473,7 +473,7 @@ function normalizeDateKey_(value) {
 /**
  * Normalizes common sheet date cell formats into YYYY-MM-DD for safe comparisons.
  * Accepts Date objects and date strings such as YYYY-MM-DD, YYYY/MM/DD,
- * or those formats followed by a time component.
+ * YYYY-M-D, YYYY/M/D, or those formats followed by a time component.
  */
 function normalizeDateKeyForLookup_(value) {
   if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
@@ -489,7 +489,7 @@ function normalizeDateKeyForLookup_(value) {
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
-  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return '';
+  if (month < 1 || month > 12 || day < 1 || day > 31) return '';
 
   const parsed = new Date(year, month - 1, day);
   if (
