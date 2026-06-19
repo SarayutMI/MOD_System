@@ -376,7 +376,10 @@ function findRowByDate_(sheet, dateKey) {
 }
 
 function getRowsByDate_(sheet, dateKey) {
-  return getAllDataObjects_(sheet).filter(function(row) { return safeStr(row.date_key) === dateKey; });
+  const targetDateKey = normalizeDateKeyForLookup_(dateKey);
+  return getAllDataObjects_(sheet).filter(function(row) {
+    return normalizeDateKeyForLookup_(row.date_key) === targetDateKey;
+  });
 }
 
 function upsertSingleRow_(sheet, record, headers) {
@@ -400,10 +403,11 @@ function deleteRowsByDate_(sheet, dateKey) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
 
+  const targetDateKey = normalizeDateKeyForLookup_(dateKey);
   const dateValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   const matchingRows = [];
   for (let i = 0; i < dateValues.length; i += 1) {
-    if (safeStr(dateValues[i][0]) === dateKey) matchingRows.push(i + 2);
+    if (normalizeDateKeyForLookup_(dateValues[i][0]) === targetDateKey) matchingRows.push(i + 2);
   }
   if (!matchingRows.length) return;
 
@@ -430,9 +434,10 @@ function deleteRowsByDate_(sheet, dateKey) {
 function findSheetRowByDate_(sheet, dateKey) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
+  const targetDateKey = normalizeDateKeyForLookup_(dateKey);
   const dateValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   for (let i = 0; i < dateValues.length; i += 1) {
-    if (safeStr(dateValues[i][0]) === dateKey) return i + 2;
+    if (normalizeDateKeyForLookup_(dateValues[i][0]) === targetDateKey) return i + 2;
   }
   return 0;
 }
@@ -463,6 +468,41 @@ function normalizeDateKey_(value) {
   const dateKey = safeStr(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) throw new Error('date_key must be in YYYY-MM-DD format.');
   return dateKey;
+}
+
+/**
+ * Normalizes common sheet date cell formats into YYYY-MM-DD for safe comparisons.
+ * Accepts Date objects and date strings such as YYYY-MM-DD, YYYY/MM/DD,
+ * YYYY-M-D, YYYY/M/D, or those formats followed by a time component.
+ * Output is always normalized to zero-padded YYYY-MM-DD.
+ */
+function normalizeDateKeyForLookup_(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  const raw = safeStr(value);
+  if (!raw) return '';
+
+  const match = raw.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[T\s].*)?$/);
+  if (!match) return '';
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return '';
+
+  const parsed = new Date(year, month - 1, day);
+  if (
+    isNaN(parsed.getTime()) ||
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return '';
+  }
+
+  return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
 function safeNum(value) {
