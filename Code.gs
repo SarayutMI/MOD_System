@@ -376,7 +376,10 @@ function findRowByDate_(sheet, dateKey) {
 }
 
 function getRowsByDate_(sheet, dateKey) {
-  return getAllDataObjects_(sheet).filter(function(row) { return safeStr(row.date_key) === dateKey; });
+  const targetDateKey = normalizeDateKeyForLookup_(dateKey);
+  return getAllDataObjects_(sheet).filter(function(row) {
+    return normalizeDateKeyForLookup_(row.date_key) === targetDateKey;
+  });
 }
 
 function upsertSingleRow_(sheet, record, headers) {
@@ -400,10 +403,11 @@ function deleteRowsByDate_(sheet, dateKey) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
 
+  const targetDateKey = normalizeDateKeyForLookup_(dateKey);
   const dateValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   const matchingRows = [];
   for (let i = 0; i < dateValues.length; i += 1) {
-    if (safeStr(dateValues[i][0]) === dateKey) matchingRows.push(i + 2);
+    if (normalizeDateKeyForLookup_(dateValues[i][0]) === targetDateKey) matchingRows.push(i + 2);
   }
   if (!matchingRows.length) return;
 
@@ -430,9 +434,10 @@ function deleteRowsByDate_(sheet, dateKey) {
 function findSheetRowByDate_(sheet, dateKey) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
+  const targetDateKey = normalizeDateKeyForLookup_(dateKey);
   const dateValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   for (let i = 0; i < dateValues.length; i += 1) {
-    if (safeStr(dateValues[i][0]) === dateKey) return i + 2;
+    if (normalizeDateKeyForLookup_(dateValues[i][0]) === targetDateKey) return i + 2;
   }
   return 0;
 }
@@ -463,6 +468,22 @@ function normalizeDateKey_(value) {
   const dateKey = safeStr(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) throw new Error('date_key must be in YYYY-MM-DD format.');
   return dateKey;
+}
+
+function normalizeDateKeyForLookup_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  const dateKey = safeStr(value);
+  if (!dateKey) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return dateKey;
+
+  const parsed = new Date(dateKey);
+  if (!isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return '';
 }
 
 function safeNum(value) {
