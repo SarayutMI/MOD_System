@@ -638,6 +638,7 @@ function renderDashboard(data) {
 function renderDashboardChart(totals) {
   const chart = byId('dashboard-chart-bars');
   if (!chart) return;
+  const MIN_BAR_WIDTH_PERCENT = 6;
   const items = [
     { label: 'Walk-in', value: safeNum(totals.walkin_total) },
     { label: 'Group', value: safeNum(totals.group_total) },
@@ -646,7 +647,7 @@ function renderDashboardChart(totals) {
   ];
   const maxValue = Math.max(...items.map((item) => item.value), 1);
   chart.innerHTML = items.map((item) => {
-    const width = Math.max(6, Math.round((item.value / maxValue) * 100));
+    const width = Math.max(MIN_BAR_WIDTH_PERCENT, Math.round((item.value / maxValue) * 100));
     return `<div class="dashboard-bar-row"><span class="dashboard-bar-label">${escapeHtml(item.label)}</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:${item.value ? width : 0}%"></div></div><span class="dashboard-bar-value">${item.value}</span></div>`;
   }).join('');
 }
@@ -655,9 +656,9 @@ function renderDashboardAnalysis(range, totals, byDate) {
   const totalVisitors = safeNum(totals.sum_ac_vi_all);
   const days = Math.max(1, safeNum(range.total_days_with_data));
   const average = Math.round(totalVisitors / days);
-  const peak = byDate.reduce((best, row) => (safeNum(row.sum_ac_vi_all) > safeNum(best.sum_ac_vi_all) ? row : best), byDate[0] || {});
-  const peakDate = peak.date_key || '-';
-  const peakValue = safeNum(peak.sum_ac_vi_all);
+  const peak = byDate.length ? byDate.reduce((best, row) => (safeNum(row.sum_ac_vi_all) > safeNum(best.sum_ac_vi_all) ? row : best), byDate[0]) : null;
+  const peakDate = peak?.date_key || '-';
+  const peakValue = safeNum(peak?.sum_ac_vi_all);
   const walkinShare = totalVisitors ? Math.round((safeNum(totals.walkin_total) / totalVisitors) * 100) : 0;
   const groupShare = totalVisitors ? Math.round((safeNum(totals.group_total) / totalVisitors) * 100) : 0;
   setText('dashboard-analysis-average', average);
