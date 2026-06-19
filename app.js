@@ -487,6 +487,7 @@ function setSummaryTab(tabId = 'summary-data') {
     const isActive = button.dataset.summaryTabTarget === tabId;
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    button.setAttribute('tabindex', isActive ? '0' : '-1');
   });
   qsa('.summary-tab-panel').forEach((panel) => {
     const isActive = panel.id === `summary-tab-${tabId}`;
@@ -661,6 +662,10 @@ function renderDashboardChart(totals) {
     { label: '2 Rooms', value: safeNum(totals.room_total) },
     { label: 'Additional', value: safeNum(totals.additional_total) }
   ];
+  if (items.every((item) => item.value === 0)) {
+    chart.innerHTML = '<div class="metric-footnote">ยังไม่มีข้อมูลสำหรับแสดงกราฟ</div>';
+    return;
+  }
   const maxValue = Math.max(...items.map((item) => item.value), 1);
   chart.innerHTML = items.map((item) => {
     const widthPercent = item.value ? Math.max(MIN_VISIBLE_BAR_WIDTH_PERCENT, Math.round((item.value / maxValue) * 100)) : 0;
