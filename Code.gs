@@ -142,7 +142,7 @@ function getFullDayData_(dateKey) {
 }
 
 function getDashboardData_(startDate, endDate) {
-  if (startDate > endDate) throw new Error('startDate must be before or equal to endDate');
+  if (startDate > endDate) throw new Error('วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด');
 
   const ss = getSpreadsheet_();
   const walkinRows = getRowsByDateRange_(getOrCreateSheet(SHEET_NAMES.DAILY_WALKIN, COLUMN_HEADERS.Daily_WalkIn, ss), startDate, endDate);

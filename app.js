@@ -574,7 +574,7 @@ function initDashboardFilters() {
 function getDashboardFilterRange() {
   const startDate = valueOf('dashboard-start-date') || startOfMonthISO(AppState.currentDate);
   const endDate = valueOf('dashboard-end-date') || AppState.currentDate;
-  if (startDate > endDate) throw new Error('ช่วงวันที่ Dashboard ไม่ถูกต้อง');
+  if (startDate > endDate) throw new Error('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด');
   AppState.dashboardFilter = { startDate, endDate };
   return AppState.dashboardFilter;
 }
