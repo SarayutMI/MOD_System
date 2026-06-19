@@ -1,6 +1,7 @@
 const AppState = {
   currentPage: 'assignments',
   currentDate: todayISO(),
+  dashboardFilter: { startDate: '', endDate: '' },
   isLoading: false,
   isExistingData: false,
   data: {
@@ -11,7 +12,8 @@ const AppState = {
     inspire: [],
     innovation: [],
     pos: null,
-    summary: null
+    summary: null,
+    dashboard: null
   },
   lookups: { officers: [], volunteers: [], lab_ac_names: [], inno_ac_names: [] }
 };
@@ -37,6 +39,7 @@ function init() {
   setupEventListeners();
   updateConnectionBadge();
   byId('global-date').value = AppState.currentDate;
+  initDashboardFilters();
   updateDateLabels();
   updateAuthUI();
   if (isLoggedIn()) bootstrapApp();
@@ -81,6 +84,7 @@ async function loadAllSections(date) {
     AppState.data = normalizeFullDay(payload || {});
     populateAllForms();
     recalculateAll();
+    await loadDashboardData();
     const dateLabel = formatDate(date);
     updateDataModeIndicator(AppState.isExistingData);
     showToast(hasExistingData ? `พบข้อมูลวันที่ ${dateLabel} — โหมดแก้ไข` : `ไม่พบข้อมูลวันที่ ${dateLabel} — บันทึกข้อมูลใหม่`, hasExistingData ? 'warning' : 'success');
@@ -247,6 +251,7 @@ function calcWalkInTotals() {
   const sumWalkAdults = sumThAdults + sumFrAdults;
   setText('sum-th-kids', sumThKids); setText('sum-th-adults', sumThAdults); setText('sum-fr-kids', sumFrKids); setText('sum-fr-adults', sumFrAdults); setText('sum-walk-kids', sumWalkKids); setText('sum-walk-adults', sumWalkAdults);
   setText('summary-walk-th-kids', sumThKids); setText('summary-walk-th-adults', sumThAdults); setText('summary-walk-fr-kids', sumFrKids); setText('summary-walk-fr-adults', sumFrAdults);
+  setText('summary-walk-total-kids', sumWalkKids); setText('summary-walk-total-adults', sumWalkAdults); setText('summary-walk-total-all', sumWalkKids + sumWalkAdults);
   AppState.data.walkin = getFormData('walkin');
   return { sumThKids, sumThAdults, sumFrKids, sumFrAdults, sumWalkKids, sumWalkAdults };
 }
@@ -284,6 +289,7 @@ function calcLabTotals(roomType) {
     total += row.th_kids + row.th_adults + row.fr_kids + row.fr_adults;
   });
   setText(`${prefix}-sum-kids`, kids); setText(`${prefix}-sum-adults`, adults); setText(`${prefix}-sum-total`, total);
+  setText(`summary-${prefix}-kids`, kids); setText(`summary-${prefix}-adults`, adults); setText(`summary-${prefix}-total`, total);
   AppState.data[roomType] = rows;
   renderLabSummaryTable(prefix, rows);
   return { rows, kids, adults, total };
@@ -305,9 +311,15 @@ function calcPOSSummary() {
   const combined = calcCombinedRoomTotals();
   const sumActivity = additionalTotal + insl.total + inns.total;
   const sumAcViAll = walk.sumWalkKids + walk.sumWalkAdults + groups.kids + groups.adults + sumActivity;
+  const walkinTotal = walk.sumWalkKids + walk.sumWalkAdults;
+  const groupTotal = groups.kids + groups.adults;
+  const roomTotal = insl.total + inns.total;
   const pos = { sum_w_th_kids: walk.sumThKids, sum_w_a_th_adult: walk.sumThAdults, sum_w_fr_kids: walk.sumFrKids, sum_w_a_fr_adult: walk.sumFrAdults, sum_activity: sumActivity, sum_ac_vi_all: sumAcViAll, combined_th_sum: combined.thTotal, combined_fr_sum: combined.frTotal };
   AppState.data.pos = pos;
   renderPOSPage(pos);
+  setText('summary-activity-walkin-total', walkinTotal);
+  setText('summary-activity-group-total', groupTotal);
+  setText('summary-activity-room-total', roomTotal);
   setText('summary-sum-activity', pos.sum_activity);
   setText('summary-sum-ac-vi-all', pos.sum_ac_vi_all);
   renderAssignmentsSummary();
@@ -430,6 +442,13 @@ function setupEventListeners() {
   byId('test-connection-btn').addEventListener('click', async () => { showProgress('กำลังทดสอบการเชื่อมต่อ...'); try { await window.ModAPI.checkConnection(); showToast('เชื่อมต่อ Google Apps Script สำเร็จ', 'success'); } catch (error) { showToast(error.message || 'ไม่สามารถเชื่อมต่อได้', 'error'); } finally { hideProgress(); } });
   byId('refresh-lookups-btn').addEventListener('click', async () => { showProgress('กำลังรีเฟรชรายการเจ้าหน้าที่และอาสาสมัคร...'); try { await loadLookups(true); showToast('รีเฟรช Lookups สำเร็จ', 'success'); } catch (error) { showToast(error.message || 'รีเฟรช Lookups ไม่สำเร็จ', 'error'); } finally { hideProgress(); } });
   byId('init-sheets-btn').addEventListener('click', async () => { showProgress('กำลังสร้างชีตที่จำเป็น...'); try { await window.ModAPI.initSheets(); showToast('สร้างชีตทั้งหมดเรียบร้อยแล้ว', 'success'); } catch (error) { showToast(error.message || 'สร้างชีตไม่สำเร็จ', 'error'); } finally { hideProgress(); } });
+  byId('dashboard-apply-filter-btn')?.addEventListener('click', loadDashboardData);
+  byId('dashboard-reset-filter-btn')?.addEventListener('click', async () => {
+    AppState.dashboardFilter = { startDate: startOfMonthISO(AppState.currentDate), endDate: AppState.currentDate };
+    setValue('dashboard-start-date', AppState.dashboardFilter.startDate);
+    setValue('dashboard-end-date', AppState.dashboardFilter.endDate);
+    await loadDashboardData();
+  });
   const debouncedCalc = debounce(() => { recalculateAll(); setAutosaveIndicator('dirty', 'มีการเปลี่ยนแปลง'); }, 60);
   document.addEventListener('input', (event) => { if (event.target.matches('input, textarea, select')) debouncedCalc(); });
   document.addEventListener('click', (event) => {
@@ -484,7 +503,11 @@ function renderLabSummaryTable(prefix, rows) {
   const target = byId(prefix === 'insl' ? 'summary-insl-body' : 'summary-inns-body');
   const filtered = rows.filter((row) => row.ac_name || row.officer_name || row.th_kids || row.th_adults || row.fr_kids || row.fr_adults);
   const list = filtered.length ? filtered : [{ ac_name: '-', officer_name: '-', th_kids: 0, th_adults: 0, fr_kids: 0, fr_adults: 0 }];
-  target.innerHTML = list.map((row) => `<tr><td>${escapeHtml(row.ac_name || '-')}</td><td>${escapeHtml(row.officer_name || '-')}</td><td>${row.th_kids + row.th_adults + row.fr_kids + row.fr_adults}</td></tr>`).join('');
+  target.innerHTML = list.map((row) => {
+    const kids = row.th_kids + row.fr_kids;
+    const adults = row.th_adults + row.fr_adults;
+    return `<tr><td>${escapeHtml(row.ac_name || '-')}</td><td>${escapeHtml(row.officer_name || '-')}</td><td>${kids}</td><td>${adults}</td><td>${kids + adults}</td></tr>`;
+  }).join('');
 }
 
 function renderPOSPage(pos) {
@@ -541,5 +564,63 @@ function defaultAdditional() { return { ac_walk_r_kids: 0, ac_walk_r_adults: 0, 
 function defaultPOS() { return { sum_w_th_kids: 0, sum_w_a_th_adult: 0, sum_w_fr_kids: 0, sum_w_a_fr_adult: 0, sum_activity: 0, sum_ac_vi_all: 0 }; }
 function defaultSummary() { return { issue_mo: '', issue_mex: '', issue_med: '', issue_mvi: '', issue_insl: '', issue_inns: '', summary_notes: '' }; }
 function escapeHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+function initDashboardFilters() {
+  AppState.dashboardFilter = { startDate: startOfMonthISO(AppState.currentDate), endDate: AppState.currentDate };
+  setValue('dashboard-start-date', AppState.dashboardFilter.startDate);
+  setValue('dashboard-end-date', AppState.dashboardFilter.endDate);
+}
+
+function getDashboardFilterRange() {
+  const startDate = valueOf('dashboard-start-date') || startOfMonthISO(AppState.currentDate);
+  const endDate = valueOf('dashboard-end-date') || AppState.currentDate;
+  if (startDate > endDate) throw new Error('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด');
+  AppState.dashboardFilter = { startDate, endDate };
+  return AppState.dashboardFilter;
+}
+
+async function loadDashboardData() {
+  const statusEl = byId('dashboard-status');
+  if (!window.ModAPI || !window.ModAPI.getDashboard || !statusEl) return null;
+  try {
+    const { startDate, endDate } = getDashboardFilterRange();
+    statusEl.textContent = 'กำลังโหลด...';
+    const data = await window.ModAPI.getDashboard(startDate, endDate);
+    AppState.data.dashboard = data;
+    renderDashboard(data);
+    statusEl.textContent = `อัปเดตล่าสุด ${new Date().toLocaleTimeString('th-TH')}`;
+    return data;
+  } catch (error) {
+    statusEl.textContent = 'โหลดไม่สำเร็จ';
+    showToast(error.message || 'ไม่สามารถโหลด Dashboard ได้', 'warning');
+    return null;
+  }
+}
+
+function renderDashboard(data) {
+  const totals = (data && data.totals) || {};
+  const byDate = Array.isArray(data && data.by_date) ? data.by_date : [];
+  const range = (data && data.range) || {};
+  setText('dashboard-filter-summary', `${range.start_date || '-'} ถึง ${range.end_date || '-'} (${range.total_days_with_data || 0} วัน)`);
+  setText('dashboard-total-days', range.total_days_with_data || 0);
+  setText('dashboard-sum-ac-vi-all', totals.sum_ac_vi_all || 0);
+  setText('dashboard-walkin-total', totals.walkin_total || 0);
+  setText('dashboard-group-total', totals.group_total || 0);
+  setText('dashboard-room-total', totals.room_total || 0);
+  setText('dashboard-additional-total', totals.additional_total || 0);
+
+  const body = byId('dashboard-by-date-body');
+  if (!body) return;
+  if (!byDate.length) {
+    body.innerHTML = '<tr><td colspan="6">ไม่พบข้อมูลในช่วงวันที่เลือก</td></tr>';
+    return;
+  }
+  body.innerHTML = byDate.map((row) => `<tr><td>${escapeHtml(row.date_key)}</td><td>${row.walkin_total}</td><td>${row.group_total}</td><td>${row.room_total}</td><td>${row.additional_total}</td><td>${row.sum_ac_vi_all}</td></tr>`).join('');
+}
+
+function startOfMonthISO(dateStr) {
+  const [year, month] = (dateStr || AppState.currentDate || todayISO()).split('-').map(Number);
+  return `${year}-${String(month).padStart(2, '0')}-01`;
+}
 
 document.addEventListener('DOMContentLoaded', init);
