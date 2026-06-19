@@ -449,6 +449,25 @@ function setupEventListeners() {
     setValue('dashboard-end-date', AppState.dashboardFilter.endDate);
     await loadDashboardData();
   });
+  const summaryTabButtons = qsa('[data-summary-tab-target]');
+  summaryTabButtons.forEach((button) => button.addEventListener('click', () => setSummaryTab(button.dataset.summaryTabTarget)));
+  byId('summary-tab-nav')?.addEventListener('keydown', (event) => {
+    const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const activeIndex = summaryTabButtons.findIndex((button) => button.classList.contains('active'));
+    if (activeIndex === -1) return;
+    let nextIndex = activeIndex;
+    if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = summaryTabButtons.length - 1;
+    else if (event.key === 'ArrowRight') nextIndex = (activeIndex + 1) % summaryTabButtons.length;
+    else if (event.key === 'ArrowLeft') nextIndex = (activeIndex - 1 + summaryTabButtons.length) % summaryTabButtons.length;
+    const nextButton = summaryTabButtons[nextIndex];
+    if (!nextButton) return;
+    setSummaryTab(nextButton.dataset.summaryTabTarget);
+    nextButton.focus();
+  });
+  setSummaryTab('summary-data');
   const debouncedCalc = debounce(() => { recalculateAll(); setAutosaveIndicator('dirty', 'มีการเปลี่ยนแปลง'); }, 60);
   document.addEventListener('input', (event) => { if (event.target.matches('input, textarea, select')) debouncedCalc(); });
   document.addEventListener('click', (event) => {
@@ -461,6 +480,19 @@ function setupEventListeners() {
   });
   window.addEventListener('online', updateConnectionBadge);
   window.addEventListener('offline', updateConnectionBadge);
+}
+
+function setSummaryTab(tabId = 'summary-data') {
+  qsa('[data-summary-tab-target]').forEach((button) => {
+    const isActive = button.dataset.summaryTabTarget === tabId;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    button.setAttribute('tabindex', isActive ? '0' : '-1');
+  });
+  qsa('.summary-tab-panel').forEach((panel) => {
+    const isActive = panel.id === `summary-tab-${tabId}`;
+    panel.classList.toggle('active', isActive);
+  });
 }
 
 async function loadLookups(force = false) {
@@ -608,6 +640,8 @@ function renderDashboard(data) {
   setText('dashboard-group-total', totals.group_total || 0);
   setText('dashboard-room-total', totals.room_total || 0);
   setText('dashboard-additional-total', totals.additional_total || 0);
+  renderDashboardChart(totals);
+  renderDashboardAnalysis(range, totals, byDate);
 
   const body = byId('dashboard-by-date-body');
   if (!body) return;
@@ -616,6 +650,48 @@ function renderDashboard(data) {
     return;
   }
   body.innerHTML = byDate.map((row) => `<tr><td>${escapeHtml(row.date_key)}</td><td>${row.walkin_total}</td><td>${row.group_total}</td><td>${row.room_total}</td><td>${row.additional_total}</td><td>${row.sum_ac_vi_all}</td></tr>`).join('');
+}
+
+function renderDashboardChart(totals) {
+  const chart = byId('dashboard-chart-bars');
+  if (!chart) return;
+  const MIN_VISIBLE_BAR_WIDTH_PERCENT = 6;
+  const items = [
+    { label: 'Walk-in', value: safeNum(totals.walkin_total) },
+    { label: 'Group', value: safeNum(totals.group_total) },
+    { label: '2 Rooms', value: safeNum(totals.room_total) },
+    { label: 'Additional', value: safeNum(totals.additional_total) }
+  ];
+  if (items.every((item) => item.value === 0)) {
+    chart.innerHTML = '<div class="metric-footnote">ยังไม่มีข้อมูลสำหรับแสดงกราฟ</div>';
+    return;
+  }
+  const maxValue = Math.max(...items.map((item) => item.value), 1);
+  chart.innerHTML = items.map((item) => {
+    const widthPercent = item.value ? Math.max(MIN_VISIBLE_BAR_WIDTH_PERCENT, Math.round((item.value / maxValue) * 100)) : 0;
+    return `<div class="dashboard-bar-row"><span class="dashboard-bar-label">${escapeHtml(item.label)}</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:${widthPercent}%"></div></div><span class="dashboard-bar-value">${item.value}</span></div>`;
+  }).join('');
+}
+
+function renderDashboardAnalysis(range, totals, byDate) {
+  const totalVisitors = safeNum(totals.sum_ac_vi_all);
+  const days = Math.max(1, safeNum(range.total_days_with_data));
+  const average = Math.round(totalVisitors / days);
+  let peak = null;
+  let peakValue = 0;
+  byDate.forEach((row) => {
+    const value = safeNum(row.sum_ac_vi_all);
+    if (!peak || value > peakValue) {
+      peak = row;
+      peakValue = value;
+    }
+  });
+  const peakDate = peak?.date_key || '-';
+  const walkinShare = totalVisitors ? Math.round((safeNum(totals.walkin_total) / totalVisitors) * 100) : 0;
+  const groupShare = totalVisitors ? Math.round((safeNum(totals.group_total) / totalVisitors) * 100) : 0;
+  setText('dashboard-analysis-average', average);
+  setText('dashboard-analysis-peak-date', peakDate);
+  setText('dashboard-analysis-summary', `ยอดรวม ${totalVisitors} คน | ค่าสูงสุด ${peakValue} คน (${peakDate}) | สัดส่วน Walk-in ${walkinShare}% และ Group ${groupShare}%`);
 }
 
 function startOfMonthISO(dateStr) {
