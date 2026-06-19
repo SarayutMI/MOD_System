@@ -72,7 +72,7 @@ async function loadAllSections(date) {
       const results = await Promise.all(sections.map(async (section) => ({ section, data: await loadSection(section, date, false) })));
       payload = results.reduce((acc, item) => ((acc[item.section] = item.data), acc), {});
     }
-    const hasExistingData = payload && sections.some((key) => {
+    const hasExistingData = payload && sections.filter((s) => s !== 'pos').some((key) => {
       const val = payload[key];
       if (Array.isArray(val)) return val.length > 0;
       return val !== null && val !== undefined;
@@ -421,6 +421,7 @@ function setupEventListeners() {
   byId('login-form').addEventListener('submit', async (event) => { event.preventDefault(); await login(valueOf('login-username').trim(), valueOf('login-password')); });
   byId('logout-btn').addEventListener('click', logout);
   byId('global-date').addEventListener('change', (event) => setDate(event.target.value));
+  byId('reload-date-btn').addEventListener('click', () => loadAllSections(AppState.currentDate));
   byId('top-save-btn').addEventListener('click', () => saveSection('current'));
   byId('sidebar-toggle').addEventListener('click', () => byId('sidebar').classList.toggle('open'));
   qsa('[data-page]').forEach((button) => button.addEventListener('click', () => gotoPage(button.dataset.page)));
