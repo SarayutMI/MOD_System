@@ -450,7 +450,26 @@ function setupEventListeners() {
     setValue('dashboard-end-date', AppState.dashboardFilter.endDate);
     await loadDashboardData();
   });
-  qsa('[data-summary-tab-target]').forEach((button) => button.addEventListener('click', () => setSummaryTab(button.dataset.summaryTabTarget)));
+  const summaryTabButtons = qsa('[data-summary-tab-target]');
+  summaryTabButtons.forEach((button) => button.addEventListener('click', () => setSummaryTab(button.dataset.summaryTabTarget)));
+  byId('summary-tab-btn-summary-data')?.closest('.summary-tab-nav')?.addEventListener('keydown', (event) => {
+    const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const activeIndex = summaryTabButtons.findIndex((button) => button.classList.contains('active'));
+    if (activeIndex === -1) return;
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? summaryTabButtons.length - 1
+        : event.key === 'ArrowRight'
+          ? (activeIndex + 1) % summaryTabButtons.length
+          : (activeIndex - 1 + summaryTabButtons.length) % summaryTabButtons.length;
+    const nextButton = summaryTabButtons[nextIndex];
+    if (!nextButton) return;
+    setSummaryTab(nextButton.dataset.summaryTabTarget);
+    nextButton.focus();
+  });
   const debouncedCalc = debounce(() => { recalculateAll(); setAutosaveIndicator('dirty', 'มีการเปลี่ยนแปลง'); }, 60);
   document.addEventListener('input', (event) => { if (event.target.matches('input, textarea, select')) debouncedCalc(); });
   document.addEventListener('click', (event) => {
@@ -647,8 +666,8 @@ function renderDashboardChart(totals) {
   ];
   const maxValue = Math.max(...items.map((item) => item.value), 1);
   chart.innerHTML = items.map((item) => {
-    const width = Math.max(MIN_BAR_WIDTH_PERCENT, Math.round((item.value / maxValue) * 100));
-    return `<div class="dashboard-bar-row"><span class="dashboard-bar-label">${escapeHtml(item.label)}</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:${item.value ? width : 0}%"></div></div><span class="dashboard-bar-value">${item.value}</span></div>`;
+    const widthPercent = item.value ? Math.max(MIN_BAR_WIDTH_PERCENT, Math.round((item.value / maxValue) * 100)) : 0;
+    return `<div class="dashboard-bar-row"><span class="dashboard-bar-label">${escapeHtml(item.label)}</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:${widthPercent}%"></div></div><span class="dashboard-bar-value">${item.value}</span></div>`;
   }).join('');
 }
 
